@@ -13,3 +13,5 @@
 # This can be configured in lablink-allocator-service/conf/config.yaml
 
 dns_name = ""  # Set to your domain, e.g., "example.com"
+config_path = "/conf/config.yaml"
+
