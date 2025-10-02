@@ -1,0 +1,57 @@
+# LabLink Allocator Configuration Template
+# This is an example configuration file for the LabLink Allocator Service.
+# Copy this file to config.yaml and customize it for your deployment.
+
+# Database configuration
+db:
+  dbname: "lablink_db"
+  user: "lablink"
+  password: "CHANGE_ME"  # IMPORTANT: Change this password for security
+  host: "localhost"
+  port: 5432
+  table_name: "vms"
+  message_channel: "vm_updates"
+
+# Machine/VM configuration
+machine:
+  machine_type: "g4dn.xlarge"  # AWS EC2 instance type for client VMs
+  image: "ghcr.io/YOUR_ORG/YOUR_CLIENT_IMAGE:latest"  # Docker image for client VMs
+  ami_id: "ami-067cc81f948e50e06"  # AWS AMI ID (Ubuntu 20.04 with GPU support)
+  repository: "https://github.com/YOUR_ORG/YOUR_REPO.git"  # Optional: Git repo to clone on VMs
+  software: "your-software"  # Name of your software (used for file identification)
+  extension: "ext"  # File extension for your software data files
+
+# Application configuration
+app:
+  admin_user: "admin"
+  admin_password: "CHANGE_ME"  # IMPORTANT: Change this password for security
+  region: "us-west-2"  # AWS region for deployment
+
+# DNS configuration (optional)
+dns:
+  enabled: false  # Set to true to enable DNS
+  domain: ""  # Your domain name (e.g., "example.com")
+  app_name: "lablink"  # Application name used in subdomain
+  pattern: "auto"  # DNS naming pattern: "auto", "app-only", or "custom"
+  custom_subdomain: ""  # Used when pattern="custom"
+  create_zone: false  # Whether to create a new Route 53 hosted zone
+
+# DNS Pattern Examples:
+# pattern: "auto" (recommended)
+#   - Production: lablink.example.com
+#   - Test: test.lablink.example.com
+#   - Dev: dev.lablink.example.com
+#
+# pattern: "app-only"
+#   - All environments: lablink.example.com
+#
+# pattern: "custom"
+#   - Uses custom_subdomain: "my-custom.example.com"
+
+# Terraform configuration
+terraform:
+  state_backend: "s3"  # Options: "s3", "local"
+  state_bucket: "YOUR_ORG-lablink-terraform-state"  # S3 bucket for Terraform state
+  state_key: "lablink/allocator/terraform.tfstate"
+  state_region: "us-west-2"
+  lock_table: "YOUR_ORG-lablink-terraform-locks"  # DynamoDB table for state locking
