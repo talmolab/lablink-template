@@ -40,7 +40,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES=all
 
 # Install dependencies
 # opencv requires opengl https://github.com/conda-forge/opencv-feedstock/issues/401
-# Default python3 is 3.8 in ubuntu 20.04 https://wiki.ubuntu.com/FocalFossa/ReleaseNotes#Python3_by_default
+# Default python3 is 3.8 in ubuntu 22.04 https://wiki.ubuntu.com/FocalFossa/ReleaseNotes#Python3_by_default
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1-mesa-glx \

@@ -3,7 +3,7 @@
 ## Description
 This folder contains the Dockerfile (with the size of 10.1 GB) and configuration files for the base image used in the LabLink client. The image is designed to run on a Linux system with NVIDIA GPU support, specifically for use with Chrome Remote Desktop. This is the base image for the client side (VM instance) of the LabLink infrastructure. 
 
-The base image used is [nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04](https://hub.docker.com/layers/nvidia/cuda/11.3.1-cudnn8-runtime-ubuntu20.04/images/sha256-025a321d3131b688f4ac09d80e9af6221f2d1568b4f9ea6e45a698beebb439c0).
+The base image used is [nvidia/cuda:11.6.1-cudnn8-devel-ubuntu22.04](https://hub.docker.com/layers/nvidia/cuda/12.8.1-cudnn-devel-ubuntu22.04/images/sha256-61f6c08f2b59036cb935e56d1e31a6b64e3ae2c7ddb86d33fa0b044c7917b719).
 
 - The repo has CI set up in `.github/workflows` for building and pushing the image when making changes.
   - The workflow uses the linux/amd64 platform to build. 
