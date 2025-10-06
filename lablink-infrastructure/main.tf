@@ -196,7 +196,7 @@ locals {
 
 # DNS Zone Lookup (if using existing zone)
 # AWS Route53 zone lookup matches EXACT zone name only
-# If lablink.sleap.ai zone exists, it will ONLY match "lablink.sleap.ai."
+# If lablink.example.com zone exists, it will ONLY match "lablink.example.com."
 # If it doesn't exist, it will fail (not fall back to parent zone)
 data "aws_route53_zone" "existing" {
   count        = local.dns_enabled && !local.dns_create_zone ? 1 : 0
@@ -389,8 +389,8 @@ output "allocator_instance_type" {
 # - An association between the EC2 instance and the fixed EIP.
 #
 # DNS records are managed manually in Route 53.
-# - The EIP is manually mapped to either `lablink.sleap.ai` (for prod) or
-#   `{resource_suffix}.lablink.sleap.ai` (for dev, test, etc.).
+# - The EIP is manually mapped to either `lablink.example.com` (for prod) or
+#   `{resource_suffix}.lablink.example.com` (for dev, test, etc.).
 # Note: EIPs must be pre-allocated and tagged as "lablink-eip-prod", "lablink-eip-dev", etc.
 #
 # The container is pulled from GitHub Container Registry and exposed on port 5000,

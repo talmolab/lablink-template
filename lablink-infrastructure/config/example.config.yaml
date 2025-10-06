@@ -25,10 +25,10 @@ machine:
   repository: "https://github.com/yourusername/your-data-repo.git"
 
   # Software identifier for your application
-  software: "sleap"
+  software: "your-software"  # e.g., "sleap", "deeplabcut", "anipose"
 
   # File extension for your data files
-  extension: "slp"
+  extension: "ext"  # e.g., "slp" for SLEAP, "h5" for DeepLabCut
 
 app:
   admin_user: "admin"
