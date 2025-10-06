@@ -4,15 +4,37 @@ variable "resource_suffix" {
   default     = "prod"
 }
 
-variable "dns_name" {
-  description = "DNS Name for Route 53"
-  type        = string
-}
-
 variable "config_path" {
   description = "Path to the allocator config file"
   type        = string
-  default     = "conf/config.yaml"
+  default     = "config/config.yaml"
+}
+
+# Read configuration from YAML file
+locals {
+  config_file = yamldecode(file("${path.module}/${var.config_path}"))
+
+  # DNS configuration from config.yaml
+  dns_enabled           = try(local.config_file.dns.enabled, false)
+  dns_terraform_managed = try(local.config_file.dns.terraform_managed, true) # default true for backwards compatibility
+  dns_domain            = try(local.config_file.dns.domain, "")
+  dns_zone_id           = try(local.config_file.dns.zone_id, "")
+  dns_app_name          = try(local.config_file.dns.app_name, "lablink")
+  dns_pattern           = try(local.config_file.dns.pattern, "auto")
+  dns_custom_subdomain  = try(local.config_file.dns.custom_subdomain, "")
+  dns_create_zone       = try(local.config_file.dns.create_zone, false)
+
+  # EIP configuration from config.yaml
+  eip_strategy = try(local.config_file.eip.strategy, "dynamic")
+  eip_tag_name = try(local.config_file.eip.tag_name, "lablink-eip")
+
+  # SSL configuration from config.yaml
+  ssl_provider = try(local.config_file.ssl.provider, "letsencrypt")
+  ssl_email    = try(local.config_file.ssl.email, "")
+  ssl_staging  = try(local.config_file.ssl.staging, false)
+
+  # Bucket name from config.yaml for S3 backend
+  bucket_name = try(local.config_file.bucket_name, "tf-state-lablink-allocator-bucket")
 }
 
 provider "aws" {
@@ -26,7 +48,7 @@ data "aws_iam_policy_document" "s3_backend_doc" {
   statement {
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::tf-state-lablink-allocator-bucket"]
+    resources = ["arn:aws:s3:::${local.bucket_name}"]
 
     condition {
       test     = "StringLike"
@@ -40,7 +62,20 @@ data "aws_iam_policy_document" "s3_backend_doc" {
     effect  = "Allow"
     actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = [
-      "arn:aws:s3:::tf-state-lablink-allocator-bucket/${var.resource_suffix}/*"
+      "arn:aws:s3:::${local.bucket_name}/${var.resource_suffix}/*"
+    ]
+  }
+
+  # DynamoDB permissions for Terraform state locking
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = [
+      "arn:aws:dynamodb:us-west-2:${data.aws_caller_identity.current.account_id}:table/lock-table"
     ]
   }
 }
@@ -50,7 +85,7 @@ data "aws_iam_policy_document" "s3_backend_doc" {
 # To package the Lambda function into a zip file
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/lablink-allocator-service/lambda_function.py"
+  source_file = "${path.module}/lambda_function.py"
   output_path = "${path.module}/lambda_package.zip"
 }
 
@@ -67,11 +102,18 @@ resource "aws_key_pair" "lablink_key_pair" {
 }
 
 resource "aws_security_group" "allow_http" {
-  name = "allow_http_${var.resource_suffix}"
+  name = "allow_http_https_${var.resource_suffix}"
 
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -91,7 +133,7 @@ resource "aws_security_group" "allow_http" {
   }
 
   tags = {
-    Name = "allow_http_${var.resource_suffix}"
+    Name = "allow_http_https_${var.resource_suffix}"
   }
 }
 
@@ -102,7 +144,7 @@ variable "allocator_image_tag" {
 }
 
 resource "aws_instance" "lablink_allocator_server" {
-  ami                  = "ami-0bd08c9d4aa9f0bc6"
+  ami                  = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 with Docker pre-installed
   instance_type        = local.allocator_instance_type
   security_groups      = [aws_security_group.allow_http.name]
   key_name             = aws_key_pair.lablink_key_pair.key_name
@@ -111,10 +153,12 @@ resource "aws_instance" "lablink_allocator_server" {
   user_data = templatefile("${path.module}/user_data.sh", {
     ALLOCATOR_IMAGE_TAG  = var.allocator_image_tag
     RESOURCE_SUFFIX      = var.resource_suffix
-    ALLOCATOR_PUBLIC_IP  = aws_eip.lablink_allocator_eip.public_ip
+    ALLOCATOR_PUBLIC_IP  = local.eip_public_ip
     ALLOCATOR_KEY_NAME   = aws_key_pair.lablink_key_pair.key_name
     CLOUD_INIT_LOG_GROUP = aws_cloudwatch_log_group.client_vm_logs.name
     CONFIG_CONTENT       = file("${path.module}/${var.config_path}")
+    DOMAIN_NAME          = local.fqdn
+    SSL_STAGING          = local.ssl_staging
   })
 
   tags = {
@@ -123,51 +167,90 @@ resource "aws_instance" "lablink_allocator_server" {
   }
 }
 
-resource "aws_eip" "lablink_allocator_eip" {
-  domain = "vpc"
+# EIP Lookup (for persistent strategy - reuse existing tagged EIP)
+data "aws_eip" "existing" {
+  count = local.eip_strategy == "persistent" ? 1 : 0
+
   tags = {
-    Name = "lablink-eip-${var.resource_suffix}"
+    Name        = "${local.eip_tag_name}-${var.resource_suffix}"
+    Environment = var.resource_suffix
   }
 }
 
-# Route 53 Hosted Zone - create if it doesn't exist
-resource "aws_route53_zone" "lablink_main" {
-  count = var.dns_name != "" ? 1 : 0
-  name  = var.dns_name
+# EIP Creation (for dynamic strategy - create new EIP each deployment)
+resource "aws_eip" "new" {
+  count  = local.eip_strategy == "dynamic" ? 1 : 0
+  domain = "vpc"
 
-  lifecycle {
-    # Prevent accidental deletion of zone
-    prevent_destroy = false
+  tags = {
+    Name        = "lablink-eip-${var.resource_suffix}"
+    Environment = var.resource_suffix
   }
 }
 
+# Determine which EIP to use based on strategy
 locals {
-  zone_id = var.dns_name != "" ? aws_route53_zone.lablink_main[0].zone_id : ""
+  eip_allocation_id = local.eip_strategy == "persistent" ? data.aws_eip.existing[0].id : aws_eip.new[0].id
+  eip_public_ip     = local.eip_strategy == "persistent" ? data.aws_eip.existing[0].public_ip : aws_eip.new[0].public_ip
 }
 
-# Generate FQDN based on environment and DNS name
-# Pattern: prod -> lablink.{dns_name}, non-prod -> {env}.lablink.{dns_name}
+# DNS Zone Lookup (if using existing zone)
+# AWS Route53 zone lookup matches EXACT zone name only
+# If lablink.example.com zone exists, it will ONLY match "lablink.example.com."
+# If it doesn't exist, it will fail (not fall back to parent zone)
+data "aws_route53_zone" "existing" {
+  count        = local.dns_enabled && !local.dns_create_zone ? 1 : 0
+  name         = "${local.dns_domain}."
+  private_zone = false
+}
+
+# DNS Zone Creation (if creating new zone)
+resource "aws_route53_zone" "new" {
+  count = local.dns_enabled && local.dns_create_zone ? 1 : 0
+  name  = local.dns_domain
+
+  tags = {
+    Name        = "lablink-zone-${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
+}
+
+# Generate FQDN based on environment and DNS settings from config.yaml
 locals {
-  fqdn = var.dns_name != "" ? (
-    var.resource_suffix == "prod" ? "lablink.${var.dns_name}" : "${var.resource_suffix}.lablink.${var.dns_name}"
-  ) : "N/A"
+  # Subdomain pattern: auto generates prod.lablink or test.lablink, custom uses custom_subdomain
+  subdomain = local.dns_pattern == "custom" ? local.dns_custom_subdomain : (
+    var.resource_suffix == "prod" ? local.dns_app_name : "${var.resource_suffix}.${local.dns_app_name}"
+  )
+
+  # Full domain name
+  fqdn = local.dns_enabled ? "${local.subdomain}.${local.dns_domain}" : "N/A"
+
+  # Zone ID from either config, lookup, or creation (priority: config > create > lookup)
+  zone_id = local.dns_enabled ? (
+    local.dns_zone_id != "" ? local.dns_zone_id : (
+      local.dns_create_zone ? aws_route53_zone.new[0].zone_id : data.aws_route53_zone.existing[0].zone_id
+    )
+  ) : ""
+
   allocator_instance_type = "t3.large"
 }
 
-# Record for the allocator
+# DNS A Record for the allocator
+# Only created when terraform_managed is true
+# If terraform_managed is false, you must manually create the A record in Route53
 resource "aws_route53_record" "lablink_a_record" {
-  count   = var.dns_name != "" ? 1 : 0
+  count   = local.dns_enabled && local.dns_terraform_managed ? 1 : 0
   zone_id = local.zone_id
   name    = local.fqdn
   type    = "A"
   ttl     = 300
-  records = [aws_eip.lablink_allocator_eip.public_ip]
+  records = [local.eip_public_ip]
 }
 
 # Associate Elastic IP with EC2 instance
 resource "aws_eip_association" "lablink_allocator_ip_assoc" {
   instance_id   = aws_instance.lablink_allocator_server.id
-  allocation_id = aws_eip.lablink_allocator_eip.id
+  allocation_id = local.eip_allocation_id
 }
 
 # CloudWatch Log Groups for Client VMs
@@ -270,7 +353,7 @@ resource "aws_iam_role_policy_attachment" "lambda_logs_policy" {
 
 # Output the EC2 public IP
 output "ec2_public_ip" {
-  value = aws_eip.lablink_allocator_eip.public_ip
+  value = local.eip_public_ip
 }
 
 # Output the EC2 key name
@@ -306,8 +389,8 @@ output "allocator_instance_type" {
 # - An association between the EC2 instance and the fixed EIP.
 #
 # DNS records are managed manually in Route 53.
-# - The EIP is manually mapped to either `lablink.sleap.ai` (for prod) or
-#   `{resource_suffix}.lablink.sleap.ai` (for dev, test, etc.).
+# - The EIP is manually mapped to either `lablink.example.com` (for prod) or
+#   `{resource_suffix}.lablink.example.com` (for dev, test, etc.).
 # Note: EIPs must be pre-allocated and tagged as "lablink-eip-prod", "lablink-eip-dev", etc.
 #
 # The container is pulled from GitHub Container Registry and exposed on port 5000,
