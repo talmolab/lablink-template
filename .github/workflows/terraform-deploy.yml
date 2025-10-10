@@ -15,10 +15,6 @@ on:
         options:
           - test
           - prod
-      image_tag:
-        description: "Docker image tag to deploy (only for prod)"
-        required: false
-        type: string
 
   repository_dispatch:
     types: [deploy-prod-image]
@@ -140,53 +136,18 @@ jobs:
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: terraform validate
 
-      - name: Determine Image Tag
-        id: getimagetag
-        run: |
-          if [ "${{ steps.setenv.outputs.env }}" = "prod" ]; then
-            if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-              if [ -z "${{ github.event.client_payload.image_tag }}" ]; then
-                echo "Error: image_tag must be provided for prod deployments"
-                exit 1
-              fi
-              echo "tag=${{ github.event.client_payload.image_tag }}" >> "$GITHUB_OUTPUT"
-
-            elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              if [ -z "${{ github.event.inputs.image_tag }}" ]; then
-                echo "Error: image_tag must be provided for prod deployments"
-                exit 1
-              fi
-              echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-
-            else
-              echo "Error: image_tag must be provided for prod deployments"
-              exit 1
-            fi
-
-          else
-            echo "Using default image tag for non-prod: linux-amd64-latest-test"
-            echo "tag=linux-amd64-latest-test" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Image Tag Debug
-        run: |
-          echo "Using image tag: ${{ steps.getimagetag.outputs.tag }}"
-
       - name: Terraform Plan
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform plan \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_image_tag=${{ steps.getimagetag.outputs.tag }}"
+            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
 
       - name: Terraform Apply
         id: apply
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform apply -auto-approve \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_image_tag=${{ steps.getimagetag.outputs.tag }}" \
-            -var-file="terraform.tfvars"
+            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
         continue-on-error: true
 
       - name: Save PEM Key to Artifact
