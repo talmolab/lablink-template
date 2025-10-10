@@ -41,6 +41,9 @@ Edit [`lablink-infrastructure/config/config.yaml`](lablink-infrastructure/config
 
 ```yaml
 # Update these values for your deployment:
+allocator:
+  image_tag: "linux-amd64-latest-test"  # For prod, use specific version like "linux-amd64-v1.2.3"
+
 machine:
   repository: "https://github.com/YOUR_ORG/YOUR_DATA_REPO.git"
   software: "your-software-name"
@@ -52,6 +55,8 @@ dns:
 
 bucket_name: "tf-state-YOUR-ORG-lablink"  # Must be globally unique
 ```
+
+**Important:** The config file path (`lablink-infrastructure/config/config.yaml`) is hardcoded in the infrastructure. Do not move or rename this file.
 
 See [Configuration Reference](#configuration-reference) for all options.
 
@@ -319,7 +324,6 @@ Deploys or updates your LabLink infrastructure.
 
 **Inputs**:
 - `environment`: `test` or `prod`
-- `image_tag`: (Optional) Specific Docker image tag for prod
 
 **What it does**:
 1. Configures AWS credentials via OIDC
@@ -338,6 +342,13 @@ Deploys or updates your LabLink infrastructure.
 **Inputs**:
 - `confirm_destroy`: Must type "yes" to confirm
 - `environment`: `test` or `prod`
+
+**What it does**:
+1. SSHs into the allocator EC2 instance
+2. Runs `terraform destroy` inside the allocator Docker container to destroy client VMs
+3. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
+
+**Note**: Client VM terraform files and state exist inside the allocator container, so the destroy workflow accesses them via SSH.
 
 ### Test Client VM Infrastructure
 
