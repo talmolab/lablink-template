@@ -50,9 +50,9 @@ Use this checklist to ensure you have completed all required setup steps before 
 
 #### Elastic IP (Optional but Recommended)
 - [ ] Allocated Elastic IP in AWS
-- [ ] Tagged EIP with Name = `lablink-eip` (or custom name)
-- [ ] Updated `eip.tag_name` in `config.yaml` if using custom tag
-- [ ] Or set `eip.strategy: "dynamic"` to create new IP each time
+- [ ] Tagged EIP with Name = `lablink-eip-{env}` (e.g., `lablink-eip-prod`)
+- [ ] Set `eip.strategy: "persistent"` and `eip.tag_name: "lablink-eip"` to reuse the EIP
+- [ ] Or set `eip.strategy: "dynamic"` to create new EIP with tag `lablink-eip-{env}` each deployment
 
 #### Route 53 DNS (Optional)
 - [ ] Created or verified Route 53 hosted zone exists

@@ -53,8 +53,8 @@ dns:
   create_zone: false  # false = use existing zone, true = create new zone
 
 eip:
-  strategy: "dynamic"  # "persistent" = reuse tagged EIP, "dynamic" = create new EIP each time
-  tag_name: "lablink-eip"  # Tag Name to identify reusable EIP (used with persistent strategy)
+  strategy: "dynamic"  # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag lablink-eip-{env}
+  tag_name: "lablink-eip"  # Tag prefix for persistent strategy (searches for {tag_name}-{env}). Default matches dynamic's tag.
 
 ssl:
   provider: "none"  # "letsencrypt" = Caddy auto-SSL, "cloudflare" = CloudFlare proxy, "none" = HTTP only
