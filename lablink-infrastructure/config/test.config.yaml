@@ -1,6 +1,6 @@
-# LabLink Allocator Configuration
-# This file configures the allocator service and client VM specifications
-# Copy to config.yaml and customize for your deployment
+# LabLink Test Configuration
+# This is a reference configuration for testing deployments
+# Uses SLEAP tutorial data and dynamic infrastructure for quick testing
 
 db:
   dbname: "lablink_db"
@@ -22,7 +22,7 @@ machine:
   ami_id: "ami-0601752c11b394251"  # us-west-2 Ubuntu 24.04 custom AMI
 
   # Git repository with your data/code (optional - leave empty if not needed)
-  repository: "https://github.com/YOUR_ORG/YOUR_REPO.git"
+  repository: "https://github.com/talmolab/sleap-tutorial-data.git"
 
   # Software identifier for your application
   software: "sleap"
@@ -63,5 +63,4 @@ ssl:
 
 # S3 bucket for Terraform state (must be unique globally)
 # Only used for test/prod environments with S3 backend (not used in dev)
-# Replace YOUR-ORG with your organization name
 bucket_name: "tf-state-lablink-allocator-bucket"
