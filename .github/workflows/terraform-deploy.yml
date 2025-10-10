@@ -289,7 +289,7 @@ jobs:
             TEST_URL="http://$FQDN"
             echo "Testing via domain: $TEST_URL"
           else
-            TEST_URL="http://$PUBLIC_IP:5000"
+            TEST_URL="http://$PUBLIC_IP"
             echo "Testing via IP: $TEST_URL"
           fi
 
