@@ -231,7 +231,7 @@ locals {
 # If terraform_managed is false, you must manually create the A record in Route53
 resource "aws_route53_record" "lablink_a_record" {
   count   = local.dns_enabled && local.dns_terraform_managed ? 1 : 0
-  zone_id = local.zone_id != "" ? local.zone_id : "Z0000000000000000000"  # Dummy value when DNS disabled
+  zone_id = local.zone_id != "" ? local.zone_id : "Z0000000000000000000" # Dummy value when DNS disabled
   name    = local.fqdn != "" ? local.fqdn : "dummy.example.com"
   type    = "A"
   ttl     = 300
