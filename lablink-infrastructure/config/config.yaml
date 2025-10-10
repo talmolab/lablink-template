@@ -30,6 +30,13 @@ machine:
   # File extension for your data files
   extension: "ext"
 
+# Allocator service configuration
+allocator:
+  # Docker image tag for the allocator service
+  # For test: use "linux-amd64-latest-test"
+  # For prod: use specific version like "linux-amd64-v1.2.3"
+  image_tag: "linux-amd64-latest-test"
+
 app:
   admin_user: "admin"
   admin_password: "PLACEHOLDER_ADMIN_PASSWORD"  # Injected from GitHub secret at deploy time
