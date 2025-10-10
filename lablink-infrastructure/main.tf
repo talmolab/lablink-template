@@ -174,7 +174,7 @@ resource "aws_eip" "new" {
   domain = "vpc"
 
   tags = {
-    Name        = "lablink-eip-${var.resource_suffix}"
+    Name        = "${local.eip_tag_name}-${var.resource_suffix}"
     Environment = var.resource_suffix
   }
 }
