@@ -54,7 +54,7 @@ dns:
 
 eip:
   strategy: "dynamic"  # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag lablink-eip-{env}
-  tag_name: "lablink-eip"  # Tag prefix for persistent strategy (searches for {tag_name}-{env}). Default matches dynamic's tag.
+  tag_name: "lablink-eip-dynamic"  # Tag prefix for persistent strategy (searches for {tag_name}-{env}). Default matches dynamic's tag.
 
 ssl:
   provider: "none"  # "letsencrypt" = Caddy auto-SSL, "cloudflare" = CloudFlare proxy, "none" = HTTP only
