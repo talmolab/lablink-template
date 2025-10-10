@@ -196,9 +196,6 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
-# Exception: Allow template tfvars that only point to config files
-!lablink-infrastructure/terraform.tfvars
-
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 terraform/override.tf
