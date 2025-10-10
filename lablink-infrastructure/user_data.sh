@@ -1,9 +1,20 @@
 #!/bin/bash
 set -e
 
-# Install Docker
+# Set non-interactive mode to prevent prompts during package installation
+export DEBIAN_FRONTEND=noninteractive
+
+# Install Docker if not already installed
+if ! command -v docker &> /dev/null; then
+  apt-get update
+  apt-get install -y docker.io
+fi
+
+# Install required packages for Caddy
 apt-get update
-apt-get install -y docker.io debian-keyring debian-archive-keyring apt-transport-https curl
+apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+
+# Ensure Docker is running
 systemctl start docker
 systemctl enable docker
 
