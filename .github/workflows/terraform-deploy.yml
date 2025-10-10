@@ -136,6 +136,25 @@ jobs:
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: terraform validate
 
+      - name: Import Existing CloudWatch Log Groups
+        working-directory: ${{ steps.setenv.outputs.workdir }}
+        run: |
+          # Try to import existing CloudWatch log groups if they exist
+          # This prevents ResourceAlreadyExistsException errors from partial/failed deploys
+          echo "Attempting to import existing CloudWatch log groups..."
+
+          # Import client VM log group (ignore error if doesn't exist)
+          terraform import aws_cloudwatch_log_group.client_vm_logs \
+            "lablink-cloud-init-${{ steps.setenv.outputs.env }}" 2>/dev/null || \
+            echo "  Client VM log group doesn't exist yet (will be created)"
+
+          # Import Lambda log group (ignore error if doesn't exist)
+          terraform import aws_cloudwatch_log_group.lambda_logs \
+            "/aws/lambda/lablink_log_processor_${{ steps.setenv.outputs.env }}" 2>/dev/null || \
+            echo "  Lambda log group doesn't exist yet (will be created)"
+
+          echo "Import attempt completed"
+
       - name: Terraform Plan
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
