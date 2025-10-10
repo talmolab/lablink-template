@@ -4,15 +4,9 @@ variable "resource_suffix" {
   default     = "prod"
 }
 
-variable "config_path" {
-  description = "Path to the allocator config file"
-  type        = string
-  default     = "config/config.yaml"
-}
-
 # Read configuration from YAML file
 locals {
-  config_file = yamldecode(file("${path.module}/${var.config_path}"))
+  config_file = yamldecode(file("${path.module}/config/config.yaml"))
 
   # DNS configuration from config.yaml
   dns_enabled           = try(local.config_file.dns.enabled, false)
@@ -32,6 +26,9 @@ locals {
   ssl_provider = try(local.config_file.ssl.provider, "letsencrypt")
   ssl_email    = try(local.config_file.ssl.email, "")
   ssl_staging  = try(local.config_file.ssl.staging, false)
+
+  # Allocator configuration from config.yaml
+  allocator_image_tag = try(local.config_file.allocator.image_tag, "linux-amd64-latest-test")
 
   # Bucket name from config.yaml for S3 backend
   bucket_name = try(local.config_file.bucket_name, "tf-state-lablink-allocator-bucket")
@@ -137,12 +134,6 @@ resource "aws_security_group" "allow_http" {
   }
 }
 
-variable "allocator_image_tag" {
-  description = "Docker image tag for the lablink allocator"
-  type        = string
-  default     = "linux-amd64-latest-test"
-}
-
 resource "aws_instance" "lablink_allocator_server" {
   ami                  = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 with Docker pre-installed
   instance_type        = local.allocator_instance_type
@@ -151,12 +142,12 @@ resource "aws_instance" "lablink_allocator_server" {
   iam_instance_profile = aws_iam_instance_profile.allocator_instance_profile.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    ALLOCATOR_IMAGE_TAG  = var.allocator_image_tag
+    ALLOCATOR_IMAGE_TAG  = local.allocator_image_tag
     RESOURCE_SUFFIX      = var.resource_suffix
     ALLOCATOR_PUBLIC_IP  = local.eip_public_ip
     ALLOCATOR_KEY_NAME   = aws_key_pair.lablink_key_pair.key_name
     CLOUD_INIT_LOG_GROUP = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT       = file("${path.module}/${var.config_path}")
+    CONFIG_CONTENT       = file("${path.module}/config/config.yaml")
     DOMAIN_NAME          = local.fqdn
     SSL_STAGING          = local.ssl_staging
   })
