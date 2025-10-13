@@ -7,6 +7,38 @@ set -e
 echo "LabLink AWS Infrastructure Setup"
 echo "================================"
 echo ""
+
+# Check prerequisites
+echo "Checking prerequisites..."
+echo ""
+
+# 1. Check if AWS CLI is installed
+if ! command -v aws &> /dev/null; then
+    echo "❌ Error: AWS CLI is not installed"
+    echo ""
+    echo "Please install AWS CLI v2: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+    echo ""
+    exit 1
+fi
+
+echo "✅ AWS CLI is installed ($(aws --version))"
+
+# 2. Check if AWS credentials are configured
+if ! aws sts get-caller-identity &> /dev/null; then
+    echo "❌ Error: AWS credentials are not configured"
+    echo ""
+    echo "Please configure AWS credentials:"
+    echo "  aws configure"
+    echo ""
+    echo "Documentation: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html"
+    echo ""
+    exit 1
+fi
+
+CALLER_IDENTITY=$(aws sts get-caller-identity --query 'Arn' --output text 2>/dev/null || echo "unknown")
+echo "✅ AWS credentials are configured ($CALLER_IDENTITY)"
+echo ""
+
 echo "This script will create AWS resources needed for LabLink deployment:"
 echo "  - S3 bucket for Terraform state"
 echo "  - DynamoDB table for state locking"
