@@ -4,7 +4,7 @@
 # State stored in: s3://<bucket_name>/ci-test/terraform.tfstate
 #
 # Usage (Local):
-#   ./init-terraform.sh ci-test  # Reads bucket from config/config.yaml (once supported)
+#   ../scripts/init-terraform.sh ci-test  # Reads bucket from config/config.yaml (once supported)
 #   terraform plan -var="resource_suffix=ci-test"
 #   terraform apply -var="resource_suffix=ci-test"
 #

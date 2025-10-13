@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to deploy (test or prod) - dev uses local state and should only be used locally"
+        description: "Environment to deploy (test, prod, or ci-test) - dev uses local state and should only be used locally"
         required: true
         default: test
         type: choice
         options:
           - test
           - prod
+          - ci-test
 
   repository_dispatch:
     types: [deploy-prod-image]

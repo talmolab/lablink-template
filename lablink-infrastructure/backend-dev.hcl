@@ -4,7 +4,7 @@
 # State stored in: ./terraform.tfstate
 #
 # Usage (Local):
-#   ./init-terraform.sh dev
+#   ../scripts/init-terraform.sh dev
 #   terraform plan -var="resource_suffix=dev"
 #   terraform apply -var="resource_suffix=dev"
 #

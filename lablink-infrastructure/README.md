@@ -120,9 +120,9 @@ ssl:
 
 ```bash
 # Initialize Terraform with automatic bucket configuration
-./init-terraform.sh dev   # Local state, no S3
-./init-terraform.sh test  # S3 backend, reads bucket from config.yaml
-./init-terraform.sh prod  # S3 backend, reads bucket from config.yaml
+../scripts/init-terraform.sh dev   # Local state, no S3
+../scripts/init-terraform.sh test  # S3 backend, reads bucket from config.yaml
+../scripts/init-terraform.sh prod  # S3 backend, reads bucket from config.yaml
 
 # Review changes
 terraform plan
@@ -258,7 +258,7 @@ Simplifies Terraform initialization by automatically reading the S3 bucket name 
 
 **Usage:**
 ```bash
-./init-terraform.sh [dev|test|prod]
+../scripts/init-terraform.sh [dev|test|prod|ci-test]
 ```
 
 **What it does:**

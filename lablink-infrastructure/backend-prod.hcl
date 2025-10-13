@@ -3,7 +3,7 @@
 # State stored in: s3://<bucket_name>/prod/terraform.tfstate
 #
 # Usage (Local):
-#   ./init-terraform.sh prod  # Reads bucket from config/config.yaml
+#   ../scripts/init-terraform.sh prod  # Reads bucket from config/config.yaml
 #   terraform plan -var="resource_suffix=prod"
 #   terraform apply -var="resource_suffix=prod"
 #
