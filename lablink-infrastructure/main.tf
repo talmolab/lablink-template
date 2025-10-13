@@ -151,14 +151,15 @@ resource "aws_instance" "lablink_allocator_server" {
   iam_instance_profile = aws_iam_instance_profile.allocator_instance_profile.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    ALLOCATOR_IMAGE_TAG  = var.allocator_image_tag
-    RESOURCE_SUFFIX      = var.resource_suffix
-    ALLOCATOR_PUBLIC_IP  = local.eip_public_ip
-    ALLOCATOR_KEY_NAME   = aws_key_pair.lablink_key_pair.key_name
-    CLOUD_INIT_LOG_GROUP = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT       = file("${path.module}/${var.config_path}")
-    DOMAIN_NAME          = local.fqdn
-    SSL_STAGING          = local.ssl_staging
+    ALLOCATOR_IMAGE_TAG   = var.allocator_image_tag
+    RESOURCE_SUFFIX       = var.resource_suffix
+    ALLOCATOR_PUBLIC_IP   = local.eip_public_ip
+    ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
+    CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
+    CONFIG_CONTENT        = file("${path.module}/${var.config_path}")
+    CLIENT_STARTUP_SCRIPT = file("${path.module}/config/start.sh")
+    DOMAIN_NAME           = local.fqdn
+    SSL_STAGING           = local.ssl_staging
   })
 
   tags = {
