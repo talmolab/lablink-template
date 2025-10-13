@@ -295,6 +295,26 @@ Comprehensive deployment verification script for post-deployment testing.
 
 **Note:** GitHub Actions workflows include automatic verification, so this script is mainly for local deployments or manual troubleshooting.
 
+### `config/start.sh` (Customizable Client Startup)
+The `config/start.sh` script is a customizable script that is executed upon the startup of a client VM. This script provides a way to automate the setup and configuration of the client environment.
+
+**Default Behavior:**
+The default `start.sh` script performs the following actions:
+- Activates the Python virtual environment.
+- Clones the GitHub repository specified in `config/config.yaml`.
+- Starts background services for communication with the allocator, including:
+  - `subscribe`: Listens for Chrome Remote Desktop commands from the allocator.
+  - `update_inuse_status`: Periodically updates the client's status.
+  - `check_gpu`: Periodically sends the GPU health.
+- Tails the logs of the background services to keep the container running.
+
+**Customization:**
+You can customize the startup behavior by modifying the `config/start.sh` script. For example, you could:
+- Install additional software packages.
+- Start additional services.
+
+Any changes made to this script will be reflected in the client VMs upon their next startup.
+
 ### `user_data.sh` (Automatic - DO NOT RUN MANUALLY)
 EC2 instance initialization script embedded in Terraform configuration.
 

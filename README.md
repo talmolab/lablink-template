@@ -389,6 +389,10 @@ machine:
 
 See [AWS EC2 Instance Types](https://aws.amazon.com/ec2/instance-types/) for options.
 
+### Client Startup Script
+
+The client VMs can be configured with a custom startup script. See the [LabLink Infrastructure README](lablink-infrastructure/README.md#configstartsh-customizable-client-startup) for more details.
+
 ## Troubleshooting
 
 ### Deployment Fails with "InvalidAMI"
