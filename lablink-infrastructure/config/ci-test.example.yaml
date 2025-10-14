@@ -1,0 +1,79 @@
+# LabLink CI-Test Configuration
+# For template maintainers testing infrastructure changes
+# This configuration is for validating the template itself works correctly
+#
+# Usage:
+#   # Template maintainers only - tests the template repo infrastructure
+#   cp lablink-infrastructure/config/ci-test.example.yaml lablink-infrastructure/config/config.yaml
+#   # Edit config.yaml if needed (usually pre-configured)
+#   ./scripts/setup-aws-infrastructure.sh  # Creates template testing infrastructure
+#   cd lablink-infrastructure
+#   ../scripts/init-terraform.sh ci-test
+#   terraform apply -var="resource_suffix=ci-test"
+#
+# Note: This uses separate AWS infrastructure from production deployments
+# to avoid conflicts when testing template changes.
+
+db:
+  dbname: "lablink_db"
+  user: "lablink"
+  password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret at deploy time
+  host: "localhost"
+  port: 5432
+  table_name: "vms"
+  message_channel: "vm_updates"
+
+machine:
+  # Client VM instance type (can use smaller for testing)
+  machine_type: "t3.medium"  # Cheaper for template testing
+
+  # Docker image for client VMs
+  image: "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-latest-test"
+
+  # AMI ID for your AWS region (Ubuntu 24.04 with Docker + Nvidia GPU Driver)
+  ami_id: "ami-0601752c11b394251"  # us-west-2 Ubuntu 24.04 custom AMI
+
+  # Git repository with test/tutorial data
+  repository: "https://github.com/talmolab/sleap-tutorial-data.git"
+
+  # Software identifier
+  software: "sleap"
+
+  # File extension
+  extension: "slp"
+
+# Allocator service configuration
+allocator:
+  # Use latest test image for CI testing
+  image_tag: "linux-amd64-latest-test"
+
+app:
+  admin_user: "admin"
+  admin_password: "PLACEHOLDER_ADMIN_PASSWORD"  # Injected from GitHub secret at deploy time
+  region: "us-west-2"
+
+dns:
+  # DNS enabled for testing (required to work around Caddy bug)
+  enabled: true
+  terraform_managed: true  # Let Terraform manage DNS records
+  domain: "lablink-template-testing.com"  # Template testing domain
+  zone_id: ""  # Will be set by setup-aws-infrastructure.sh
+  app_name: "lablink"
+  pattern: "auto"  # Creates: ci-test.lablink.lablink-template-testing.com
+  custom_subdomain: ""
+  create_zone: false  # Use existing zone created by setup script
+
+eip:
+  # Use dynamic EIPs for ci-test (creates new, releases on destroy)
+  strategy: "dynamic"
+  tag_name: "lablink-eip"  # Will become lablink-eip-ci-test
+
+ssl:
+  # Use Let's Encrypt staging certs for testing (unlimited, not trusted)
+  provider: "letsencrypt"
+  email: "admin@example.com"  # Update with maintainer email
+  staging: true  # Staging certs = HTTP only, no rate limits
+
+# S3 bucket for Terraform state (template testing infrastructure)
+# Separate from production deployments to avoid conflicts
+bucket_name: "tf-state-lablink-template-testing"
