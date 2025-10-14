@@ -26,13 +26,29 @@ Use this checklist to ensure you have completed all required setup steps before 
 
 ### AWS Setup
 
-#### S3 Bucket for Terraform State
+**Choose one approach:**
+
+#### Option A: Automated Setup (Recommended)
+- [ ] Copied example config: `cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml`
+- [ ] Edited `config.yaml` with your values (bucket_name, domain, region)
+- [ ] Ran setup script: `./scripts/setup-aws-infrastructure.sh`
+- [ ] Script created:
+  - S3 bucket with versioning
+  - DynamoDB lock-table
+  - Route53 hosted zone (if DNS enabled)
+  - Updated config.yaml with zone_id
+- [ ] (If DNS) Updated domain registrar nameservers
+
+**Or if you prefer manual setup:**
+
+#### Option B: Manual S3 Bucket Setup
 - [ ] Created S3 bucket for Terraform state
   - Bucket name format: `tf-state-YOUR-ORG-lablink`
-  - Bucket is globally unique
+  - Bucket is globally unique across ALL of AWS
   - Bucket in same region as deployment
 - [ ] Enabled versioning on S3 bucket (recommended)
 - [ ] Updated `bucket_name` in `config.yaml` to match
+- [ ] Created DynamoDB table named `lock-table` for state locking
 
 #### IAM Role and OIDC
 - [ ] Created OIDC identity provider (if not exists)
@@ -105,7 +121,10 @@ Use this checklist to ensure you have completed all required setup steps before 
 ### Run Deployment
 - [ ] Navigated to Actions → "Deploy LabLink Infrastructure"
 - [ ] Clicked "Run workflow"
-- [ ] Selected environment: `test` (first time) or `prod`
+- [ ] Selected environment:
+  - `test` - For staging/pre-production testing
+  - `prod` - For production deployment
+  - `ci-test` - For template maintainers testing infrastructure changes
 - [ ] Started workflow
 
 ### Monitor Deployment
