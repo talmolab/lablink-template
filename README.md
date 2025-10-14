@@ -35,7 +35,24 @@ Go to your repository → Settings → Secrets and variables → Actions, and ad
 | `ADMIN_PASSWORD` | Password for allocator web interface | `your-secure-password` |
 | `DB_PASSWORD` | PostgreSQL database password | `your-secure-db-password` |
 
-### 3. Configure Your Deployment
+### 3. Set Up AWS Infrastructure
+
+Run the automated setup script to create required AWS resources:
+
+```bash
+# 1. Copy example config
+cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
+
+# 2. Edit with your values
+# Update bucket_name, domain, region, etc.
+
+# 3. Run setup (creates S3, DynamoDB, Route53)
+./scripts/setup-aws-infrastructure.sh
+```
+
+See [AWS Setup Guide](#aws-setup-guide) for details.
+
+### 4. Configure Your Deployment
 
 Edit [`lablink-infrastructure/config/config.yaml`](lablink-infrastructure/config/config.yaml):
 
@@ -60,22 +77,22 @@ bucket_name: "tf-state-YOUR-ORG-lablink"  # Must be globally unique
 
 See [Configuration Reference](#configuration-reference) for all options.
 
-### 4. Deploy
+### 5. Deploy
 
 **Via GitHub Actions (Recommended):**
 1. Go to Actions → "Deploy LabLink Infrastructure"
 2. Click "Run workflow"
-3. Select environment (`test` or `prod`)
+3. Select environment (`test`, `prod`, or `ci-test`)
 4. Click "Run workflow"
 
 **Via Local Terraform:**
 ```bash
 cd lablink-infrastructure
-terraform init -backend-config=backend-test.hcl
-terraform apply
+../scripts/init-terraform.sh test
+terraform apply -var="resource_suffix=test"
 ```
 
-### 5. Access Your Infrastructure
+### 6. Access Your Infrastructure
 
 After deployment completes:
 - **Allocator URL**: Check workflow output or Terraform output for the URL/IP
@@ -176,10 +193,41 @@ This is stored securely and injected into the configuration at deployment time.
 
 ## AWS Setup Guide
 
-### 1. Create S3 Bucket for Terraform State
+### Quick Start: Automated Setup (Recommended)
+
+Use the automated setup script to create all required AWS resources:
 
 ```bash
-# Create bucket (must be globally unique)
+# 1. Configure your deployment
+cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
+# Edit config.yaml with your values (bucket_name, domain, region, etc.)
+
+# 2. Run automated setup
+./scripts/setup-aws-infrastructure.sh
+```
+
+**What the script does:**
+- Checks prerequisites (AWS CLI installed, credentials configured)
+- Creates S3 bucket for Terraform state (with versioning)
+- Creates DynamoDB table for state locking
+- Creates Route53 hosted zone (if DNS enabled)
+- Updates config.yaml with zone_id automatically
+- Idempotent (safe to run multiple times)
+
+**After setup:**
+- Update domain registrar nameservers (if using DNS)
+- You're ready to deploy!
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer to create resources manually:
+
+#### 1. Create S3 Bucket for Terraform State
+
+```bash
+# Create bucket (must be globally unique across ALL of AWS)
 aws s3 mb s3://tf-state-YOUR-ORG-lablink --region us-west-2
 
 # Enable versioning (recommended)
@@ -190,7 +238,18 @@ aws s3api put-bucket-versioning \
 
 Update `bucket_name` in `lablink-infrastructure/config/config.yaml` to match.
 
-### 2. (Optional) Allocate Elastic IP
+#### 2. Create DynamoDB Table for State Locking
+
+```bash
+aws dynamodb create-table \
+  --table-name lock-table \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-west-2
+```
+
+#### 3. (Optional) Allocate Elastic IP
 
 For persistent allocator IP address across deployments:
 
@@ -206,7 +265,7 @@ aws ec2 create-tags \
 
 Update `eip.tag_name` in `config.yaml` if using a different tag name.
 
-### 3. (Optional) Set Up Route 53 for DNS
+#### 4. (Optional) Set Up Route 53 for DNS
 
 If using a custom domain:
 
@@ -225,7 +284,7 @@ If using a custom domain:
      zone_id: "Z..." # Optional - will auto-lookup if empty
    ```
 
-### 4. Set Up OIDC Provider and IAM Role
+#### 5. Set Up OIDC Provider and IAM Role
 
 See [GitHub Secrets Setup](#github-secrets-setup) above for detailed IAM role configuration.
 
