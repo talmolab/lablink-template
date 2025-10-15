@@ -32,12 +32,15 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Copied example config: `cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml`
 - [ ] Edited `config.yaml` with your values (bucket_name, domain, region)
 - [ ] Ran setup script: `./scripts/setup-aws-infrastructure.sh`
-- [ ] Script created:
-  - S3 bucket with versioning
-  - DynamoDB lock-table
-  - Route53 hosted zone (if DNS enabled)
-  - Updated config.yaml with zone_id
-- [ ] (If DNS) Updated domain registrar nameservers
+- [ ] Script created AWS infrastructure:
+  - ✓ S3 bucket with versioning
+  - ✓ DynamoDB lock-table
+  - ✓ Route53 hosted zone (if DNS enabled) - empty DNS container
+  - ✓ Updated config.yaml with zone_id
+
+**What script does NOT create:**
+- Domain registration (you must register domain separately - costs ~$12-15/year)
+- DNS records (created by Terraform if `dns.terraform_managed: true`, or manually)
 
 **Or if you prefer manual setup:**
 
@@ -70,11 +73,28 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Set `eip.strategy: "persistent"` and `eip.tag_name: "lablink-eip"` to reuse the EIP
 - [ ] Or set `eip.strategy: "dynamic"` to create new EIP with tag `{tag_name}-{env}` each deployment
 
-#### Route 53 DNS (Optional)
-- [ ] Created or verified Route 53 hosted zone exists
-- [ ] Updated domain nameservers to Route 53 NS records (if new zone)
-- [ ] Noted zone ID or left empty for auto-lookup
-- [ ] Updated `dns` section in `config.yaml`
+#### DNS Setup (Choose One Approach)
+
+**Approach A: Route53 + Let's Encrypt**
+- [ ] Domain registered (Route53 registrar or external)
+- [ ] Created or verified Route53 hosted zone exists (setup script does this)
+- [ ] Updated domain nameservers to Route53 NS records
+- [ ] Choose DNS record management:
+  - `dns.terraform_managed: true` - Terraform creates/destroys records automatically
+  - `dns.terraform_managed: false` - You create A records manually in Route53 console
+- [ ] Set `ssl.provider: "letsencrypt"` in config
+
+**Approach B: CloudFlare DNS + SSL**
+- [ ] Domain managed in CloudFlare
+- [ ] Set `dns.enabled: false` in config (not using Route53)
+- [ ] Set `ssl.provider: "cloudflare"` in config
+- [ ] After deployment: Create A record in CloudFlare UI pointing to allocator IP
+- [ ] Enable CloudFlare proxy (orange cloud) for SSL
+
+**Approach C: IP-Only (No DNS/SSL)**
+- [ ] Set `dns.enabled: false` in config
+- [ ] Set `ssl.provider: "none"` or leave SSL config at defaults
+- [ ] Access via IP address only
 
 ### Configuration Customization
 

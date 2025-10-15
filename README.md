@@ -210,13 +210,30 @@ cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config
 - Checks prerequisites (AWS CLI installed, credentials configured)
 - Creates S3 bucket for Terraform state (with versioning)
 - Creates DynamoDB table for state locking
-- Creates Route53 hosted zone (if DNS enabled)
+- Creates Route53 hosted zone (if DNS enabled) - the DNS management container
 - Updates config.yaml with zone_id automatically
 - Idempotent (safe to run multiple times)
 
-**After setup:**
-- Update domain registrar nameservers (if using DNS)
-- You're ready to deploy!
+**What the script does NOT do:**
+- Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)
+- Does NOT create DNS records (Terraform can create these, or you create manually)
+
+**After setup, choose your DNS/SSL approach:**
+
+1. **Route53 + Let's Encrypt**:
+   - Register domain → Update nameservers → Set `dns.terraform_managed: true/false`
+   - DNS records: Terraform-managed or manual in Route53 console
+
+2. **CloudFlare DNS + SSL**:
+   - Manage domain/DNS in CloudFlare (no Route53 needed)
+   - Set `ssl.provider: "cloudflare"`
+   - Create A record in CloudFlare pointing to allocator IP
+
+3. **IP-only** (no DNS/SSL):
+   - Set `dns.enabled: false`
+   - Access via IP address
+
+**Note**: Config will be simplified in future releases. See DNS-SSL-SIMPLIFICATION-PLAN.md for upcoming changes.
 
 ---
 
