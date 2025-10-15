@@ -189,8 +189,9 @@ locals {
 # AWS Route53 zone lookup matches EXACT zone name only
 # If lablink.example.com zone exists, it will ONLY match "lablink.example.com."
 # If it doesn't exist, it will fail (not fall back to parent zone)
+# Skip lookup if zone_id is already provided in config (avoids "multiple zones" error)
 data "aws_route53_zone" "existing" {
-  count        = local.dns_enabled && !local.dns_create_zone ? 1 : 0
+  count        = local.dns_enabled && !local.dns_create_zone && local.dns_zone_id == "" ? 1 : 0
   name         = "${local.dns_domain}."
   private_zone = false
 }
