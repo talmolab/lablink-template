@@ -22,7 +22,7 @@ machine:
   ami_id: "ami-0601752c11b394251"  # us-west-2 Ubuntu 24.04 custom AMI
 
   # Git repository with your data/code (optional - leave empty if not needed)
-  repository: "https://github.com/YOUR_ORG/YOUR_REPO.git"
+  repository: "https://github.com/talmolab/sleap-tutorial-data.git"
 
   # Software identifier for your application
   software: "sleap"
