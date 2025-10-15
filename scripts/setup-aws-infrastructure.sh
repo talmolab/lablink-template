@@ -132,18 +132,21 @@ fi
 ZONE_ID=""
 if [ -n "$ZONE_NAME" ]; then
     echo ""
-    echo "Creating Route53 hosted zone..."
+    echo "Checking Route53 hosted zone setup..."
 
-    # Check if zone already exists
-    EXISTING_ZONE=$(aws route53 list-hosted-zones-by-name \
+    # Check if zone(s) already exist
+    EXISTING_ZONES=$(aws route53 list-hosted-zones-by-name \
         --dns-name "$ZONE_NAME" \
         --query "HostedZones[?Name=='${ZONE_NAME}.'].Id" \
         --output text 2>/dev/null || echo "")
 
-    if [ -n "$EXISTING_ZONE" ]; then
-        ZONE_ID=$(echo "$EXISTING_ZONE" | sed 's|/hostedzone/||')
-        echo "✅ Hosted zone already exists: $ZONE_NAME (ID: $ZONE_ID)"
-    else
+    ZONE_COUNT=$(echo "$EXISTING_ZONES" | wc -w | tr -d ' ')
+
+    if [ "$ZONE_COUNT" -eq 0 ]; then
+        # No zone exists - create one
+        echo "No hosted zone found for: $ZONE_NAME"
+        echo "Creating Route53 hosted zone..."
+
         ZONE_OUTPUT=$(aws route53 create-hosted-zone \
             --name "$ZONE_NAME" \
             --caller-reference "$(date +%s)" \
@@ -160,6 +163,38 @@ if [ -n "$ZONE_NAME" ]; then
         echo ""
         echo "⚠️  IMPORTANT: Update your domain registrar with these nameservers:"
         echo "$NS_RECORDS" | tr '\t' '\n' | sed 's/^/  - /'
+
+    elif [ "$ZONE_COUNT" -eq 1 ]; then
+        # One zone exists - use it
+        ZONE_ID=$(echo "$EXISTING_ZONES" | sed 's|/hostedzone/||')
+        echo "✅ Found existing hosted zone: $ZONE_NAME (ID: $ZONE_ID)"
+
+        # Check if this was created by Route53 registrar
+        ZONE_COMMENT=$(aws route53 get-hosted-zone --id "$ZONE_ID" \
+            --query 'HostedZone.Config.Comment' --output text 2>/dev/null || echo "")
+
+        if echo "$ZONE_COMMENT" | grep -q "Route53 Registrar"; then
+            echo "ℹ️  Zone was auto-created by Route53 domain registration"
+        fi
+
+    else
+        # Multiple zones exist - error
+        echo "❌ ERROR: Multiple hosted zones found for $ZONE_NAME"
+        echo ""
+        echo "Found $ZONE_COUNT zones:"
+        aws route53 list-hosted-zones-by-name --dns-name "$ZONE_NAME" \
+            --query "HostedZones[?Name=='${ZONE_NAME}.'].[Id,Config.Comment]" \
+            --output table
+        echo ""
+        echo "Action required:"
+        echo "1. Determine which zone your domain uses:"
+        echo "   - Check domain nameservers: aws route53domains get-domain-detail --domain-name $ZONE_NAME --region us-east-1"
+        echo "   - Or check with your external registrar"
+        echo "2. Delete duplicate zones manually:"
+        echo "   aws route53 delete-hosted-zone --id ZONE_ID_TO_DELETE"
+        echo "3. Or manually set zone_id in $CONFIG_FILE to specify which zone to use"
+        echo "4. Then re-run this script"
+        exit 1
     fi
 
     # Update config file with zone_id
