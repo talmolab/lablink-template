@@ -14,8 +14,8 @@
 #   terraform apply -var="resource_suffix=ci-test"
 #
 # Usage (GitHub Actions):
-#   NOT YET AVAILABLE - See issue #9
-#   Will be: Deploy LabLink Infrastructure -> Choose environment: ci-test
+#   Deploy LabLink Infrastructure -> Choose environment: ci-test
+#   Destroy LabLink Infrastructure -> Choose environment: ci-test
 #
 # Resource naming: All resources suffixed with -ci-test (e.g., lablink-eip-ci-test)
 # This allows simultaneous deployments alongside test/prod environments

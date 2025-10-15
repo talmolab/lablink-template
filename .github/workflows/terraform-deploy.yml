@@ -49,7 +49,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.environment }}" in
-              dev|test|prod)
+              test|prod|ci-test)
                 echo "env=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
                 ;;
               *)
