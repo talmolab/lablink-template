@@ -131,6 +131,29 @@ Use this checklist to ensure you have completed all required setup steps before 
 **S3 Bucket:**
 - [ ] Updated `bucket_name` to match created S3 bucket
 
+### Verify AWS Resources (Optional)
+
+Before deploying, you can verify all required AWS resources exist:
+
+```bash
+# Verify S3 bucket exists
+aws s3 ls s3://YOUR-BUCKET-NAME
+
+# Verify DynamoDB table exists
+aws dynamodb describe-table --table-name lock-table --region YOUR-REGION --query "Table.TableName" --output text
+
+# Verify Route53 hosted zone exists (if using DNS)
+aws route53 get-hosted-zone --id YOUR-ZONE-ID --query "HostedZone.Name" --output text
+
+# Verify domain registration (if registered via Route53)
+aws route53domains get-domain-detail --domain-name your-domain.com --region us-east-1 --query "{Domain: DomainName, Status: StatusList, AutoRenew: AutoRenew}"
+
+# Verify GitHub secrets exist
+gh secret list
+```
+
+Replace `YOUR-BUCKET-NAME`, `YOUR-REGION`, `YOUR-ZONE-ID`, and `your-domain.com` with your actual values from `config.yaml`.
+
 ## Deployment
 
 ### Before Running Workflow
