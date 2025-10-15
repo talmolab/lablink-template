@@ -33,6 +33,16 @@ locals {
   ssl_email    = try(local.config_file.ssl.email, "")
   ssl_staging  = try(local.config_file.ssl.staging, false)
 
+  # Custom Startup Script
+  startup_enabled  = try(local.config_file.startup_script.enabled, false)
+  startup_path     = try(local.config_file.startup_script.path, "config/custom-start.sh")
+  startup_on_error = try(local.config_file.startup_script.on_error, "continue")
+
+  startup_script_content = (
+    local.startup_enabled && fileexists("${path.module}/${local.startup_path}") ?
+    file("${path.module}/${local.startup_path}") : ""
+  )
+
   # Bucket name from config.yaml for S3 backend
   bucket_name = try(local.config_file.bucket_name, "tf-state-lablink-allocator-bucket")
 }
@@ -157,7 +167,9 @@ resource "aws_instance" "lablink_allocator_server" {
     ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
     CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
     CONFIG_CONTENT        = file("${path.module}/${var.config_path}")
-    CLIENT_STARTUP_SCRIPT = file("${path.module}/config/start.sh")
+    CLIENT_STARTUP_SCRIPT = local.startup_script_content
+    STARTUP_ON_ERROR      = local.startup_on_error
+    STARTUP_ENABLED       = local.startup_enabled
     DOMAIN_NAME           = local.fqdn
     SSL_STAGING           = local.ssl_staging
   })

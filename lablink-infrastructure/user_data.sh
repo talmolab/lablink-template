@@ -19,11 +19,16 @@ cat <<EOF > /etc/lablink-allocator/config.yaml
 ${CONFIG_CONTENT}
 EOF
 
-# Create startup script file in /etc/lablink-allocator in EC2 instance
-cat <<'EOF' > /etc/lablink-allocator/start.sh
+# Create startup script file in /etc/lablink-allocator in EC2 instance if enabled
+if [ "${STARTUP_ENABLED}" = "true" ] && [ -n "${CLIENT_STARTUP_SCRIPT}" ]; then
+  echo ">> Custom startup: enabled; writing script"
+  cat <<'EOF' > /etc/lablink-allocator/start.sh
 ${CLIENT_STARTUP_SCRIPT}
 EOF
-chmod +x /etc/lablink-allocator/start.sh
+  chmod +x /etc/lablink-allocator/start.sh
+else
+  echo ">> Custom startup: disabled or empty script; skipping"
+fi
 
 # Start allocator container on port 5000 (Caddy will proxy to it)
 IMAGE="ghcr.io/talmolab/lablink-allocator-image:${ALLOCATOR_IMAGE_TAG}"
