@@ -403,18 +403,12 @@ Deploys or updates your LabLink infrastructure.
 - `environment`: `test` or `prod`
 
 **What it does**:
-1. SSHs into the allocator EC2 instance
-2. Runs `terraform destroy` inside the allocator Docker container to destroy client VMs
-3. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
+1. Creates a minimal terraform backend configuration
+2. Initializes Terraform with S3 backend to access client VM state
+3. Destroys client VMs directly from the S3 state (for test/prod/ci-test)
+4. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
 
-**Note**: Client VM terraform files and state exist inside the allocator container, so the destroy workflow accesses them via SSH.
-
-### Test Client VM Infrastructure
-
-Tests that client VMs can be provisioned correctly.
-
-**Triggers**:
-- Manual only
+**Note**: Client VM state is stored in S3 (same bucket as infrastructure state). Terraform can destroy resources using only the state file - no terraform configuration files needed!
 
 ## Customization
 
@@ -509,8 +503,7 @@ terraform force-unlock LOCK_ID
 lablink-template/
 ├── .github/workflows/          # GitHub Actions workflows
 │   ├── terraform-deploy.yml    # Deploy infrastructure
-│   ├── terraform-destroy.yml   # Destroy infrastructure
-│   └── client-vm-infrastructure-test.yml
+│   └── terraform-destroy.yml   # Destroy infrastructure (includes client VMs)
 ├── lablink-infrastructure/     # Terraform infrastructure
 │   ├── config/
 │   │   ├── config.yaml         # Main configuration
