@@ -246,6 +246,11 @@ Each environment maintains separate Terraform state to avoid conflicts.
 - S3 bucket name for Terraform state storage (test/prod only)
 - Must be globally unique
 
+### Startup Script (`startup_script`)
+- `enabled`: `true` to run the custom startup script on client VMs, `false` to disable.
+- `path`: Path to the custom startup script file. Default: `config/custom-startup.sh`.
+- `on_error`: Behavior on script error. `continue` (default) ignores errors, `fail` stops VM setup.
+
 **Additional Resources:**
 - [Configuration Guide](../docs/configuration.md#ssltls-options-ssl) - Detailed SSL configuration reference
 - [Troubleshooting](../docs/troubleshooting.md#browser-cannot-access-http-staging-mode) - Browser HSTS cache issues
@@ -295,21 +300,11 @@ Comprehensive deployment verification script for post-deployment testing.
 
 **Note:** GitHub Actions workflows include automatic verification, so this script is mainly for local deployments or manual troubleshooting.
 
-### `config/start.sh` (Customizable Client Startup)
-The `config/start.sh` script is a customizable script that is executed upon the startup of a client VM. This script provides a way to automate the setup and configuration of the client environment.
-
-**Default Behavior:**
-The default `start.sh` script performs the following actions:
-- Activates the Python virtual environment.
-- Clones the GitHub repository specified in `config/config.yaml`.
-- Starts background services for communication with the allocator, including:
-  - `subscribe`: Listens for Chrome Remote Desktop commands from the allocator.
-  - `update_inuse_status`: Periodically updates the client's status.
-  - `check_gpu`: Periodically sends the GPU health.
-- Tails the logs of the background services to keep the container running.
+### `config/custom-startup.sh` (Customizable Client Startup)
+The `config/custom-startup.sh` script is a customizable script that is executed upon the startup of a client VM. This script provides a way to automate the setup and configuration of the client environment.
 
 **Customization:**
-You can customize the startup behavior by modifying the `config/start.sh` script. For example, you could:
+You can add custom startup behavior by modifying the `config/custom-startup.sh` script. For example, you could:
 - Install additional software packages.
 - Start additional services.
 

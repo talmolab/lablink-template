@@ -339,13 +339,6 @@ Deploys or updates your LabLink infrastructure.
 - `confirm_destroy`: Must type "yes" to confirm
 - `environment`: `test` or `prod`
 
-### Test Client VM Infrastructure
-
-Tests that client VMs can be provisioned correctly.
-
-**Triggers**:
-- Manual only
-
 ## Customization
 
 ### For Different Research Software
@@ -391,7 +384,8 @@ See [AWS EC2 Instance Types](https://aws.amazon.com/ec2/instance-types/) for opt
 
 ### Client Startup Script
 
-The client VMs can be configured with a custom startup script. See the [LabLink Infrastructure README](lablink-infrastructure/README.md#configstartsh-customizable-client-startup) for more details.
+The client VMs can be configured with a custom startup script. See the [LabLink Infrastructure README](lablink-infrastructure/README.md#configcustom-startupsh-customizable-client-startup) for more details.
+
 
 ## Troubleshooting
 
@@ -444,7 +438,6 @@ lablink-template/
 ├── .github/workflows/          # GitHub Actions workflows
 │   ├── terraform-deploy.yml    # Deploy infrastructure
 │   ├── terraform-destroy.yml   # Destroy infrastructure
-│   └── client-vm-infrastructure-test.yml
 ├── lablink-infrastructure/     # Terraform infrastructure
 │   ├── config/
 │   │   ├── config.yaml         # Main configuration
