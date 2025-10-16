@@ -25,10 +25,10 @@ EOF
 # Create startup script file in /etc/lablink-allocator in EC2 instance if enabled
 if [ "${STARTUP_ENABLED}" = "true" ]; then
   echo ">> Custom startup: enabled; writing script"
-  cat <<EOF > /etc/lablink-allocator/start.sh
+  cat <<EOF > /etc/lablink-allocator/custom-startup.sh
 ${CLIENT_STARTUP_SCRIPT}
 EOF
-  chmod +x /etc/lablink-allocator/start.sh
+  chmod +x /etc/lablink-allocator/custom-startup.sh
 else
   echo ">> Custom startup: disabled or empty script; skipping"
 fi
