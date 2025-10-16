@@ -246,6 +246,11 @@ Each environment maintains separate Terraform state to avoid conflicts.
 - S3 bucket name for Terraform state storage (test/prod only)
 - Must be globally unique
 
+### Startup Script (`startup_script`)
+- `enabled`: `true` to run the custom startup script on client VMs, `false` to disable.
+- `path`: Path to the custom startup script file. Default: `config/custom-startup.sh`.
+- `on_error`: Behavior on script error. `continue` (default) ignores errors, `fail` stops VM setup.
+
 **Additional Resources:**
 - [Configuration Guide](../docs/configuration.md#ssltls-options-ssl) - Detailed SSL configuration reference
 - [Troubleshooting](../docs/troubleshooting.md#browser-cannot-access-http-staging-mode) - Browser HSTS cache issues
@@ -294,6 +299,16 @@ Comprehensive deployment verification script for post-deployment testing.
 - To confirm HTTPS certificate was obtained
 
 **Note:** GitHub Actions workflows include automatic verification, so this script is mainly for local deployments or manual troubleshooting.
+
+### `config/custom-startup.sh` (Customizable Client Startup)
+The `config/custom-startup.sh` script is a customizable script that is executed upon the startup of a client VM. This script provides a way to automate the setup and configuration of the client environment.
+
+**Customization:**
+You can add custom startup behavior by modifying the `config/custom-startup.sh` script. For example, you could:
+- Install additional software packages.
+- Start additional services.
+
+Any changes made to this script will be reflected in the client VMs upon their next startup.
 
 ### `user_data.sh` (Automatic - DO NOT RUN MANUALLY)
 EC2 instance initialization script embedded in Terraform configuration.

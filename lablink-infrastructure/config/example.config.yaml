@@ -54,5 +54,10 @@ ssl:
   email: "admin@example.com"  # Email for Let's Encrypt notifications
   staging: false  # true = HTTP only (unlimited testing), false = HTTPS with trusted Let's Encrypt certs (rate limited)
 
+startup_script:
+  enabled: true # true = run custom startup script on client VMs, false = no script
+  path: "config/custom-startup.sh"  # Path to custom startup script (optional)
+  on_error: "continue"  # "continue" = ignore errors, "fail" = stop VM setup on error
+
 # S3 bucket for Terraform state (must be unique globally)
 bucket_name: "tf-state-lablink-allocator-bucket-YOUR-UNIQUE-SUFFIX"
