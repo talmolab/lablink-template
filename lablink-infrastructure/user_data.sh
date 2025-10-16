@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 # Install Docker
 apt-get update
 apt-get install -y docker.io debian-keyring debian-archive-keyring apt-transport-https curl
@@ -20,9 +23,9 @@ ${CONFIG_CONTENT}
 EOF
 
 # Create startup script file in /etc/lablink-allocator in EC2 instance if enabled
-if [ "${STARTUP_ENABLED}" = "true" ] && [ -n "${CLIENT_STARTUP_SCRIPT}" ]; then
+if [ "${STARTUP_ENABLED}" = "true" ]; then
   echo ">> Custom startup: enabled; writing script"
-  cat <<'EOF' > /etc/lablink-allocator/start.sh
+  cat <<EOF > /etc/lablink-allocator/start.sh
 ${CLIENT_STARTUP_SCRIPT}
 EOF
   chmod +x /etc/lablink-allocator/start.sh

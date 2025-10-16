@@ -35,7 +35,7 @@ locals {
 
   # Custom Startup Script
   startup_enabled  = try(local.config_file.startup_script.enabled, false)
-  startup_path     = try(local.config_file.startup_script.path, "config/custom-start.sh")
+  startup_path     = try(local.config_file.startup_script.path, "config/custom-startup.sh")
   startup_on_error = try(local.config_file.startup_script.on_error, "continue")
 
   startup_script_content = (
@@ -168,7 +168,6 @@ resource "aws_instance" "lablink_allocator_server" {
     CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
     CONFIG_CONTENT        = file("${path.module}/${var.config_path}")
     CLIENT_STARTUP_SCRIPT = local.startup_script_content
-    STARTUP_ON_ERROR      = local.startup_on_error
     STARTUP_ENABLED       = local.startup_enabled
     DOMAIN_NAME           = local.fqdn
     SSL_STAGING           = local.ssl_staging
