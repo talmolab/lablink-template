@@ -8,17 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to deploy (test or prod) - dev uses local state and should only be used locally"
+        description: "Environment to deploy (test, prod, or ci-test) - dev uses local state and should only be used locally"
         required: true
         default: test
         type: choice
         options:
           - test
           - prod
-      image_tag:
-        description: "Docker image tag to deploy (only for prod)"
-        required: false
-        type: string
+          - ci-test
 
   repository_dispatch:
     types: [deploy-prod-image]
@@ -52,7 +49,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.environment }}" in
-              dev|test|prod)
+              test|prod|ci-test)
                 echo "env=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
                 ;;
               *)
@@ -140,53 +137,37 @@ jobs:
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: terraform validate
 
-      - name: Determine Image Tag
-        id: getimagetag
+      - name: Import Existing CloudWatch Log Groups
+        working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
-          if [ "${{ steps.setenv.outputs.env }}" = "prod" ]; then
-            if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-              if [ -z "${{ github.event.client_payload.image_tag }}" ]; then
-                echo "Error: image_tag must be provided for prod deployments"
-                exit 1
-              fi
-              echo "tag=${{ github.event.client_payload.image_tag }}" >> "$GITHUB_OUTPUT"
+          # Try to import existing CloudWatch log groups if they exist
+          # This prevents ResourceAlreadyExistsException errors from partial/failed deploys
+          echo "Attempting to import existing CloudWatch log groups..."
 
-            elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              if [ -z "${{ github.event.inputs.image_tag }}" ]; then
-                echo "Error: image_tag must be provided for prod deployments"
-                exit 1
-              fi
-              echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          # Import client VM log group (ignore error if doesn't exist)
+          terraform import aws_cloudwatch_log_group.client_vm_logs \
+            "lablink-cloud-init-${{ steps.setenv.outputs.env }}" 2>/dev/null || \
+            echo "  Client VM log group doesn't exist yet (will be created)"
 
-            else
-              echo "Error: image_tag must be provided for prod deployments"
-              exit 1
-            fi
+          # Import Lambda log group (ignore error if doesn't exist)
+          terraform import aws_cloudwatch_log_group.lambda_logs \
+            "/aws/lambda/lablink_log_processor_${{ steps.setenv.outputs.env }}" 2>/dev/null || \
+            echo "  Lambda log group doesn't exist yet (will be created)"
 
-          else
-            echo "Using default image tag for non-prod: linux-amd64-latest-test"
-            echo "tag=linux-amd64-latest-test" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Image Tag Debug
-        run: |
-          echo "Using image tag: ${{ steps.getimagetag.outputs.tag }}"
+          echo "Import attempt completed"
 
       - name: Terraform Plan
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform plan \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_image_tag=${{ steps.getimagetag.outputs.tag }}"
+            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
 
       - name: Terraform Apply
         id: apply
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform apply -auto-approve \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_image_tag=${{ steps.getimagetag.outputs.tag }}" \
-            -var-file="terraform.tfvars"
+            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
         continue-on-error: true
 
       - name: Save PEM Key to Artifact
@@ -309,7 +290,7 @@ jobs:
             TEST_URL="http://$FQDN"
             echo "Testing via domain: $TEST_URL"
           else
-            TEST_URL="http://$PUBLIC_IP:5000"
+            TEST_URL="http://$PUBLIC_IP"
             echo "Testing via IP: $TEST_URL"
           fi
 

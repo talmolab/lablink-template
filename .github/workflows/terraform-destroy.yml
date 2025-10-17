@@ -9,17 +9,14 @@ on:
         default: "no"
         type: string
       environment:
-        description: "Environment to destroy (test or prod) - dev uses local state and should only be used locally"
+        description: "Environment to destroy (test, prod, or ci-test) - dev uses local state and should only be used locally"
         required: true
         default: "test"
         type: choice
         options:
           - test
           - prod
-      allocator_image_tag:
-        description: "Docker image tag used in deployment (required for prod)"
-        required: false
-        type: string
+          - ci-test
 
 permissions:
   id-token: write
@@ -44,50 +41,9 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.6
+          terraform_wrapper: false
 
-      - name: Validate and determine image tag
-        id: resolve_image_tag
-        run: |
-          if [ "${{ github.event.inputs.environment }}" = "prod" ]; then
-            if [ -z "${{ github.event.inputs.allocator_image_tag }}" ]; then
-              echo "Error: allocator_image_tag must be provided for prod destruction"
-              exit 1
-            fi
-            echo "tag=${{ github.event.inputs.allocator_image_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=linux-amd64-latest-test" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Terraform Init Client VMs
-        working-directory: packages/allocator/src/lablink_allocator/terraform
-        run: |
-          # Extract bucket name from config.yaml
-          BUCKET_NAME=$(grep "^bucket_name:" ../conf/config.yaml | awk '{print $2}' | tr -d '"')
-          terraform init \
-            -backend-config=backend-client-${{ github.event.inputs.environment }}.hcl \
-            -backend-config="bucket=$BUCKET_NAME"
-
-      - name: Extract Variable File
-        working-directory: packages/allocator/src/lablink_allocator/terraform
-        run: |
-          # Extract bucket name from config.yaml
-          BUCKET_NAME=$(grep "^bucket_name:" ../conf/config.yaml | awk '{print $2}' | tr -d '"')
-          # Try to download tfvars, but don't fail if it doesn't exist (no VMs were created)
-          if aws s3 cp s3://${BUCKET_NAME}/${{ github.event.inputs.environment }}/client/terraform.runtime.tfvars variables.tfvars 2>/dev/null; then
-            echo "Found existing client VM state"
-            echo "has_client_vms=true" >> "$GITHUB_ENV"
-          else
-            echo "No client VM state found - skipping client VM destruction"
-            echo "has_client_vms=false" >> "$GITHUB_ENV"
-          fi
-
-      - name: Terraform Destroy Client VMs
-        if: env.has_client_vms == 'true'
-        continue-on-error: true
-        working-directory: packages/allocator/src/lablink_allocator/terraform
-        run: |
-          terraform destroy -auto-approve -var-file=variables.tfvars
-
+      # Initialize terraform to access outputs (IP and SSH key)
       - name: Terraform Init Infrastructure
         working-directory: lablink-infrastructure
         run: |
@@ -97,10 +53,58 @@ jobs:
             -backend-config=backend-${{ github.event.inputs.environment }}.hcl \
             -backend-config="bucket=$BUCKET_NAME"
 
+      # Destroy Client VMs using S3 backend (state-only, no terraform files needed)
+      - name: Destroy Client VMs via S3 Backend
+        continue-on-error: true
+        run: |
+          echo "Destroying client VMs from S3 state for environment: ${{ github.event.inputs.environment }}"
+
+          mkdir -p /tmp/client-destroy
+          cd /tmp/client-destroy
+
+          # Extract bucket name and region from config.yaml
+          BUCKET_NAME=$(grep "^bucket_name:" $GITHUB_WORKSPACE/lablink-infrastructure/config/config.yaml | awk '{print $2}' | tr -d '"')
+          REGION=$(awk '/^app:/,/^[a-z]/ {if (/^  region:/) print $2}' $GITHUB_WORKSPACE/lablink-infrastructure/config/config.yaml | tr -d '"')
+
+          echo "Using S3 bucket: $BUCKET_NAME"
+          echo "Region: $REGION"
+          echo "State key: ${{ github.event.inputs.environment }}/client/terraform.tfstate"
+
+          # Create minimal backend configuration
+          cat > backend.tf <<'BACKEND_EOF'
+          terraform {
+            backend "s3" {}
+          }
+          BACKEND_EOF
+
+          # Create backend config with values from config.yaml
+          cat > backend.hcl <<BACKEND_HCL
+          key            = "${{ github.event.inputs.environment }}/client/terraform.tfstate"
+          region         = "$REGION"
+          dynamodb_table = "lock-table"
+          encrypt        = true
+          BACKEND_HCL
+
+          # Initialize terraform with the S3 backend
+          terraform init \
+            -backend-config=backend.hcl \
+            -backend-config="bucket=$BUCKET_NAME"
+
+          # Check if there are any resources in state
+          if ! terraform show 2>/dev/null | grep -q "resource"; then
+            echo "✓ No client VMs in terraform state"
+          else
+            # Destroy all client VMs using state only (no configuration files needed)
+            echo "Destroying client VMs..."
+            if terraform destroy -auto-approve; then
+              echo "✓ Client VMs destroyed successfully"
+            else
+              echo "⚠ Client VM destruction failed (non-fatal)"
+            fi
+          fi
+
       - name: Terraform Destroy Infrastructure
         working-directory: lablink-infrastructure
         run: |
           terraform destroy -auto-approve \
-            -var="resource_suffix=${{ github.event.inputs.environment }}" \
-            -var="allocator_image_tag=${{ steps.resolve_image_tag.outputs.tag }}" \
-            -var-file="terraform.tfvars"
+            -var="resource_suffix=${{ github.event.inputs.environment }}"

@@ -35,12 +35,32 @@ Go to your repository → Settings → Secrets and variables → Actions, and ad
 | `ADMIN_PASSWORD` | Password for allocator web interface | `your-secure-password` |
 | `DB_PASSWORD` | PostgreSQL database password | `your-secure-db-password` |
 
-### 3. Configure Your Deployment
+### 3. Set Up AWS Infrastructure
+
+Run the automated setup script to create required AWS resources:
+
+```bash
+# 1. Copy example config
+cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
+
+# 2. Edit with your values
+# Update bucket_name, domain, region, etc.
+
+# 3. Run setup (creates S3, DynamoDB, Route53)
+./scripts/setup-aws-infrastructure.sh
+```
+
+See [AWS Setup Guide](#aws-setup-guide) for details.
+
+### 4. Configure Your Deployment
 
 Edit [`lablink-infrastructure/config/config.yaml`](lablink-infrastructure/config/config.yaml):
 
 ```yaml
 # Update these values for your deployment:
+allocator:
+  image_tag: "linux-amd64-latest-test"  # For prod, use specific version like "linux-amd64-v1.2.3"
+
 machine:
   repository: "https://github.com/YOUR_ORG/YOUR_DATA_REPO.git"
   software: "your-software-name"
@@ -53,24 +73,26 @@ dns:
 bucket_name: "tf-state-YOUR-ORG-lablink"  # Must be globally unique
 ```
 
+**Important:** The config file path (`lablink-infrastructure/config/config.yaml`) is hardcoded in the infrastructure. Do not move or rename this file.
+
 See [Configuration Reference](#configuration-reference) for all options.
 
-### 4. Deploy
+### 5. Deploy
 
 **Via GitHub Actions (Recommended):**
 1. Go to Actions → "Deploy LabLink Infrastructure"
 2. Click "Run workflow"
-3. Select environment (`test` or `prod`)
+3. Select environment (`test`, `prod`, or `ci-test`)
 4. Click "Run workflow"
 
 **Via Local Terraform:**
 ```bash
 cd lablink-infrastructure
-terraform init -backend-config=backend-test.hcl
-terraform apply
+../scripts/init-terraform.sh test
+terraform apply -var="resource_suffix=test"
 ```
 
-### 5. Access Your Infrastructure
+### 6. Access Your Infrastructure
 
 After deployment completes:
 - **Allocator URL**: Check workflow output or Terraform output for the URL/IP
@@ -171,10 +193,58 @@ This is stored securely and injected into the configuration at deployment time.
 
 ## AWS Setup Guide
 
-### 1. Create S3 Bucket for Terraform State
+### Quick Start: Automated Setup (Recommended)
+
+Use the automated setup script to create all required AWS resources:
 
 ```bash
-# Create bucket (must be globally unique)
+# 1. Configure your deployment
+cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
+# Edit config.yaml with your values (bucket_name, domain, region, etc.)
+
+# 2. Run automated setup
+./scripts/setup-aws-infrastructure.sh
+```
+
+**What the script does:**
+- Checks prerequisites (AWS CLI installed, credentials configured)
+- Creates S3 bucket for Terraform state (with versioning)
+- Creates DynamoDB table for state locking
+- Creates Route53 hosted zone (if DNS enabled) - the DNS management container
+- Updates config.yaml with zone_id automatically
+- Idempotent (safe to run multiple times)
+
+**What the script does NOT do:**
+- Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)
+- Does NOT create DNS records (Terraform can create these, or you create manually)
+
+**After setup, choose your DNS/SSL approach:**
+
+1. **Route53 + Let's Encrypt**:
+   - Register domain → Update nameservers → Set `dns.terraform_managed: true/false`
+   - DNS records: Terraform-managed or manual in Route53 console
+
+2. **CloudFlare DNS + SSL**:
+   - Manage domain/DNS in CloudFlare (no Route53 needed)
+   - Set `ssl.provider: "cloudflare"`
+   - Create A record in CloudFlare pointing to allocator IP
+
+3. **IP-only** (no DNS/SSL):
+   - Set `dns.enabled: false`
+   - Access via IP address
+
+**Note**: Config will be simplified in future releases. See DNS-SSL-SIMPLIFICATION-PLAN.md for upcoming changes.
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer to create resources manually:
+
+#### 1. Create S3 Bucket for Terraform State
+
+```bash
+# Create bucket (must be globally unique across ALL of AWS)
 aws s3 mb s3://tf-state-YOUR-ORG-lablink --region us-west-2
 
 # Enable versioning (recommended)
@@ -185,7 +255,18 @@ aws s3api put-bucket-versioning \
 
 Update `bucket_name` in `lablink-infrastructure/config/config.yaml` to match.
 
-### 2. (Optional) Allocate Elastic IP
+#### 2. Create DynamoDB Table for State Locking
+
+```bash
+aws dynamodb create-table \
+  --table-name lock-table \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-west-2
+```
+
+#### 3. (Optional) Allocate Elastic IP
 
 For persistent allocator IP address across deployments:
 
@@ -201,7 +282,7 @@ aws ec2 create-tags \
 
 Update `eip.tag_name` in `config.yaml` if using a different tag name.
 
-### 3. (Optional) Set Up Route 53 for DNS
+#### 4. (Optional) Set Up Route 53 for DNS
 
 If using a custom domain:
 
@@ -220,7 +301,7 @@ If using a custom domain:
      zone_id: "Z..." # Optional - will auto-lookup if empty
    ```
 
-### 4. Set Up OIDC Provider and IAM Role
+#### 5. Set Up OIDC Provider and IAM Role
 
 See [GitHub Secrets Setup](#github-secrets-setup) above for detailed IAM role configuration.
 
@@ -319,7 +400,6 @@ Deploys or updates your LabLink infrastructure.
 
 **Inputs**:
 - `environment`: `test` or `prod`
-- `image_tag`: (Optional) Specific Docker image tag for prod
 
 **What it does**:
 1. Configures AWS credentials via OIDC
@@ -338,6 +418,29 @@ Deploys or updates your LabLink infrastructure.
 **Inputs**:
 - `confirm_destroy`: Must type "yes" to confirm
 - `environment`: `test` or `prod`
+
+**What it does**:
+1. Creates a minimal terraform backend configuration
+2. Initializes Terraform with S3 backend to access client VM state
+3. Destroys client VMs directly from the S3 state (for test/prod/ci-test)
+4. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
+
+**Note**: Client VM state is stored in S3 (same bucket as infrastructure state). Terraform can destroy resources using only the state file - no terraform configuration files needed!
+
+### Manual Cleanup and Troubleshooting
+
+If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md)** for step-by-step procedures to:
+
+- Remove orphaned IAM roles, policies, and instance profiles
+- Clean up leftover EC2 instances, security groups, and key pairs
+- Fix Terraform state file issues (checksum mismatches, corrupted state)
+- Verify complete resource removal
+
+Common scenarios covered:
+- Destroy workflow failures
+- "Resource in use" errors
+- Orphaned client VMs
+- State lock issues
 
 ## Customization
 
@@ -437,18 +540,17 @@ terraform force-unlock LOCK_ID
 lablink-template/
 ├── .github/workflows/          # GitHub Actions workflows
 │   ├── terraform-deploy.yml    # Deploy infrastructure
-│   ├── terraform-destroy.yml   # Destroy infrastructure
+│   └── terraform-destroy.yml   # Destroy infrastructure (includes client VMs)
 ├── lablink-infrastructure/     # Terraform infrastructure
 │   ├── config/
 │   │   ├── config.yaml         # Main configuration
-│   │   └── example.config.yaml # Configuration reference
+│   │   └── *.example.yaml      # Configuration examples
 │   ├── main.tf                 # Core Terraform config
-│   ├── backend.tf              # Terraform backend
 │   ├── backend-*.hcl           # Environment-specific backends
-│   ├── terraform.tfvars        # Terraform variables
 │   ├── user_data.sh            # EC2 initialization script
 │   ├── verify-deployment.sh    # Deployment verification
 │   └── README.md               # Infrastructure documentation
+├── MANUAL_CLEANUP_GUIDE.md     # Manual cleanup procedures
 ├── README.md                   # This file
 ├── DEPLOYMENT_CHECKLIST.md     # Pre-deployment checklist
 └── LICENSE

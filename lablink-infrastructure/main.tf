@@ -4,15 +4,9 @@ variable "resource_suffix" {
   default     = "prod"
 }
 
-variable "config_path" {
-  description = "Path to the allocator config file"
-  type        = string
-  default     = "config/config.yaml"
-}
-
 # Read configuration from YAML file
 locals {
-  config_file = yamldecode(file("${path.module}/${var.config_path}"))
+  config_file = yamldecode(file("${path.module}/config/config.yaml"))
 
   # DNS configuration from config.yaml
   dns_enabled           = try(local.config_file.dns.enabled, false)
@@ -32,6 +26,9 @@ locals {
   ssl_provider = try(local.config_file.ssl.provider, "letsencrypt")
   ssl_email    = try(local.config_file.ssl.email, "")
   ssl_staging  = try(local.config_file.ssl.staging, false)
+
+  # Allocator configuration from config.yaml
+  allocator_image_tag = try(local.config_file.allocator.image_tag, "linux-amd64-latest-test")
 
   # Custom Startup Script
   startup_enabled  = try(local.config_file.startup_script.enabled, false)
@@ -147,12 +144,6 @@ resource "aws_security_group" "allow_http" {
   }
 }
 
-variable "allocator_image_tag" {
-  description = "Docker image tag for the lablink allocator"
-  type        = string
-  default     = "linux-amd64-latest-test"
-}
-
 resource "aws_instance" "lablink_allocator_server" {
   ami                  = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 with Docker pre-installed
   instance_type        = local.allocator_instance_type
@@ -161,12 +152,12 @@ resource "aws_instance" "lablink_allocator_server" {
   iam_instance_profile = aws_iam_instance_profile.allocator_instance_profile.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    ALLOCATOR_IMAGE_TAG   = var.allocator_image_tag
+    ALLOCATOR_IMAGE_TAG   = local.allocator_image_tag
     RESOURCE_SUFFIX       = var.resource_suffix
     ALLOCATOR_PUBLIC_IP   = local.eip_public_ip
     ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
     CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT        = file("${path.module}/${var.config_path}")
+    CONFIG_CONTENT        = file("${path.module}/config/config.yaml")
     CLIENT_STARTUP_SCRIPT = local.startup_script_content
     STARTUP_ENABLED       = local.startup_enabled
     DOMAIN_NAME           = local.fqdn
@@ -195,7 +186,7 @@ resource "aws_eip" "new" {
   domain = "vpc"
 
   tags = {
-    Name        = "lablink-eip-${var.resource_suffix}"
+    Name        = "${local.eip_tag_name}-${var.resource_suffix}"
     Environment = var.resource_suffix
   }
 }
@@ -210,8 +201,9 @@ locals {
 # AWS Route53 zone lookup matches EXACT zone name only
 # If lablink.example.com zone exists, it will ONLY match "lablink.example.com."
 # If it doesn't exist, it will fail (not fall back to parent zone)
+# Skip lookup if zone_id is already provided in config (avoids "multiple zones" error)
 data "aws_route53_zone" "existing" {
-  count        = local.dns_enabled && !local.dns_create_zone ? 1 : 0
+  count        = local.dns_enabled && !local.dns_create_zone && local.dns_zone_id == "" ? 1 : 0
   name         = "${local.dns_domain}."
   private_zone = false
 }
@@ -252,11 +244,11 @@ locals {
 # If terraform_managed is false, you must manually create the A record in Route53
 resource "aws_route53_record" "lablink_a_record" {
   count   = local.dns_enabled && local.dns_terraform_managed ? 1 : 0
-  zone_id = local.zone_id
-  name    = local.fqdn
+  zone_id = local.zone_id != "" ? local.zone_id : "Z0000000000000000000" # Dummy value when DNS disabled
+  name    = local.fqdn != "" ? local.fqdn : "dummy.example.com"
   type    = "A"
   ttl     = 300
-  records = [local.eip_public_ip]
+  records = [local.eip_public_ip != "" ? local.eip_public_ip : "0.0.0.0"]
 }
 
 # Associate Elastic IP with EC2 instance

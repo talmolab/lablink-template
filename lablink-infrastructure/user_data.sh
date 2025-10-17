@@ -6,7 +6,9 @@ export NEEDRESTART_MODE=a
 
 # Install Docker
 apt-get update
-apt-get install -y docker.io debian-keyring debian-archive-keyring apt-transport-https curl
+apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+
+# Ensure Docker is running
 systemctl start docker
 systemctl enable docker
 
