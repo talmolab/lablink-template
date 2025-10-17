@@ -217,6 +217,68 @@ Replace `YOUR-BUCKET-NAME`, `YOUR-REGION`, `YOUR-ZONE-ID`, and `your-domain.com`
 - [ ] Can access client VM via Chrome Remote Desktop
 - [ ] Can destroy client VM successfully
 
+## Verify Clean Destruction
+
+After running destroy workflow or manual cleanup:
+
+### EC2 Resources
+- [ ] No EC2 instances remain (allocator or client VMs)
+  ```bash
+  aws ec2 describe-instances --region us-west-2 --filters "Name=tag:Name,Values=*{env}*" "Name=instance-state-name,Values=running,stopped"
+  ```
+- [ ] No orphaned security groups
+  ```bash
+  aws ec2 describe-security-groups --region us-west-2 --filters "Name=group-name,Values=*{env}*"
+  ```
+- [ ] No orphaned key pairs
+  ```bash
+  aws ec2 describe-key-pairs --region us-west-2 --filters "Name=key-name,Values=*{env}*"
+  ```
+- [ ] No orphaned Elastic IPs (if using dynamic strategy)
+  ```bash
+  aws ec2 describe-addresses --region us-west-2 --filters "Name=tag:Name,Values=*{env}*"
+  ```
+
+### IAM Resources
+- [ ] No orphaned IAM roles
+  ```bash
+  aws iam list-roles --query "Roles[?contains(RoleName, '{env}')].RoleName"
+  ```
+- [ ] No orphaned IAM policies
+  ```bash
+  aws iam list-policies --scope Local --query "Policies[?contains(PolicyName, '{env}')].PolicyName"
+  ```
+- [ ] No orphaned instance profiles
+  ```bash
+  aws iam list-instance-profiles --query "InstanceProfiles[?contains(InstanceProfileName, '{env}')].InstanceProfileName"
+  ```
+
+### Other Resources
+- [ ] CloudWatch log groups cleaned up (optional - may keep for historical logs)
+  ```bash
+  aws logs describe-log-groups --region us-west-2 --log-group-name-prefix lablink --query "logGroups[?contains(logGroupName, '{env}')].logGroupName"
+  ```
+- [ ] S3 state files archived or deleted (if environment no longer needed)
+  ```bash
+  aws s3 ls s3://{bucket}/{env}/ --recursive
+  ```
+- [ ] DynamoDB lock entries removed
+  ```bash
+  aws dynamodb scan --table-name lock-table --region us-west-2 --filter-expression "contains(LockID, :env)" --expression-attribute-values '{":env": {"S": "{env}"}}'
+  ```
+- [ ] DNS records removed (if terraform_managed=true)
+  ```bash
+  aws route53 list-resource-record-sets --hosted-zone-id {zone_id} --query "ResourceRecordSets[?starts_with(Name, '{env}')]"
+  ```
+- [ ] Lambda functions removed
+  ```bash
+  aws lambda list-functions --region us-west-2 --query "Functions[?contains(FunctionName, '{env}')].FunctionName"
+  ```
+
+**Note**: Replace `{env}` with your environment name (e.g., `ci-test`, `test`, `prod`) and `{bucket}`, `{zone_id}` with your actual values from config.yaml.
+
+See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and troubleshooting if any resources remain.
+
 ## Troubleshooting Failed Steps
 
 ### If AWS credentials fail:

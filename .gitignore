@@ -229,6 +229,9 @@ outputs
 # Ignore VS Code workspace settings
 .vscode/
 
+# Ignore Claude Code settings
+.claude/
+
 # Ignore lambda zip files
 lambda_package.zip
 

@@ -427,6 +427,21 @@ Deploys or updates your LabLink infrastructure.
 
 **Note**: Client VM state is stored in S3 (same bucket as infrastructure state). Terraform can destroy resources using only the state file - no terraform configuration files needed!
 
+### Manual Cleanup and Troubleshooting
+
+If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md)** for step-by-step procedures to:
+
+- Remove orphaned IAM roles, policies, and instance profiles
+- Clean up leftover EC2 instances, security groups, and key pairs
+- Fix Terraform state file issues (checksum mismatches, corrupted state)
+- Verify complete resource removal
+
+Common scenarios covered:
+- Destroy workflow failures
+- "Resource in use" errors
+- Orphaned client VMs
+- State lock issues
+
 ## Customization
 
 ### For Different Research Software
