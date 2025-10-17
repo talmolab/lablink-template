@@ -30,6 +30,16 @@ locals {
   # Allocator configuration from config.yaml
   allocator_image_tag = try(local.config_file.allocator.image_tag, "linux-amd64-latest-test")
 
+  # Custom Startup Script
+  startup_enabled  = try(local.config_file.startup_script.enabled, false)
+  startup_path     = try(local.config_file.startup_script.path, "config/custom-startup.sh")
+  startup_on_error = try(local.config_file.startup_script.on_error, "continue")
+
+  startup_script_content = (
+    local.startup_enabled && fileexists("${path.module}/${local.startup_path}") ?
+    file("${path.module}/${local.startup_path}") : ""
+  )
+
   # Bucket name from config.yaml for S3 backend
   bucket_name = try(local.config_file.bucket_name, "tf-state-lablink-allocator-bucket")
 }
@@ -142,14 +152,16 @@ resource "aws_instance" "lablink_allocator_server" {
   iam_instance_profile = aws_iam_instance_profile.allocator_instance_profile.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    ALLOCATOR_IMAGE_TAG  = local.allocator_image_tag
-    RESOURCE_SUFFIX      = var.resource_suffix
-    ALLOCATOR_PUBLIC_IP  = local.eip_public_ip
-    ALLOCATOR_KEY_NAME   = aws_key_pair.lablink_key_pair.key_name
-    CLOUD_INIT_LOG_GROUP = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT       = file("${path.module}/config/config.yaml")
-    DOMAIN_NAME          = local.fqdn
-    SSL_STAGING          = local.ssl_staging
+    ALLOCATOR_IMAGE_TAG   = local.allocator_image_tag
+    RESOURCE_SUFFIX       = var.resource_suffix
+    ALLOCATOR_PUBLIC_IP   = local.eip_public_ip
+    ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
+    CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
+    CONFIG_CONTENT        = file("${path.module}/config/config.yaml")
+    CLIENT_STARTUP_SCRIPT = local.startup_script_content
+    STARTUP_ENABLED       = local.startup_enabled
+    DOMAIN_NAME           = local.fqdn
+    SSL_STAGING           = local.ssl_staging
   })
 
   tags = {

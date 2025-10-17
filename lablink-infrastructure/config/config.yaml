@@ -61,6 +61,11 @@ ssl:
   email: "berri104@gmail.com"  # Email for Let's Encrypt notifications
   staging: true  # true = staging/testing certs (unlimited), false = production Let's Encrypt certs (rate limited)
 
+startup_script:
+  enabled: true # true = run custom startup script on client VMs, false = no script
+  path: "config/custom-startup.sh"  # Path to custom startup script (optional)
+  on_error: "continue"  # "continue" = ignore errors, "fail" = stop VM setup on error
+
 # S3 bucket for Terraform state (must be unique globally)
 # Only used for test/prod environments with S3 backend (not used in dev)
 # Template testing uses separate bucket from production deployments

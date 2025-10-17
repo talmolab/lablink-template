@@ -1,16 +1,10 @@
 #!/bin/bash
 set -e
 
-# Set non-interactive mode to prevent prompts during package installation
 export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
 
-# Install Docker if not already installed
-if ! command -v docker &> /dev/null; then
-  apt-get update
-  apt-get install -y docker.io
-fi
-
-# Install required packages for Caddy
+# Install Docker
 apt-get update
 apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
 
@@ -29,6 +23,17 @@ mkdir -p /etc/lablink-allocator
 cat <<EOF > /etc/lablink-allocator/config.yaml
 ${CONFIG_CONTENT}
 EOF
+
+# Create startup script file in /etc/lablink-allocator in EC2 instance if enabled
+if [ "${STARTUP_ENABLED}" = "true" ]; then
+  echo ">> Custom startup: enabled; writing script"
+  cat <<EOF > /etc/lablink-allocator/custom-startup.sh
+${CLIENT_STARTUP_SCRIPT}
+EOF
+  chmod +x /etc/lablink-allocator/custom-startup.sh
+else
+  echo ">> Custom startup: disabled or empty script; skipping"
+fi
 
 # Start allocator container on port 5000 (Caddy will proxy to it)
 IMAGE="ghcr.io/talmolab/lablink-allocator-image:${ALLOCATOR_IMAGE_TAG}"
