@@ -539,14 +539,13 @@ lablink-template/
 ├── lablink-infrastructure/     # Terraform infrastructure
 │   ├── config/
 │   │   ├── config.yaml         # Main configuration
-│   │   └── example.config.yaml # Configuration reference
+│   │   └── *.example.yaml      # Configuration examples
 │   ├── main.tf                 # Core Terraform config
-│   ├── backend.tf              # Terraform backend
 │   ├── backend-*.hcl           # Environment-specific backends
-│   ├── terraform.tfvars        # Terraform variables
 │   ├── user_data.sh            # EC2 initialization script
 │   ├── verify-deployment.sh    # Deployment verification
 │   └── README.md               # Infrastructure documentation
+├── MANUAL_CLEANUP_GUIDE.md     # Manual cleanup procedures
 ├── README.md                   # This file
 ├── DEPLOYMENT_CHECKLIST.md     # Pre-deployment checklist
 └── LICENSE
