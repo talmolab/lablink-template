@@ -93,20 +93,6 @@ execute_cmd() {
   fi
 }
 
-# Function to check if resource exists
-resource_exists() {
-  local check_cmd="$1"
-  local description="$2"
-
-  if eval "$check_cmd" >/dev/null 2>&1; then
-    echo -e "${YELLOW}  Found: $description${NC}"
-    return 0
-  else
-    echo -e "  ${GREEN}✓${NC} Not found: $description (already clean)"
-    return 1
-  fi
-}
-
 echo -e "${YELLOW}=== Verification: Checking what exists ===${NC}"
 echo ""
 
@@ -164,7 +150,7 @@ INSTANCE_IDS=$(aws ec2 describe-instances --region ${REGION} \
   --query 'Reservations[*].Instances[*].InstanceId' \
   --output text 2>/dev/null || echo "")
 
-if [ ! -z "$INSTANCE_IDS" ]; then
+if [ -n "$INSTANCE_IDS" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 terminate-instances --region ${REGION} --instance-ids $INSTANCE_IDS
     echo -e "  ${GREEN}✓${NC} Terminated client VMs: $INSTANCE_IDS"
@@ -181,7 +167,7 @@ INSTANCE_ID=$(aws ec2 describe-instances --region ${REGION} \
   --query 'Reservations[0].Instances[0].InstanceId' \
   --output text 2>/dev/null || echo "")
 
-if [ "$INSTANCE_ID" != "None" ] && [ ! -z "$INSTANCE_ID" ]; then
+if [ "$INSTANCE_ID" != "None" ] && [ -n "$INSTANCE_ID" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 terminate-instances --region ${REGION} --instance-ids ${INSTANCE_ID}
     echo -e "  ${GREEN}✓${NC} Terminated allocator: ${INSTANCE_ID}"
@@ -195,7 +181,7 @@ fi
 # Step 2: Wait for termination
 echo ""
 echo -e "${BLUE}2. Waiting for instances to terminate...${NC}"
-if [ "$DRY_RUN" = false ] && { [ ! -z "$INSTANCE_IDS" ] || [ "$INSTANCE_ID" != "None" ]; }; then
+if [ "$DRY_RUN" = false ] && { [ -n "$INSTANCE_IDS" ] || ( [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "None" ] ); }; then
   echo "  Waiting 30 seconds..."
   sleep 30
 else
@@ -212,7 +198,7 @@ SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
   --query 'SecurityGroups[0].GroupId' \
   --output text 2>/dev/null || echo "")
 
-if [ ! -z "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
+if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
       echo -e "  ${GREEN}✓${NC} Deleted client SG: ${SG_ID}"
@@ -232,7 +218,7 @@ SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
   --query 'SecurityGroups[0].GroupId' \
   --output text 2>/dev/null || echo "")
 
-if [ ! -z "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
+if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
       echo -e "  ${GREEN}✓${NC} Deleted allocator SG: ${SG_ID}"
@@ -279,7 +265,7 @@ ALLOCATION_ID=$(aws ec2 describe-addresses --region ${REGION} \
   --query 'Addresses[0].AllocationId' \
   --output text 2>/dev/null || echo "")
 
-if [ ! -z "$ALLOCATION_ID" ] && [ "$ALLOCATION_ID" != "None" ]; then
+if [ -n "$ALLOCATION_ID" ] && [ "$ALLOCATION_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 release-address --region ${REGION} --allocation-id ${ALLOCATION_ID}
     echo -e "  ${GREEN}✓${NC} Released EIP: ${ALLOCATION_ID}"
