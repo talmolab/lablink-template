@@ -492,6 +492,21 @@ The client VMs can be configured with a custom startup script. See the [LabLink 
 
 ## Troubleshooting
 
+### Orphaned Resources After Failed Destroy
+
+**Cause**: Destroy workflow failed or Terraform state is out of sync with AWS resources
+
+**Solution**: Use the automated cleanup script:
+```bash
+# Dry-run to see what would be deleted
+./scripts/cleanup-orphaned-resources.sh <environment> --dry-run
+
+# Actual cleanup
+./scripts/cleanup-orphaned-resources.sh <environment>
+```
+
+The script automatically reads configuration from `config.yaml`, backs up Terraform state files, and deletes resources in the correct dependency order. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md).
+
 ### Deployment Fails with "InvalidAMI"
 
 **Cause**: AMI ID doesn't exist in your region

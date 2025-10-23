@@ -611,141 +611,73 @@ aws ec2 delete-security-group --region us-west-2 --group-id "${SG_ID}"
 
 ---
 
-## Complete Cleanup Script
+## Automated Cleanup Script
 
-For convenience, here's a complete script that cleans up all resources for an environment:
+An automated cleanup script is available at [scripts/cleanup-orphaned-resources.sh](scripts/cleanup-orphaned-resources.sh) that handles the complete cleanup process for orphaned resources.
 
+### Key Features
+
+- **Automatic Configuration**: Reads `bucket_name` and `region` from `lablink-infrastructure/config/config.yaml`
+- **Dry-Run Mode**: Test the cleanup process without making changes
+- **State Backup**: Automatically backs up Terraform state files before deletion
+- **Color-Coded Output**: Visual feedback with green (success), yellow (warnings), and red (errors)
+- **Dependency-Aware**: Deletes resources in correct order to avoid dependency conflicts
+
+### Usage
+
+**Dry-run mode** (see what would be deleted without making changes):
 ```bash
-#!/bin/bash
-set -e
-
-# Configuration
-ENV="ci-test"  # CHANGE THIS
-BUCKET="your-bucket-name"  # CHANGE THIS
-REGION="us-west-2"
-
-echo "=== Cleaning up environment: ${ENV} ==="
-echo "WARNING: This will delete all resources for ${ENV}"
-read -p "Continue? (type 'yes' to confirm): " CONFIRM
-
-if [ "$CONFIRM" != "yes" ]; then
-  echo "Aborted"
-  exit 1
-fi
-
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-
-echo ""
-echo "1. Terminating EC2 instances..."
-# Client VMs
-INSTANCE_IDS=$(aws ec2 describe-instances --region ${REGION} \
-  --filters "Name=tag:Name,Values=lablink-vm-${ENV}-*" "Name=instance-state-name,Values=running,stopped" \
-  --query 'Reservations[*].Instances[*].InstanceId' --output text)
-if [ ! -z "$INSTANCE_IDS" ]; then
-  aws ec2 terminate-instances --region ${REGION} --instance-ids $INSTANCE_IDS
-  echo "  ✓ Terminated client VMs"
-fi
-
-# Allocator
-INSTANCE_ID=$(aws ec2 describe-instances --region ${REGION} \
-  --filters "Name=tag:Name,Values=lablink_allocator_server_${ENV}" "Name=instance-state-name,Values=running,stopped" \
-  --query 'Reservations[0].Instances[0].InstanceId' --output text)
-if [ "$INSTANCE_ID" != "None" ] && [ ! -z "$INSTANCE_ID" ]; then
-  aws ec2 terminate-instances --region ${REGION} --instance-ids ${INSTANCE_ID}
-  echo "  ✓ Terminated allocator"
-fi
-
-echo ""
-echo "2. Waiting for instances to terminate..."
-sleep 30
-
-echo ""
-echo "3. Deleting security groups..."
-# Client SG
-SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
-  --filters "Name=group-name,Values=lablink_client_${ENV}_sg" \
-  --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "")
-if [ ! -z "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
-  aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null && echo "  ✓ Deleted client SG" || echo "  ⚠ Client SG deletion failed (may need retry)"
-fi
-
-# Allocator SG
-SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
-  --filters "Name=group-name,Values=allow_http_https_${ENV}" \
-  --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "")
-if [ ! -z "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
-  aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null && echo "  ✓ Deleted allocator SG" || echo "  ⚠ Allocator SG deletion failed (may need retry)"
-fi
-
-echo ""
-echo "4. Deleting key pairs..."
-aws ec2 delete-key-pair --region ${REGION} --key-name "lablink_key_pair_client_${ENV}" 2>/dev/null && echo "  ✓ Deleted client key" || true
-aws ec2 delete-key-pair --region ${REGION} --key-name "lablink-key-${ENV}" 2>/dev/null && echo "  ✓ Deleted allocator key" || true
-
-echo ""
-echo "5. Releasing Elastic IP..."
-ALLOCATION_ID=$(aws ec2 describe-addresses --region ${REGION} \
-  --filters "Name=tag:Name,Values=lablink-eip-${ENV}" \
-  --query 'Addresses[0].AllocationId' --output text 2>/dev/null || echo "")
-if [ ! -z "$ALLOCATION_ID" ] && [ "$ALLOCATION_ID" != "None" ]; then
-  aws ec2 release-address --region ${REGION} --allocation-id ${ALLOCATION_ID}
-  echo "  ✓ Released EIP"
-fi
-
-echo ""
-echo "6. Deleting Lambda function..."
-aws lambda delete-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} 2>/dev/null && echo "  ✓ Deleted Lambda" || true
-
-echo ""
-echo "7. Deleting IAM resources..."
-# Lambda role
-aws iam detach-role-policy --role-name "lablink_lambda_exec_${ENV}" \
-  --policy-arn "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" 2>/dev/null || true
-aws iam delete-role --role-name "lablink_lambda_exec_${ENV}" 2>/dev/null && echo "  ✓ Deleted Lambda role" || true
-
-# CloudWatch agent role
-aws iam detach-role-policy --role-name "lablink_cloud_watch_agent_role_${ENV}" \
-  --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" 2>/dev/null || true
-aws iam remove-role-from-instance-profile \
-  --instance-profile-name "lablink_client_instance_profile_${ENV}" \
-  --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null || true
-aws iam delete-instance-profile --instance-profile-name "lablink_client_instance_profile_${ENV}" 2>/dev/null || true
-aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo "  ✓ Deleted CloudWatch agent role" || true
-
-# Instance role
-aws iam detach-role-policy --role-name "lablink_instance_role_${ENV}" \
-  --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null || true
-aws iam remove-role-from-instance-profile \
-  --instance-profile-name "lablink_instance_profile_${ENV}" \
-  --role-name "lablink_instance_role_${ENV}" 2>/dev/null || true
-aws iam delete-instance-profile --instance-profile-name "lablink_instance_profile_${ENV}" 2>/dev/null || true
-aws iam delete-role --role-name "lablink_instance_role_${ENV}" 2>/dev/null && echo "  ✓ Deleted instance role" || true
-aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null && echo "  ✓ Deleted S3 backend policy" || true
-
-echo ""
-echo "8. Deleting CloudWatch log groups..."
-aws logs delete-log-group --region ${REGION} --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo "  ✓ Deleted client log group" || true
-aws logs delete-log-group --region ${REGION} --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo "  ✓ Deleted Lambda log group" || true
-
-echo ""
-echo "9. Cleaning S3 state files..."
-aws s3 rm s3://${BUCKET}/${ENV}/terraform.tfstate 2>/dev/null && echo "  ✓ Deleted infrastructure state" || true
-aws s3 rm s3://${BUCKET}/${ENV}/client/ --recursive 2>/dev/null && echo "  ✓ Deleted client state" || true
-
-echo ""
-echo "10. Cleaning DynamoDB lock entries..."
-aws dynamodb delete-item --table-name lock-table --region ${REGION} \
-  --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/terraform.tfstate-md5\"}}" 2>/dev/null && echo "  ✓ Deleted infrastructure lock" || true
-aws dynamodb delete-item --table-name lock-table --region ${REGION} \
-  --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/client/terraform.tfstate-md5\"}}" 2>/dev/null && echo "  ✓ Deleted client lock" || true
-
-echo ""
-echo "=== Cleanup complete for ${ENV} ==="
-echo ""
-echo "Run verification commands to ensure everything is cleaned up."
+./scripts/cleanup-orphaned-resources.sh <environment> --dry-run
 ```
 
-Save this as `scripts/cleanup-environment.sh`, make it executable with `chmod +x scripts/cleanup-environment.sh`, and run it with your environment name and bucket configured at the top.
+**Actual cleanup**:
+```bash
+./scripts/cleanup-orphaned-resources.sh <environment>
+# Example: ./scripts/cleanup-orphaned-resources.sh test
+```
+
+**Automatic cleanup** (skip confirmation prompt):
+```bash
+./scripts/cleanup-orphaned-resources.sh <environment> --yes
+```
+
+### When to Use This Script
+
+Use the automated script when:
+- Terraform state is out of sync with actual AWS resources
+- `terraform destroy` fails with "No changes" but resources still exist
+- You need to clean up an environment that was partially deployed
+- You want to remove all resources for a specific environment
+
+For complex scenarios or if the script fails, refer to the manual cleanup procedures in the sections above.
+
+### Script Output Example
+
+The script provides detailed progress information:
+```
+=== LabLink Environment Cleanup ===
+Environment: test
+Bucket: lablink-terraform-state-bucket
+Region: us-west-2
+
+WARNING: This will delete ALL resources for environment 'test'
+Continue? (yes/no): yes
+
+Deleting EC2 instances...
+  ✓ Terminated 2 client VMs
+  ✓ Terminated allocator instance
+
+Waiting for instances to terminate...
+
+Deleting security groups...
+  ✓ Deleted client security group
+  ✓ Deleted allocator security group
+...
+```
+
+### Verification After Automated Cleanup
+
+After running the cleanup script, verify all resources are removed using the commands in the [Verification Checklist](#verification-checklist) section below.
 
 ---
 
@@ -795,6 +727,198 @@ aws dynamodb scan --table-name lock-table --region us-west-2 \
 
 echo ""
 echo "If all outputs are empty, cleanup is complete!"
+```
+
+---
+
+## Troubleshooting the Cleanup Script
+
+### Common Issues and Solutions
+
+#### 1. Security Group Deletion Fails
+
+**Error**: `An error occurred (DependencyViolation) when calling the DeleteSecurityGroup operation`
+
+**Cause**: Security group still has dependencies (instances, network interfaces, or other security group references)
+
+**Solution**:
+```bash
+# Check what's using the security group
+ENV="test"
+SG_ID="sg-xxxxx"  # Replace with actual security group ID
+
+# List network interfaces
+aws ec2 describe-network-interfaces --region us-west-2 \
+  --filters "Name=group-id,Values=${SG_ID}" \
+  --query 'NetworkInterfaces[*].[NetworkInterfaceId,Status,Attachment.InstanceId]' \
+  --output table
+
+# If instances are still terminating, wait and retry
+sleep 30
+aws ec2 delete-security-group --region us-west-2 --group-id ${SG_ID}
+```
+
+#### 2. IAM Role Deletion Fails
+
+**Error**: `An error occurred (DeleteConflict) when calling the DeleteRole operation`
+
+**Cause**: Role still has attached policies or is in an instance profile
+
+**Solution**:
+```bash
+ENV="test"
+ROLE_NAME="lablink_instance_role_${ENV}"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# List and detach all attached policies
+aws iam list-attached-role-policies --role-name ${ROLE_NAME} \
+  --query 'AttachedPolicies[*].PolicyArn' --output text | \
+  xargs -I {} aws iam detach-role-policy --role-name ${ROLE_NAME} --policy-arn {}
+
+# List and remove from instance profiles
+aws iam list-instance-profiles-for-role --role-name ${ROLE_NAME} \
+  --query 'InstanceProfiles[*].InstanceProfileName' --output text | \
+  xargs -I {} aws iam remove-role-from-instance-profile --instance-profile-name {} --role-name ${ROLE_NAME}
+
+# Now delete the role
+aws iam delete-role --role-name ${ROLE_NAME}
+```
+
+#### 3. Allocator Instance Not Found
+
+**Error**: Script reports "No allocator instance found" but instance still exists
+
+**Cause**: Instance tag name doesn't match expected format
+
+**Solution**:
+```bash
+# Find the instance manually
+ENV="test"
+aws ec2 describe-instances --region us-west-2 \
+  --filters "Name=tag:Name,Values=*allocator*${ENV}*" \
+  --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==`Name`].Value|[0],State.Name]' \
+  --output table
+
+# Terminate manually
+INSTANCE_ID="i-xxxxx"  # Replace with actual ID
+aws ec2 terminate-instances --region us-west-2 --instance-ids ${INSTANCE_ID}
+```
+
+#### 4. S3 State File Access Denied
+
+**Error**: `An error occurred (AccessDenied) when calling the DeleteObject operation`
+
+**Cause**: AWS credentials lack S3 permissions or bucket versioning is enabled
+
+**Solution**:
+```bash
+# Check your AWS credentials
+aws sts get-caller-identity
+
+# Check bucket versioning
+BUCKET="your-bucket-name"
+aws s3api get-bucket-versioning --bucket ${BUCKET}
+
+# If versioning is enabled, delete all versions
+ENV="test"
+aws s3api list-object-versions --bucket ${BUCKET} --prefix ${ENV}/ \
+  --query 'Versions[*].[Key,VersionId]' --output text | \
+  while read key versionId; do
+    aws s3api delete-object --bucket ${BUCKET} --key "$key" --version-id "$versionId"
+  done
+```
+
+#### 5. DynamoDB Lock Not Deleted
+
+**Error**: Lock entry still exists after cleanup
+
+**Cause**: Lock ID format mismatch or permissions issue
+
+**Solution**:
+```bash
+ENV="test"
+BUCKET="your-bucket-name"
+
+# List all locks to find exact format
+aws dynamodb scan --table-name lock-table --region us-west-2 \
+  --query 'Items[*].LockID.S' --output table
+
+# Delete with exact lock ID
+LOCK_ID="${BUCKET}/${ENV}/terraform.tfstate-md5"
+aws dynamodb delete-item --table-name lock-table --region us-west-2 \
+  --key "{\"LockID\": {\"S\": \"${LOCK_ID}\"}}"
+```
+
+#### 6. Script Cannot Read config.yaml
+
+**Error**: `Failed to read bucket_name or region from config.yaml`
+
+**Cause**: config.yaml doesn't exist or has incorrect format
+
+**Solution**:
+```bash
+# Check if config.yaml exists
+ls -la lablink-infrastructure/config/config.yaml
+
+# Verify format
+grep "bucket_name:" lablink-infrastructure/config/config.yaml
+grep "region:" lablink-infrastructure/config/config.yaml
+
+# Manually specify values
+BUCKET="your-bucket-name"
+REGION="us-west-2"
+# Edit the script to use these values or pass them as arguments
+```
+
+### Verification Commands Reference
+
+Quick verification commands to check cleanup status:
+
+```bash
+ENV="test"
+BUCKET="your-bucket-name"
+REGION="us-west-2"
+
+# Check all EC2 resources
+aws ec2 describe-instances --region ${REGION} --filters "Name=tag:Name,Values=*${ENV}*" --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0]]' --output table
+
+# Check all IAM resources
+aws iam list-roles --query "Roles[?contains(RoleName, '${ENV}')].RoleName" --output table
+aws iam list-policies --scope Local --query "Policies[?contains(PolicyName, '${ENV}')].PolicyName" --output table
+
+# Check Lambda functions
+aws lambda list-functions --region ${REGION} --query "Functions[?contains(FunctionName, '${ENV}')].FunctionName" --output table
+
+# Check CloudWatch log groups
+aws logs describe-log-groups --region ${REGION} --query "logGroups[?contains(logGroupName, '${ENV}')].logGroupName" --output table
+
+# Check S3 and DynamoDB
+aws s3 ls s3://${BUCKET}/${ENV}/ 2>/dev/null || echo "No S3 state files found"
+aws dynamodb scan --table-name lock-table --region ${REGION} --filter-expression "contains(LockID, :env)" --expression-attribute-values "{\":env\": {\"S\": \"${ENV}\"}}" --query 'Items[*].LockID.S' --output table
+```
+
+### Running Cleanup in Stages
+
+If the full cleanup fails, run it in stages:
+
+```bash
+ENV="test"
+
+# Stage 1: Terminate instances only
+./scripts/cleanup-orphaned-resources.sh ${ENV} --dry-run
+# Manually verify and wait for termination (use AWS console)
+
+# Stage 2: Delete security groups and network resources
+# After instances are terminated, security groups can be deleted
+
+# Stage 3: Delete IAM resources
+# No dependencies on EC2 resources
+
+# Stage 4: Delete Lambda and logs
+# Independent of other resources
+
+# Stage 5: Clean state files
+# Only after confirming all resources are gone
 ```
 
 ---
