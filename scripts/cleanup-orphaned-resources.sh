@@ -2,18 +2,34 @@
 # cleanup-orphaned-resources.sh
 # Manually clean up orphaned AWS resources for a LabLink environment
 #
-# Usage: ./cleanup-orphaned-resources.sh <environment> [--dry-run]
+# Usage: ./cleanup-orphaned-resources.sh <environment> [--dry-run] [--yes]
 # Example: ./cleanup-orphaned-resources.sh test
 # Example: ./cleanup-orphaned-resources.sh test --dry-run
+# Example: ./cleanup-orphaned-resources.sh test --yes
+#
+# Flags:
+#   --dry-run  Show what would be deleted without making changes
+#   --yes      Skip confirmation prompt and proceed automatically
+#
+# Environment variables:
+#   NO_COLOR   Set to any value to disable colored output
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Colors for output (respects NO_COLOR environment variable)
+if [ -z "${NO_COLOR:-}" ] && [ -t 1 ]; then
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m' # No Color
+else
+  RED=''
+  GREEN=''
+  YELLOW=''
+  BLUE=''
+  NC=''
+fi
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,16 +39,35 @@ CONFIG_FILE="$REPO_ROOT/lablink-infrastructure/config/config.yaml"
 # Parse arguments
 ENV="${1:-}"
 DRY_RUN=false
+AUTO_CONFIRM=false
+
+# Parse all arguments
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=true
+      ;;
+    --yes)
+      AUTO_CONFIRM=true
+      ;;
+    *)
+      if [ -z "$ENV" ]; then
+        ENV="$arg"
+      fi
+      ;;
+  esac
+done
 
 if [ -z "$ENV" ]; then
   echo -e "${RED}Error: Environment name required${NC}"
-  echo "Usage: $0 <environment> [--dry-run]"
+  echo "Usage: $0 <environment> [--dry-run] [--yes]"
   echo "Example: $0 test"
+  echo "Example: $0 test --dry-run"
+  echo "Example: $0 test --yes"
   exit 1
 fi
 
-if [ "$2" = "--dry-run" ] || [ "$1" = "--dry-run" ]; then
-  DRY_RUN=true
+if [ "$DRY_RUN" = true ]; then
   echo -e "${YELLOW}DRY RUN MODE - No resources will be deleted${NC}"
   echo ""
 fi
@@ -125,7 +160,7 @@ echo -e "${YELLOW}=== End Verification ===${NC}"
 echo ""
 
 # Confirmation prompt
-if [ "$DRY_RUN" = false ]; then
+if [ "$DRY_RUN" = false ] && [ "$AUTO_CONFIRM" = false ]; then
   echo -e "${RED}WARNING: This will permanently delete all resources for environment '${ENV}'${NC}"
   echo -e "${RED}This action cannot be undone!${NC}"
   echo ""
@@ -153,12 +188,12 @@ INSTANCE_IDS=$(aws ec2 describe-instances --region ${REGION} \
 if [ -n "$INSTANCE_IDS" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 terminate-instances --region ${REGION} --instance-ids $INSTANCE_IDS
-    echo -e "  ${GREEN}✓${NC} Terminated client VMs: $INSTANCE_IDS"
+    echo -e "  ${GREEN}[OK]${NC} Terminated client VMs: $INSTANCE_IDS"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would terminate client VMs: $INSTANCE_IDS"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No client VMs found"
+  echo -e "  ${GREEN}[OK]${NC} No client VMs found"
 fi
 
 # Allocator
@@ -170,12 +205,12 @@ INSTANCE_ID=$(aws ec2 describe-instances --region ${REGION} \
 if [ "$INSTANCE_ID" != "None" ] && [ -n "$INSTANCE_ID" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 terminate-instances --region ${REGION} --instance-ids ${INSTANCE_ID}
-    echo -e "  ${GREEN}✓${NC} Terminated allocator: ${INSTANCE_ID}"
+    echo -e "  ${GREEN}[OK]${NC} Terminated allocator: ${INSTANCE_ID}"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would terminate allocator: ${INSTANCE_ID}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No allocator instance found"
+  echo -e "  ${GREEN}[OK]${NC} No allocator instance found"
 fi
 
 # Step 2: Wait for termination
@@ -201,7 +236,7 @@ SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
 if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
-      echo -e "  ${GREEN}✓${NC} Deleted client SG: ${SG_ID}"
+      echo -e "  ${GREEN}[OK]${NC} Deleted client SG: ${SG_ID}"
     else
       echo -e "  ${YELLOW}⚠${NC} Client SG deletion failed (may need retry): ${SG_ID}"
     fi
@@ -209,7 +244,7 @@ if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
     echo -e "${YELLOW}[DRY RUN]${NC} Would delete client SG: ${SG_ID}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No client security group found"
+  echo -e "  ${GREEN}[OK]${NC} No client security group found"
 fi
 
 # Allocator SG
@@ -221,7 +256,7 @@ SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
 if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
-      echo -e "  ${GREEN}✓${NC} Deleted allocator SG: ${SG_ID}"
+      echo -e "  ${GREEN}[OK]${NC} Deleted allocator SG: ${SG_ID}"
     else
       echo -e "  ${YELLOW}⚠${NC} Allocator SG deletion failed (may need retry): ${SG_ID}"
     fi
@@ -229,7 +264,7 @@ if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
     echo -e "${YELLOW}[DRY RUN]${NC} Would delete allocator SG: ${SG_ID}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No allocator security group found"
+  echo -e "  ${GREEN}[OK]${NC} No allocator security group found"
 fi
 
 # Step 4: Delete Key Pairs
@@ -238,22 +273,30 @@ echo -e "${BLUE}4. Deleting key pairs...${NC}"
 
 if aws ec2 describe-key-pairs --region ${REGION} --key-names "lablink_key_pair_client_${ENV}" >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    aws ec2 delete-key-pair --region ${REGION} --key-name "lablink_key_pair_client_${ENV}" && echo -e "  ${GREEN}✓${NC} Deleted client key"
+    if aws ec2 delete-key-pair --region ${REGION} --key-name "lablink_key_pair_client_${ENV}" 2>/dev/null; then
+      echo -e "  ${GREEN}[OK]${NC} Deleted client key"
+    else
+      echo -e "  ${RED}[FAIL]${NC} Failed to delete client key"
+    fi
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would delete client key: lablink_key_pair_client_${ENV}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No client key pair found"
+  echo -e "  ${GREEN}[OK]${NC} No client key pair found"
 fi
 
 if aws ec2 describe-key-pairs --region ${REGION} --key-names "lablink-key-${ENV}" >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    aws ec2 delete-key-pair --region ${REGION} --key-name "lablink-key-${ENV}" && echo -e "  ${GREEN}✓${NC} Deleted allocator key"
+    if aws ec2 delete-key-pair --region ${REGION} --key-name "lablink-key-${ENV}" 2>/dev/null; then
+      echo -e "  ${GREEN}[OK]${NC} Deleted allocator key"
+    else
+      echo -e "  ${RED}[FAIL]${NC} Failed to delete allocator key"
+    fi
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would delete allocator key: lablink-key-${ENV}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No allocator key pair found"
+  echo -e "  ${GREEN}[OK]${NC} No allocator key pair found"
 fi
 
 # Step 5: Release Elastic IP
@@ -268,12 +311,12 @@ ALLOCATION_ID=$(aws ec2 describe-addresses --region ${REGION} \
 if [ -n "$ALLOCATION_ID" ] && [ "$ALLOCATION_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
     aws ec2 release-address --region ${REGION} --allocation-id ${ALLOCATION_ID}
-    echo -e "  ${GREEN}✓${NC} Released EIP: ${ALLOCATION_ID}"
+    echo -e "  ${GREEN}[OK]${NC} Released EIP: ${ALLOCATION_ID}"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would release EIP: ${ALLOCATION_ID}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No Elastic IP found"
+  echo -e "  ${GREEN}[OK]${NC} No Elastic IP found"
 fi
 
 # Step 6: Delete Lambda Function
@@ -282,12 +325,16 @@ echo -e "${BLUE}6. Deleting Lambda function...${NC}"
 
 if aws lambda get-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    aws lambda delete-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} && echo -e "  ${GREEN}✓${NC} Deleted Lambda"
+    if aws lambda delete-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} 2>/dev/null; then
+      echo -e "  ${GREEN}[OK]${NC} Deleted Lambda"
+    else
+      echo -e "  ${RED}[FAIL]${NC} Failed to delete Lambda"
+    fi
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would delete Lambda: lablink_log_processor_${ENV}"
   fi
 else
-  echo -e "  ${GREEN}✓${NC} No Lambda function found"
+  echo -e "  ${GREEN}[OK]${NC} No Lambda function found"
 fi
 
 # Step 7: Delete IAM Resources
@@ -299,7 +346,7 @@ echo "  Deleting Lambda execution role..."
 if [ "$DRY_RUN" = false ]; then
   aws iam detach-role-policy --role-name "lablink_lambda_exec_${ENV}" \
     --policy-arn "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" 2>/dev/null || true
-  aws iam delete-role --role-name "lablink_lambda_exec_${ENV}" 2>/dev/null && echo -e "    ${GREEN}✓${NC} Deleted Lambda role" || echo -e "    ${GREEN}✓${NC} Lambda role not found"
+  aws iam delete-role --role-name "lablink_lambda_exec_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted Lambda role" || echo -e "    ${GREEN}[OK]${NC} Lambda role not found"
 else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete Lambda role: lablink_lambda_exec_${ENV}"
 fi
@@ -313,7 +360,7 @@ if [ "$DRY_RUN" = false ]; then
     --instance-profile-name "lablink_client_instance_profile_${ENV}" \
     --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null || true
   aws iam delete-instance-profile --instance-profile-name "lablink_client_instance_profile_${ENV}" 2>/dev/null || true
-  aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}✓${NC} Deleted CloudWatch agent role" || echo -e "    ${GREEN}✓${NC} CloudWatch agent role not found"
+  aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted CloudWatch agent role" || echo -e "    ${GREEN}[OK]${NC} CloudWatch agent role not found"
 else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete CloudWatch agent role and instance profile"
 fi
@@ -329,9 +376,9 @@ if [ "$DRY_RUN" = false ]; then
     --instance-profile-name "lablink_instance_profile_${ENV}" \
     --role-name "lablink_instance_role_${ENV}" 2>/dev/null || true
   aws iam delete-instance-profile --instance-profile-name "lablink_instance_profile_${ENV}" 2>/dev/null || true
-  aws iam delete-role --role-name "lablink_instance_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}✓${NC} Deleted instance role" || echo -e "    ${GREEN}✓${NC} Instance role not found"
-  aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null && echo -e "    ${GREEN}✓${NC} Deleted S3 backend policy" || echo -e "    ${GREEN}✓${NC} S3 backend policy not found"
-  aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_cloudwatch_${ENV}" 2>/dev/null && echo -e "    ${GREEN}✓${NC} Deleted CloudWatch policy" || echo -e "    ${GREEN}✓${NC} CloudWatch policy not found"
+  aws iam delete-role --role-name "lablink_instance_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted instance role" || echo -e "    ${GREEN}[OK]${NC} Instance role not found"
+  aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted S3 backend policy" || echo -e "    ${GREEN}[OK]${NC} S3 backend policy not found"
+  aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_cloudwatch_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted CloudWatch policy" || echo -e "    ${GREEN}[OK]${NC} CloudWatch policy not found"
 else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete instance role, instance profile, and policies"
 fi
@@ -341,8 +388,8 @@ echo ""
 echo -e "${BLUE}8. Deleting CloudWatch log groups...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
-  aws logs delete-log-group --region ${REGION} --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted client log group" || echo -e "  ${GREEN}✓${NC} Client log group not found"
-  aws logs delete-log-group --region ${REGION} --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted Lambda log group" || echo -e "  ${GREEN}✓${NC} Lambda log group not found"
+  aws logs delete-log-group --region ${REGION} --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client log group" || echo -e "  ${GREEN}[OK]${NC} Client log group not found"
+  aws logs delete-log-group --region ${REGION} --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted Lambda log group" || echo -e "  ${GREEN}[OK]${NC} Lambda log group not found"
 else
   echo -e "${YELLOW}[DRY RUN]${NC} Would delete CloudWatch log groups"
 fi
@@ -356,11 +403,11 @@ if [ "$DRY_RUN" = false ]; then
   BACKUP_DIR="$REPO_ROOT/terraform-state-backup-$(date +%Y%m%d-%H%M%S)"
   mkdir -p "${BACKUP_DIR}"
   echo "  Backing up state files to ${BACKUP_DIR}..."
-  aws s3 cp s3://${BUCKET}/${ENV}/ "${BACKUP_DIR}/" --recursive 2>/dev/null && echo -e "  ${GREEN}✓${NC} State files backed up" || echo -e "  ${GREEN}✓${NC} No state files to backup"
+  aws s3 cp s3://${BUCKET}/${ENV}/ "${BACKUP_DIR}/" --recursive 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} State files backed up" || echo -e "  ${GREEN}[OK]${NC} No state files to backup"
 
   # Delete state files
-  aws s3 rm s3://${BUCKET}/${ENV}/terraform.tfstate 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted infrastructure state" || echo -e "  ${GREEN}✓${NC} Infrastructure state not found"
-  aws s3 rm s3://${BUCKET}/${ENV}/client/ --recursive 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted client state" || echo -e "  ${GREEN}✓${NC} Client state not found"
+  aws s3 rm s3://${BUCKET}/${ENV}/terraform.tfstate 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted infrastructure state" || echo -e "  ${GREEN}[OK]${NC} Infrastructure state not found"
+  aws s3 rm s3://${BUCKET}/${ENV}/client/ --recursive 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client state" || echo -e "  ${GREEN}[OK]${NC} Client state not found"
 else
   echo -e "${YELLOW}[DRY RUN]${NC} Would backup and delete S3 state files"
 fi
@@ -371,9 +418,9 @@ echo -e "${BLUE}10. Cleaning DynamoDB lock entries...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
   aws dynamodb delete-item --table-name lock-table --region ${REGION} \
-    --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted infrastructure lock" || echo -e "  ${GREEN}✓${NC} Infrastructure lock not found"
+    --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted infrastructure lock" || echo -e "  ${GREEN}[OK]${NC} Infrastructure lock not found"
   aws dynamodb delete-item --table-name lock-table --region ${REGION} \
-    --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/client/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}✓${NC} Deleted client lock" || echo -e "  ${GREEN}✓${NC} Client lock not found"
+    --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/client/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client lock" || echo -e "  ${GREEN}[OK]${NC} Client lock not found"
 else
   echo -e "${YELLOW}[DRY RUN]${NC} Would delete DynamoDB lock entries"
 fi
