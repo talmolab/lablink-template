@@ -411,6 +411,8 @@ See the workflows in the `.github` directory for automated deployment examples.
 
 ## Cleanup
 
+### Normal Destroy
+
 To destroy all infrastructure:
 
 ```bash
@@ -426,6 +428,26 @@ This removes:
 - IAM roles and policies
 
 **Note:** The S3 bucket for Terraform state is NOT deleted automatically. Delete it manually if no longer needed.
+
+### Cleanup Orphaned Resources
+
+If `terraform destroy` fails or leaves orphaned resources, use the automated cleanup script:
+
+```bash
+# From repository root
+./scripts/cleanup-orphaned-resources.sh <environment>
+
+# Example:
+./scripts/cleanup-orphaned-resources.sh test
+```
+
+The script automatically handles:
+- Reading configuration from `config/config.yaml`
+- Backing up Terraform state files before deletion
+- Deleting resources in correct dependency order
+- Dry-run mode for safe testing: `./scripts/cleanup-orphaned-resources.sh test --dry-run`
+
+For detailed manual cleanup procedures and troubleshooting, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
 
 ## Documentation
 
