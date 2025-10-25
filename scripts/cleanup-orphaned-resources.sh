@@ -132,7 +132,7 @@ echo -e "${YELLOW}=== Verification: Checking what exists ===${NC}"
 echo ""
 
 echo "Checking EC2 resources..."
-aws ec2 describe-instances --region ${REGION} \
+aws ec2 describe-instances --region "${REGION}" \
   --filters "Name=tag:Name,Values=*${ENV}*" "Name=instance-state-name,Values=running,stopped,pending" \
   --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0]]' \
   --output table || echo "  No instances found"
@@ -143,14 +143,14 @@ aws iam list-roles --query "Roles[?contains(RoleName, '${ENV}')].RoleName" --out
 
 echo ""
 echo "Checking Security Groups..."
-aws ec2 describe-security-groups --region ${REGION} \
+aws ec2 describe-security-groups --region "${REGION}" \
   --filters "Name=group-name,Values=*${ENV}*" \
   --query 'SecurityGroups[*].[GroupId,GroupName]' \
   --output table || echo "  No security groups found"
 
 echo ""
 echo "Checking Key Pairs..."
-aws ec2 describe-key-pairs --region ${REGION} \
+aws ec2 describe-key-pairs --region "${REGION}" \
   --filters "Name=key-name,Values=*${ENV}*" \
   --query 'KeyPairs[*].KeyName' \
   --output table || echo "  No key pairs found"
@@ -180,14 +180,14 @@ echo ""
 echo -e "${BLUE}1. Terminating EC2 instances...${NC}"
 
 # Client VMs
-INSTANCE_IDS=$(aws ec2 describe-instances --region ${REGION} \
+INSTANCE_IDS=$(aws ec2 describe-instances --region "${REGION}" \
   --filters "Name=tag:Name,Values=lablink-vm-${ENV}-*" "Name=instance-state-name,Values=running,stopped,pending" \
   --query 'Reservations[*].Instances[*].InstanceId' \
   --output text 2>/dev/null || echo "")
 
 if [ -n "$INSTANCE_IDS" ]; then
   if [ "$DRY_RUN" = false ]; then
-    aws ec2 terminate-instances --region ${REGION} --instance-ids $INSTANCE_IDS
+    aws ec2 terminate-instances --region "${REGION}" --instance-ids "$INSTANCE_IDS"
     echo -e "  ${GREEN}[OK]${NC} Terminated client VMs: $INSTANCE_IDS"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would terminate client VMs: $INSTANCE_IDS"
@@ -197,14 +197,14 @@ else
 fi
 
 # Allocator
-INSTANCE_ID=$(aws ec2 describe-instances --region ${REGION} \
+INSTANCE_ID=$(aws ec2 describe-instances --region "${REGION}" \
   --filters "Name=tag:Name,Values=LabLink Allocator Server (${ENV})" "Name=instance-state-name,Values=running,stopped,pending" \
   --query 'Reservations[0].Instances[0].InstanceId' \
   --output text 2>/dev/null || echo "")
 
 if [ "$INSTANCE_ID" != "None" ] && [ -n "$INSTANCE_ID" ]; then
   if [ "$DRY_RUN" = false ]; then
-    aws ec2 terminate-instances --region ${REGION} --instance-ids ${INSTANCE_ID}
+    aws ec2 terminate-instances --region "${REGION}" --instance-ids "${INSTANCE_ID}"
     echo -e "  ${GREEN}[OK]${NC} Terminated allocator: ${INSTANCE_ID}"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would terminate allocator: ${INSTANCE_ID}"
@@ -228,14 +228,14 @@ echo ""
 echo -e "${BLUE}3. Deleting security groups...${NC}"
 
 # Client SG
-SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
+SG_ID=$(aws ec2 describe-security-groups --region "${REGION}" \
   --filters "Name=group-name,Values=lablink_client_${ENV}_sg" \
   --query 'SecurityGroups[0].GroupId' \
   --output text 2>/dev/null || echo "")
 
 if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
-    if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
+    if aws ec2 delete-security-group --region "${REGION}" --group-id "${SG_ID}" 2>/dev/null; then
       echo -e "  ${GREEN}[OK]${NC} Deleted client SG: ${SG_ID}"
     else
       echo -e "  ${YELLOW}⚠${NC} Client SG deletion failed (may need retry): ${SG_ID}"
@@ -248,14 +248,14 @@ else
 fi
 
 # Allocator SG
-SG_ID=$(aws ec2 describe-security-groups --region ${REGION} \
+SG_ID=$(aws ec2 describe-security-groups --region "${REGION}" \
   --filters "Name=group-name,Values=allow_http_https_${ENV}" \
   --query 'SecurityGroups[0].GroupId' \
   --output text 2>/dev/null || echo "")
 
 if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
-    if aws ec2 delete-security-group --region ${REGION} --group-id ${SG_ID} 2>/dev/null; then
+    if aws ec2 delete-security-group --region "${REGION}" --group-id "${SG_ID}" 2>/dev/null; then
       echo -e "  ${GREEN}[OK]${NC} Deleted allocator SG: ${SG_ID}"
     else
       echo -e "  ${YELLOW}⚠${NC} Allocator SG deletion failed (may need retry): ${SG_ID}"
@@ -271,9 +271,9 @@ fi
 echo ""
 echo -e "${BLUE}4. Deleting key pairs...${NC}"
 
-if aws ec2 describe-key-pairs --region ${REGION} --key-names "lablink_key_pair_client_${ENV}" >/dev/null 2>&1; then
+if aws ec2 describe-key-pairs --region "${REGION}" --key-names "lablink_key_pair_client_${ENV}" >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    if aws ec2 delete-key-pair --region ${REGION} --key-name "lablink_key_pair_client_${ENV}" 2>/dev/null; then
+    if aws ec2 delete-key-pair --region "${REGION}" --key-name "lablink_key_pair_client_${ENV}" 2>/dev/null; then
       echo -e "  ${GREEN}[OK]${NC} Deleted client key"
     else
       echo -e "  ${RED}[FAIL]${NC} Failed to delete client key"
@@ -285,9 +285,9 @@ else
   echo -e "  ${GREEN}[OK]${NC} No client key pair found"
 fi
 
-if aws ec2 describe-key-pairs --region ${REGION} --key-names "lablink-key-${ENV}" >/dev/null 2>&1; then
+if aws ec2 describe-key-pairs --region "${REGION}" --key-names "lablink-key-${ENV}" >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    if aws ec2 delete-key-pair --region ${REGION} --key-name "lablink-key-${ENV}" 2>/dev/null; then
+    if aws ec2 delete-key-pair --region "${REGION}" --key-name "lablink-key-${ENV}" 2>/dev/null; then
       echo -e "  ${GREEN}[OK]${NC} Deleted allocator key"
     else
       echo -e "  ${RED}[FAIL]${NC} Failed to delete allocator key"
@@ -303,14 +303,14 @@ fi
 echo ""
 echo -e "${BLUE}5. Releasing Elastic IP...${NC}"
 
-ALLOCATION_ID=$(aws ec2 describe-addresses --region ${REGION} \
+ALLOCATION_ID=$(aws ec2 describe-addresses --region "${REGION}" \
   --filters "Name=tag:Name,Values=lablink-eip-${ENV}" \
   --query 'Addresses[0].AllocationId' \
   --output text 2>/dev/null || echo "")
 
 if [ -n "$ALLOCATION_ID" ] && [ "$ALLOCATION_ID" != "None" ]; then
   if [ "$DRY_RUN" = false ]; then
-    aws ec2 release-address --region ${REGION} --allocation-id ${ALLOCATION_ID}
+    aws ec2 release-address --region "${REGION}" --allocation-id "${ALLOCATION_ID}"
     echo -e "  ${GREEN}[OK]${NC} Released EIP: ${ALLOCATION_ID}"
   else
     echo -e "${YELLOW}[DRY RUN]${NC} Would release EIP: ${ALLOCATION_ID}"
@@ -323,9 +323,9 @@ fi
 echo ""
 echo -e "${BLUE}6. Deleting Lambda function...${NC}"
 
-if aws lambda get-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} >/dev/null 2>&1; then
+if aws lambda get-function --function-name "lablink_log_processor_${ENV}" --region "${REGION}" >/dev/null 2>&1; then
   if [ "$DRY_RUN" = false ]; then
-    if aws lambda delete-function --function-name "lablink_log_processor_${ENV}" --region ${REGION} 2>/dev/null; then
+    if aws lambda delete-function --function-name "lablink_log_processor_${ENV}" --region "${REGION}" 2>/dev/null; then
       echo -e "  ${GREEN}[OK]${NC} Deleted Lambda"
     else
       echo -e "  ${RED}[FAIL]${NC} Failed to delete Lambda"
@@ -388,8 +388,8 @@ echo ""
 echo -e "${BLUE}8. Deleting CloudWatch log groups...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
-  aws logs delete-log-group --region ${REGION} --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client log group" || echo -e "  ${GREEN}[OK]${NC} Client log group not found"
-  aws logs delete-log-group --region ${REGION} --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted Lambda log group" || echo -e "  ${GREEN}[OK]${NC} Lambda log group not found"
+  aws logs delete-log-group --region "${REGION}" --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client log group" || echo -e "  ${GREEN}[OK]${NC} Client log group not found"
+  aws logs delete-log-group --region "${REGION}" --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted Lambda log group" || echo -e "  ${GREEN}[OK]${NC} Lambda log group not found"
 else
   echo -e "${YELLOW}[DRY RUN]${NC} Would delete CloudWatch log groups"
 fi
@@ -417,9 +417,9 @@ echo ""
 echo -e "${BLUE}10. Cleaning DynamoDB lock entries...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
-  aws dynamodb delete-item --table-name lock-table --region ${REGION} \
+  aws dynamodb delete-item --table-name lock-table --region "${REGION}" \
     --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted infrastructure lock" || echo -e "  ${GREEN}[OK]${NC} Infrastructure lock not found"
-  aws dynamodb delete-item --table-name lock-table --region ${REGION} \
+  aws dynamodb delete-item --table-name lock-table --region "${REGION}" \
     --key "{\"LockID\": {\"S\": \"${BUCKET}/${ENV}/client/terraform.tfstate-md5\"}}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client lock" || echo -e "  ${GREEN}[OK]${NC} Client lock not found"
 else
   echo -e "${YELLOW}[DRY RUN]${NC} Would delete DynamoDB lock entries"
@@ -431,7 +431,7 @@ echo ""
 
 if [ "$DRY_RUN" = false ]; then
   echo "Run the following command to verify everything is cleaned up:"
-  echo "  aws ec2 describe-instances --region ${REGION} --filters \"Name=tag:Name,Values=*${ENV}*\" --query 'Reservations[*].Instances[*].[InstanceId,State.Name]' --output table"
+  echo "  aws ec2 describe-instances --region "${REGION}" --filters \"Name=tag:Name,Values=*${ENV}*\" --query 'Reservations[*].Instances[*].[InstanceId,State.Name]' --output table"
 else
   echo -e "${YELLOW}This was a dry run. No resources were deleted.${NC}"
   echo "To actually delete resources, run without --dry-run flag:"
