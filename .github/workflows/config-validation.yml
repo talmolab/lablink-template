@@ -1,0 +1,64 @@
+name: Validate Configuration
+
+on:
+  pull_request:
+    paths:
+      - 'lablink-infrastructure/config/config.yaml'
+      - 'lablink-infrastructure/config/*.example.yaml'
+
+  workflow_dispatch:
+    inputs:
+      config_path:
+        description: 'Path to config file to validate'
+        required: false
+        default: 'lablink-infrastructure/config/config.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-config:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+
+      - name: Create temporary project for validation
+        run: |
+          # Create a minimal uv project to install lablink-allocator-service
+          mkdir -p .validation-temp
+          cd .validation-temp
+          uv init --name config-validator --no-workspace
+          uv add lablink-allocator-service
+
+      - name: Validate configuration
+        id: validate
+        run: |
+          CONFIG_PATH="${{ github.event.inputs.config_path || 'lablink-infrastructure/config/config.yaml' }}"
+          echo "Validating configuration file: $CONFIG_PATH"
+
+          # Run validation with verbose output using uv run
+          cd .validation-temp
+          uv run lablink-validate-config "../$CONFIG_PATH" --verbose
+
+      - name: Report validation success
+        if: success()
+        run: |
+          echo "::notice::Configuration validation passed!"
+          echo "The config.yaml file is valid and ready for deployment."
+
+      - name: Report validation failure
+        if: failure()
+        run: |
+          echo "::error::Configuration validation failed!"
+          echo "Please review the error messages above and fix the configuration issues."
+          echo "You can run validation locally with:"
+          echo "  uv init --name validator && uv add lablink-allocator-service"
+          echo "  uv run lablink-validate-config lablink-infrastructure/config/config.yaml"
+          exit 1

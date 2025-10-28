@@ -74,6 +74,31 @@ jobs:
           echo "Using environment: ${{ steps.setenv.outputs.env }}"
           echo "Working directory: ${{ steps.setenv.outputs.workdir }}"
 
+      - name: Set up UV for config validation
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+
+      - name: Validate configuration before deployment
+        working-directory: ${{ steps.setenv.outputs.workdir }}
+        run: |
+          echo "Validating configuration before deployment..."
+
+          # Create temporary project for validation
+          mkdir -p .validation-temp
+          cd .validation-temp
+          uv init --name config-validator --no-workspace
+          uv add lablink-allocator-service
+
+          # Run validation
+          uv run lablink-validate-config "../config/config.yaml" --verbose
+
+          # Clean up
+          cd ..
+          rm -rf .validation-temp
+
+          echo "Configuration validation passed!"
+
       - name: Inject Password Secrets
         working-directory: ${{ steps.setenv.outputs.workdir }}
         env:
