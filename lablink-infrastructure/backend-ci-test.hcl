@@ -20,6 +20,5 @@
 # Resource naming: All resources suffixed with -ci-test (e.g., lablink-eip-ci-test)
 # This allows simultaneous deployments alongside test/prod environments
 key            = "ci-test/terraform.tfstate"
-region         = "us-west-2"
 dynamodb_table = "lock-table"
 encrypt        = true
