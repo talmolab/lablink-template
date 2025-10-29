@@ -20,7 +20,7 @@ else
     BUCKET_NAME=$(grep "^bucket_name:" config/config.yaml | awk '{print $2}' | tr -d '"' | head -n 1)
     REGION=$(grep "^\s*region:" config/config.yaml | awk '{print $2}' | tr -d '"' | head -n 1)
 
-    if [ -z "$BUCKET_NAME" ]; then
+    if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "YOUR-UNIQUE-SUFFIX" ]; then
         echo "Error: Please set a valid bucket_name in config/config.yaml"
         exit 1
     fi
