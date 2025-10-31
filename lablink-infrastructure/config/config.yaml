@@ -1,6 +1,7 @@
 # LabLink Allocator Configuration
 # This file configures the allocator service and client VM specifications
 # Copy to config.yaml and customize for your deployment
+# Note: This config is validated in CI using lablink-validate-config
 
 db:
   dbname: "lablink_db"
