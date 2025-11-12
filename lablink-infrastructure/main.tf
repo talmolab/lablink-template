@@ -130,8 +130,6 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:DeleteInstanceProfile",
       "iam:AddRoleToInstanceProfile",
       "iam:RemoveRoleFromInstanceProfile",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
       "iam:ListInstanceProfilesForRole",
@@ -162,6 +160,23 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
     effect    = "Allow"
     actions   = ["iam:ListEntitiesForPolicy"]
     resources = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+  }
+
+  # Allow attaching/detaching the CloudWatchAgentServerPolicy to the VM roles
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+    resources = [  
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"  
+    ]
+    condition {
+      test     = "ArnEquals"  
+      variable = "iam:PolicyArn"
+      values   = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+    }
   }
 }
 
@@ -373,12 +388,6 @@ resource "aws_iam_policy" "ec2_vm_management_policy" {
   policy = data.aws_iam_policy_document.ec2_vm_management_doc.json
 }
 
-resource "aws_iam_policy_attachment" "attach_ec2_management" {
-  name       = "lablink_attach_ec2_management_${var.resource_suffix}"
-  policy_arn = aws_iam_policy.ec2_vm_management_policy.arn
-  roles      = [aws_iam_role.instance_role.name]
-}
-
 resource "aws_iam_role" "instance_role" {
   name = "lablink_instance_role_${var.resource_suffix}"
 
@@ -390,6 +399,11 @@ resource "aws_iam_role" "instance_role" {
       Action    = "sts:AssumeRole"
     }]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_ec2_management" {
+  role      = aws_iam_role.instance_role.name
+  policy_arn = aws_iam_policy.ec2_vm_management_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "attach_s3_backend" {
