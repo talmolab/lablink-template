@@ -184,7 +184,9 @@ Admin UI:  http://<ec2-public-ip>:5000/admin
 - **Lambda Function**: Processes CloudWatch logs from client VMs
 - **Route 53 DNS**: Automatic DNS record management (if configured)
 - **Security Groups**: Network security rules
-- **IAM Roles**: Permissions for EC2 and CloudWatch logging
+- **IAM Roles**: 
+  - **Allocator Instance Role**: A role for the allocator EC2 instance with permissions to manage the lifecycle of client VMs (run, terminate, tag, etc.) and their associated resources (IAM roles, instance profiles).
+  - **CloudWatch Agent Role**: A role for client VMs to send logs to CloudWatch.
 - **CloudWatch Log Groups**: Centralized logging for troubleshooting
 
 ## Environments
@@ -371,6 +373,7 @@ See the workflows in the `.github` directory for automated deployment examples.
 
 ## Security Best Practices
 
+- ✅ **Secure the Allocator Instance**: The allocator EC2 instance has a powerful IAM role that allows it to create, terminate, and manage other EC2 instances. Unauthorized access to this instance could lead to misuse of AWS resources. Ensure that its security group is restricted to trusted IP addresses and that you follow all other security best practices to protect it.
 - ✅ **Change default passwords** in `config.yaml` before deploying
 - ✅ Use **IAM roles** instead of access keys when possible
 - ✅ Enable **S3 backend encryption** for production state files

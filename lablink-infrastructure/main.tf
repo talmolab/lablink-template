@@ -87,6 +87,99 @@ data "aws_iam_policy_document" "s3_backend_doc" {
   }
 }
 
+data "aws_iam_policy_document" "ec2_vm_management_doc" {
+  # EC2 permissions for VM lifecycle management
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:RunInstances",
+      "ec2:TerminateInstances",
+      "ec2:DescribeInstances",
+      "ec2:DescribeInstanceStatus",
+      "ec2:CreateTags",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeKeyPairs",
+      "ec2:CreateSecurityGroup",
+      "ec2:DeleteSecurityGroup",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupEgress",
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:CreateKeyPair",
+      "ec2:DeleteKeyPair",
+      "ec2:ImportKeyPair",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeInstanceTypes",
+      "ec2:DescribeImages",
+      "ec2:DescribeTags",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeInstanceAttribute",
+    ]
+    resources = ["*"]
+  }
+
+  # IAM permissions for creating VM roles
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:CreateInstanceProfile",
+      "iam:DeleteInstanceProfile",
+      "iam:AddRoleToInstanceProfile",
+      "iam:RemoveRoleFromInstanceProfile",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+      "iam:GetInstanceProfile"
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/lablink_client_instance_profile_*"
+    ]
+  }
+
+  # Allow passing the CloudWatch role to created VMs
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ec2.amazonaws.com"]
+    }
+  }
+  statement {
+    effect    = "Allow"
+    actions   = ["iam:ListEntitiesForPolicy"]
+    resources = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+  }
+
+  # Allow attaching/detaching the CloudWatchAgentServerPolicy to the VM roles
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+    resources = [  
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"  
+    ]
+    condition {
+      test     = "ArnEquals"  
+      variable = "iam:PolicyArn"
+      values   = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+    }
+  }
+}
+
 
 # Zip the Lambda function code
 # To package the Lambda function into a zip file
@@ -290,6 +383,11 @@ resource "aws_iam_policy" "s3_backend_policy" {
   policy = data.aws_iam_policy_document.s3_backend_doc.json
 }
 
+resource "aws_iam_policy" "ec2_vm_management_policy" {
+  name   = "lablink_ec2_vm_management_${var.resource_suffix}"
+  policy = data.aws_iam_policy_document.ec2_vm_management_doc.json
+}
+
 resource "aws_iam_role" "instance_role" {
   name = "lablink_instance_role_${var.resource_suffix}"
 
@@ -301,6 +399,11 @@ resource "aws_iam_role" "instance_role" {
       Action    = "sts:AssumeRole"
     }]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_ec2_management" {
+  role      = aws_iam_role.instance_role.name
+  policy_arn = aws_iam_policy.ec2_vm_management_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "attach_s3_backend" {
