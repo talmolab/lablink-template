@@ -133,6 +133,7 @@ terraform plan
 # Deploy
 terraform apply
 ```
+> **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
 
 **Option B: Manual Terraform commands**
 
@@ -147,6 +148,7 @@ terraform init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUC
 terraform plan
 terraform apply
 ```
+> **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
 
 ### 3. Verify Deployment (Optional)
 
