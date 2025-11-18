@@ -11,11 +11,10 @@ resource "aws_sns_topic" "admin_alerts" {
 # SNS Email Subscription
 resource "aws_sns_topic_subscription" "admin_email" {
 #   count     = try(local.config_file.monitoring.enabled, false) ? 1 : 0
-    count = (local.config_file.monitoring.enabled) ? 1 : 0
+  count = (local.config_file.monitoring.enabled) ? 1 : 0
   topic_arn = aws_sns_topic.admin_alerts.arn
   protocol  = "email"
-#   endpoint  = try(local.config_file.monitoring.alerts.email, "")
-    endpoint  = try(local.config_file.monitoring.email, "")
+  endpoint  = try(local.config_file.monitoring.email, "")
 }
 
 # Metric Filter: Mass Instance Launches
