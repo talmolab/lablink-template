@@ -66,6 +66,21 @@ startup_script:
   path: "config/custom-startup.sh"  # Path to custom startup script (optional)
   on_error: "continue"  # "continue" = ignore errors, "fail" = stop VM setup on error
 
+monitoring:
+  enabled: false
+  email: ""
+  thresholds:
+    max_instances_per_5min: 10
+    max_terminations_per_5min: 20
+    max_iam_roles_per_hour: 5
+    max_security_group_changes_per_hour: 10
+    max_unauthorized_calls_per_15min: 5
+  budget:
+    enabled: false
+    monthly_budget_usd: 500
+  cloudtrail:
+    retention_days: 90
+
 # S3 bucket for Terraform state (must be unique globally)
 # Only used for test/prod environments with S3 backend (not used in dev)
 # Replace YOUR-ORG with your organization name
