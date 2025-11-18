@@ -72,7 +72,14 @@ startup_script:
 bucket_name: "tf-state-lablink-template-testing"
 
 monitoring:
-  enabled: true # true = enable monitoring with CloudWatch, false = no monitoring
-  email: "hee031011@gmail.com" # Email for monitoring alerts (optional)
+  enabled: true # true = enable monitoring and alerts, false = disable
+  email: "your-email@example.com" # Email to receive budget alerts (must be valid for AWS SNS notifications)
+  thresholds:
+    max_instances_per_5min: 10 # Maximum number of instances launched in 5 minutes
+    max_security_group_changes_per_hour: 10 # Maximum number of security group changes in 1 hour
+    max_unauthorized_calls_per_15min: 5 # Maximum number of unauthorized API calls in 15 minutes
   budget:
-    enabled: true # true = enable AWS budget alerts, false = no budget alerts
+    enabled: true
+    monthly_budget_usd: 500
+  cloudtrail:
+    retention_days: 90

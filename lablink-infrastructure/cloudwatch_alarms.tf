@@ -10,8 +10,7 @@ resource "aws_sns_topic" "admin_alerts" {
 
 # SNS Email Subscription
 resource "aws_sns_topic_subscription" "admin_email" {
-#   count     = try(local.config_file.monitoring.enabled, false) ? 1 : 0
-  count = (local.config_file.monitoring.enabled) ? 1 : 0
+  count     = (local.config_file.monitoring.enabled) ? 1 : 0
   topic_arn = aws_sns_topic.admin_alerts.arn
   protocol  = "email"
   endpoint  = try(local.config_file.monitoring.email, "")
@@ -41,7 +40,7 @@ resource "aws_cloudwatch_metric_alarm" "mass_instance_launch" {
   evaluation_periods  = 1
   metric_name         = "RunInstancesCount"
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
-  period              = 300  # 5 minutes
+  period              = 300 # 5 minutes
   statistic           = "Sum"
   threshold           = try(local.config_file.monitoring.thresholds.max_instances_per_5min, 10)
   alarm_description   = "Alert when allocator launches >${try(local.config_file.monitoring.thresholds.max_instances_per_5min, 10)} instances in 5 minutes"
@@ -81,7 +80,7 @@ resource "aws_cloudwatch_metric_alarm" "large_instance_launched" {
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
   period              = 300
   statistic           = "Sum"
-  threshold           = 0  # Alert on ANY large instance
+  threshold           = 0 # Alert on ANY large instance
   alarm_description   = "Alert when allocator launches expensive instance types (p4d, p3, g5)"
   alarm_actions       = [aws_sns_topic.admin_alerts.arn]
   treat_missing_data  = "notBreaching"
@@ -117,7 +116,7 @@ resource "aws_cloudwatch_metric_alarm" "unauthorized_calls" {
   evaluation_periods  = 1
   metric_name         = "UnauthorizedAPICalls"
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
-  period              = 900  # 15 minutes
+  period              = 900 # 15 minutes
   statistic           = "Sum"
   threshold           = try(local.config_file.monitoring.thresholds.max_unauthorized_calls_per_15min, 5)
   alarm_description   = "Alert when allocator makes unauthorized API calls (possible attack or permission issue)"
@@ -128,5 +127,42 @@ resource "aws_cloudwatch_metric_alarm" "unauthorized_calls" {
     Name        = "lablink-unauthorized-calls-${var.resource_suffix}"
     Environment = var.resource_suffix
     Severity    = "critical"
+  }
+}
+
+# Metric Filter: High Termination Rate
+resource "aws_cloudwatch_log_metric_filter" "high_termination_rate" {
+  name           = "lablink-high-termination-rate-${var.resource_suffix}"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
+  pattern        = <<PATTERN
+{ ($.eventName = TerminateInstances) && ($.userIdentity.principalId = *lablink_instance_role*) }
+PATTERN
+
+  metric_transformation {
+    name      = "TerminateInstancesCount"
+    namespace = "LabLinkSecurity/${var.resource_suffix}"
+    value     = "1"
+    unit      = "Count"
+  }
+}
+
+# Alarm: High Termination Rate
+resource "aws_cloudwatch_metric_alarm" "high_termination_rate" {
+  alarm_name          = "lablink-high-termination-rate-${var.resource_suffix}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "TerminateInstancesCount"
+  namespace           = "LabLinkSecurity/${var.resource_suffix}"
+  period              = 300 # 5 minutes
+  statistic           = "Sum"
+  threshold           = try(local.config_file.monitoring.thresholds.max_terminations_per_5min, 10)
+  alarm_description   = "Alert when allocator terminates >${try(local.config_file.monitoring.thresholds.max_terminations_per_5min, 10)} instances in 5 minutes (possible cleanup or attack)"
+  alarm_actions       = [aws_sns_topic.admin_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  tags = {
+    Name        = "lablink-high-termination-rate-${var.resource_suffix}"
+    Environment = var.resource_suffix
+    Severity    = "high"
   }
 }

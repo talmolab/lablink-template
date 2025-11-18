@@ -133,6 +133,7 @@ terraform plan
 # Deploy
 terraform apply
 ```
+
 > **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
 
 **Option B: Manual Terraform commands**
@@ -148,6 +149,7 @@ terraform init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUC
 terraform plan
 terraform apply
 ```
+
 > **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
 
 ### 3. Verify Deployment (Optional)
@@ -251,8 +253,6 @@ Each environment maintains separate Terraform state to avoid conflicts.
 - `thresholds`:
   - `max_instances_per_5min`: Max instances created in 5 minutes.
   - `max_terminations_per_5min`: Max instances terminated in 5 minutes.
-  - `max_iam_roles_per_hour`: Max IAM roles created in an hour.
-  - `max_security_group_changes_per_hour`: Max security group changes in an hour.
   - `max_unauthorized_calls_per_15min`: Max unauthorized API calls in 15 minutes.
 - `budget`:
   - `enabled`: `true` to enable budget monitoring, `false` to disable.
