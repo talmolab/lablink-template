@@ -1,6 +1,6 @@
 # S3 bucket for CloudTrail logs
 resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket        = "lablink-cloudtrail-${var.resource_suffix}-${data.aws_caller_identity.current.account_id}"
+  bucket = "lablink-cloudtrail-${var.resource_suffix}-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
 
   tags = {
@@ -9,7 +9,7 @@ resource "aws_s3_bucket" "cloudtrail_logs" {
   }
 }
 
-# S3 bucket encryption configuration
+# S3 bucket encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_encryption" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
 
@@ -20,7 +20,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_encryp
   }
 }
 
-# S3 bucket policy for CloudTrail logs
+# S3 bucket policy for CloudTrail
 resource "aws_s3_bucket_policy" "cloudtrail_policy" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
 
@@ -57,7 +57,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_policy" {
 # CloudWatch Log Group for CloudTrail
 resource "aws_cloudwatch_log_group" "cloudtrail_logs" {
   name              = "lablink-cloudtrail-${var.resource_suffix}"
-  retention_in_days = try(local.config_file.monitoring.cloudtrail_retention_days, 90)
+  retention_in_days = try(local.config_file.monitoring.cloudtrail.retention_days, 90)
 }
 
 # IAM role for CloudTrail to write to CloudWatch
