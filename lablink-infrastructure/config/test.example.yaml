@@ -52,12 +52,8 @@ dns:
   # Enable DNS for test environment
   enabled: true
   terraform_managed: true  # Let Terraform manage DNS records
-  domain: "example.com"  # Your base domain (Route53 hosted zone)
-  zone_id: ""  # Will be set by setup-aws-infrastructure.sh
-  app_name: ""  # Not used with custom pattern
-  pattern: "custom"  # Using custom pattern (workaround for allocator bug - see issue #212)
-  custom_subdomain: "test"  # Creates: test.example.com
-  create_zone: false  # Use existing zone
+  domain: "test.lablink.example.com"  # Full domain name (supports sub-subdomains)
+  zone_id: ""  # (Optional) Hardcode zone ID or leave empty for auto-lookup
 
 eip:
   # Use persistent EIP for test (keeps same IP across redeploys)
@@ -65,10 +61,15 @@ eip:
   tag_name: "lablink-eip"  # Will become lablink-eip-test
 
 ssl:
-  # Use Let's Encrypt staging certs for test (unlimited, not trusted)
+  # Use Let's Encrypt for test (production certs - always HTTPS)
   provider: "letsencrypt"
   email: "admin@example.com"  # Your email for Let's Encrypt notifications
-  staging: true  # Staging certs = HTTP only, no rate limits
+  certificate_arn: ""  # Not needed for letsencrypt
+
+startup_script:
+  enabled: false  # Enable custom startup script if needed
+  path: "config/custom-startup.sh"
+  on_error: "continue"
 
 # S3 bucket for Terraform state (must be unique across ALL of AWS)
 # Example: if your org is "acme", use "tf-state-lablink-acme"
