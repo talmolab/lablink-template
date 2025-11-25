@@ -125,8 +125,11 @@ Use this checklist to ensure you have completed all required setup steps before 
 **SSL Settings** (if using SSL):
 - [ ] Set `provider`: "letsencrypt", "cloudflare", or "none"
 - [ ] Updated `email` for Let's Encrypt notifications
-- [ ] Set `staging: false` for production SSL certs
-  - Keep `staging: true` for testing (unlimited rate)
+- [ ] Set `ssl.provider` appropriately
+  - `letsencrypt`: Automatic SSL with production certs
+  - `cloudflare`: CloudFlare proxy provides SSL
+  - `acm`: Use AWS Certificate Manager (enterprise)
+  - `none`: HTTP only for testing
 
 **S3 Bucket:**
 - [ ] Updated `bucket_name` to match created S3 bucket

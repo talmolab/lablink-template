@@ -227,21 +227,17 @@ Each environment maintains separate Terraform state to avoid conflicts.
 - `zone_id`: Route 53 hosted zone ID (required if `terraform_managed: true`)
 
 ### SSL Configuration (`ssl`)
-- `provider`: SSL provider (`letsencrypt`, `cloudflare`, or `none`)
+- `provider`: SSL provider (`letsencrypt`, `cloudflare`, `acm`, or `none`)
 - `email`: Email for Let's Encrypt notifications
-- `staging`: When `true`, serve HTTP only for unlimited testing. When `false`, serve HTTPS with trusted Let's Encrypt certificates (rate limited to 5 duplicate certificates per week)
+- `certificate_arn`: Required when `provider="acm"` - ARN of ACM certificate
 
-**Staging Mode:**
-- Use `staging: true` for rapid infrastructure testing without SSL complications
-- Caddy serves HTTP only (no certificates, no redirects)
-- Client VMs connect via HTTP
-- Unlimited deployments per day
-- **Not for production use** - no encryption
+**SSL Provider Options:**
+- `letsencrypt`: Caddy automatically obtains trusted Let's Encrypt certificates and serves HTTPS
+- `cloudflare`: CloudFlare proxy provides SSL termination (Caddy serves HTTP, CloudFlare adds HTTPS)
+- `acm`: AWS Certificate Manager via Application Load Balancer (enterprise-grade SSL)
+- `none`: HTTP only (no SSL) - for testing purposes only
 
-**Production Mode:**
-- Use `staging: false` for production deployments
-- Caddy obtains trusted Let's Encrypt certificates
-- Serves HTTPS with automatic HTTP→HTTPS redirects
+**Note:** Let's Encrypt always uses production certificates (no staging mode). Rate limit is 50 certificates per registered domain per week.
 - Subject to Let's Encrypt rate limits
 
 ### Terraform State (`bucket_name`)
