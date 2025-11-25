@@ -356,29 +356,28 @@ app:
 dns:
   enabled: false  # true to use DNS, false for IP-only
   terraform_managed: false  # true = Terraform creates records
-  domain: "lablink.example.com"
+  domain: "lablink.example.com"  # Full domain name (e.g., test.lablink.example.com)
   zone_id: ""  # Leave empty for auto-lookup
-  app_name: "lablink"
-  pattern: "auto"  # "auto" or "custom"
 ```
 
-**DNS Patterns**:
-- `auto`: Creates `{env}.{app_name}.{domain}` (e.g., `test.lablink.example.com`)
-- `custom`: Uses `custom_subdomain` value
+**Domain Naming**:
+- Specify the full domain directly (e.g., `lablink.example.com` or `test.lablink.example.com`)
+- No automatic subdomain construction - use exactly what you specify
 
 ### SSL/TLS Settings
 
 ```yaml
 ssl:
-  provider: "none"  # "letsencrypt", "cloudflare", or "none"
+  provider: "none"  # "letsencrypt", "cloudflare", "acm", or "none"
   email: "admin@example.com"  # For Let's Encrypt notifications
-  staging: true  # true = staging certs, false = production certs
+  certificate_arn: ""  # Required when provider="acm"
 ```
 
 **SSL Providers**:
 - `none`: HTTP only (for testing)
-- `letsencrypt`: Automatic SSL with Caddy
+- `letsencrypt`: Automatic SSL with Caddy (production certs)
 - `cloudflare`: Use CloudFlare proxy for SSL
+- `acm`: AWS Certificate Manager via Application Load Balancer
 
 ### Elastic IP Settings
 
