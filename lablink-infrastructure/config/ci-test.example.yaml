@@ -53,26 +53,27 @@ app:
   region: "us-west-2"
 
 dns:
-  # DNS enabled for testing (required to work around Caddy bug)
+  # DNS enabled for testing
   enabled: true
   terraform_managed: true  # Let Terraform manage DNS records
-  domain: "lablink-template-testing.com"  # Template testing domain
-  zone_id: ""  # Will be set by setup-aws-infrastructure.sh
-  app_name: ""  # Not used with custom pattern
-  pattern: "custom"  # Using custom pattern (workaround for allocator bug - see issue #212)
-  custom_subdomain: "ci-test"  # Creates: ci-test.lablink-template-testing.com
-  create_zone: false  # Use existing zone created by setup script
+  domain: "ci-test.lablink-template-testing.com"  # Full domain name
+  zone_id: "Z1038183268T83E91AYJF"  # Template testing zone
 
 eip:
-  # Use dynamic EIPs for ci-test (creates new, releases on destroy)
-  strategy: "dynamic"
+  # Use persistent EIP for ci-test
+  strategy: "persistent"
   tag_name: "lablink-eip"  # Will become lablink-eip-ci-test
 
 ssl:
-  # Use Let's Encrypt staging certs for testing (unlimited, not trusted)
+  # Use Let's Encrypt for testing (production certs)
   provider: "letsencrypt"
-  email: "admin@example.com"  # Update with maintainer email
-  staging: true  # Staging certs = HTTP only, no rate limits
+  email: "berri104@gmail.com"
+  certificate_arn: ""
+
+startup_script:
+  enabled: false
+  path: "config/custom-startup.sh"
+  on_error: "continue"
 
 # S3 bucket for Terraform state (template testing infrastructure)
 # Separate from production deployments to avoid conflicts
