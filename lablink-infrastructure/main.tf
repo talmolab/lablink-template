@@ -165,11 +165,11 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:AttachRolePolicy",
       "iam:DetachRolePolicy",
     ]
-    resources = [  
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"  
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"
     ]
     condition {
-      test     = "ArnEquals"  
+      test     = "ArnEquals"
       variable = "iam:PolicyArn"
       values   = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
     }
@@ -411,7 +411,7 @@ resource "aws_iam_role" "instance_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "attach_ec2_management" {
-  role      = aws_iam_role.instance_role.name
+  role       = aws_iam_role.instance_role.name
   policy_arn = aws_iam_policy.ec2_vm_management_policy.arn
 }
 
