@@ -24,18 +24,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up UV
-        uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.10"
-
-      - name: Create temporary project for validation
-        run: |
-          # Create a minimal uv project to install lablink-allocator-service
-          mkdir -p .validation-temp
-          cd .validation-temp
-          uv init --name config-validator --no-workspace
-          uv add lablink-allocator-service
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Validate configuration
         id: validate
@@ -43,9 +33,28 @@ jobs:
           CONFIG_PATH="${{ github.event.inputs.config_path || 'lablink-infrastructure/config/config.yaml' }}"
           echo "Validating configuration file: $CONFIG_PATH"
 
-          # Run validation with verbose output using uv run
-          cd .validation-temp
-          uv run lablink-validate-config "../$CONFIG_PATH" --verbose
+          # Extract allocator image tag from config
+          IMAGE_TAG=$(grep -A5 "^allocator:" "$CONFIG_PATH" | grep "image_tag:" | awk '{print $2}' | tr -d '"')
+
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "Error: allocator.image_tag not found in $CONFIG_PATH"
+            exit 1
+          fi
+
+          ALLOCATOR_IMAGE="ghcr.io/talmolab/lablink-allocator-image:${IMAGE_TAG}"
+          echo "Using allocator image for validation: $ALLOCATOR_IMAGE"
+
+          # Pull the allocator image
+          docker pull "$ALLOCATOR_IMAGE"
+
+          # Create absolute path for config file
+          FULL_CONFIG_PATH="$(pwd)/$CONFIG_PATH"
+
+          # Run validation using the Docker image
+          docker run --rm \
+            -v "$FULL_CONFIG_PATH:/config/config.yaml:ro" \
+            "$ALLOCATOR_IMAGE" \
+            lablink-validate-config /config/config.yaml --verbose
 
       - name: Report validation success
         if: success()
@@ -59,6 +68,8 @@ jobs:
           echo "::error::Configuration validation failed!"
           echo "Please review the error messages above and fix the configuration issues."
           echo "You can run validation locally with:"
-          echo "  uv init --name validator && uv add lablink-allocator-service"
-          echo "  uv run lablink-validate-config lablink-infrastructure/config/config.yaml"
+          echo "  docker pull ghcr.io/talmolab/lablink-allocator-image:<your-image-tag>"
+          echo "  docker run --rm -v \"\$(pwd)/lablink-infrastructure/config/config.yaml:/config/config.yaml:ro\" \\"
+          echo "    ghcr.io/talmolab/lablink-allocator-image:<your-image-tag> \\"
+          echo "    lablink-validate-config /config/config.yaml --verbose"
           exit 1

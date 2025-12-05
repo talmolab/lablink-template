@@ -74,28 +74,38 @@ jobs:
           echo "Using environment: ${{ steps.setenv.outputs.env }}"
           echo "Working directory: ${{ steps.setenv.outputs.workdir }}"
 
-      - name: Set up UV for config validation
-        uses: astral-sh/setup-uv@v6
-        with:
-          python-version: "3.10"
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Validate configuration before deployment
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           echo "Validating configuration before deployment..."
 
-          # Create temporary project for validation
-          mkdir -p .validation-temp
-          cd .validation-temp
-          uv init --name config-validator --no-workspace
-          uv add lablink-allocator-service
+          CONFIG_FILE="config/config.yaml"
 
-          # Run validation
-          uv run lablink-validate-config "../config/config.yaml" --verbose
+          # Extract allocator image tag from config
+          IMAGE_TAG=$(grep -A5 "^allocator:" "$CONFIG_FILE" | grep "image_tag:" | awk '{print $2}' | tr -d '"')
 
-          # Clean up
-          cd ..
-          rm -rf .validation-temp
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "Error: allocator.image_tag not found in $CONFIG_FILE"
+            exit 1
+          fi
+
+          ALLOCATOR_IMAGE="ghcr.io/talmolab/lablink-allocator-image:${IMAGE_TAG}"
+          echo "Using allocator image for validation: $ALLOCATOR_IMAGE"
+
+          # Pull the allocator image
+          docker pull "$ALLOCATOR_IMAGE"
+
+          # Create absolute path for config file
+          CONFIG_PATH="$(pwd)/config/config.yaml"
+
+          # Run validation using the Docker image
+          docker run --rm \
+            -v "$CONFIG_PATH:/config/config.yaml:ro" \
+            "$ALLOCATOR_IMAGE" \
+            lablink-validate-config /config/config.yaml --verbose
 
           echo "Configuration validation passed!"
 
