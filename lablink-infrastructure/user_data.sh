@@ -70,9 +70,12 @@ if [ "${INSTALL_CADDY}" = "true" ]; then
   if [ "${SSL_PROVIDER}" = "letsencrypt" ]; then
     cat <<EOF > /etc/caddy/Caddyfile
 # Let's Encrypt SSL with automatic HTTPS
+{
+    email ${SSL_EMAIL}
+}
+
 ${DOMAIN_NAME} {
     reverse_proxy localhost:5000
-    email ${SSL_EMAIL}
 }
 EOF
   elif [ "${SSL_PROVIDER}" = "cloudflare" ]; then
