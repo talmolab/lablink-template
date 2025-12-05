@@ -54,7 +54,7 @@ jobs:
           docker run --rm \
             -v "$FULL_CONFIG_PATH:/config/config.yaml:ro" \
             "$ALLOCATOR_IMAGE" \
-            lablink-validate-config /config/config.yaml --verbose
+            uv run lablink-validate-config /config/config.yaml --verbose
 
       - name: Report validation success
         if: success()
@@ -71,5 +71,5 @@ jobs:
           echo "  docker pull ghcr.io/talmolab/lablink-allocator-image:<your-image-tag>"
           echo "  docker run --rm -v \"\$(pwd)/lablink-infrastructure/config/config.yaml:/config/config.yaml:ro\" \\"
           echo "    ghcr.io/talmolab/lablink-allocator-image:<your-image-tag> \\"
-          echo "    lablink-validate-config /config/config.yaml --verbose"
+          echo "    uv run lablink-validate-config /config/config.yaml --verbose"
           exit 1

@@ -105,7 +105,7 @@ jobs:
           docker run --rm \
             -v "$CONFIG_PATH:/config/config.yaml:ro" \
             "$ALLOCATOR_IMAGE" \
-            lablink-validate-config /config/config.yaml --verbose
+            uv run lablink-validate-config /config/config.yaml --verbose
 
           echo "Configuration validation passed!"
 
