@@ -50,7 +50,7 @@ dns:
   zone_id: "Z1038183268T83E91AYJF"  # (Optional) Hardcode zone ID to skip lookup - leave empty for auto-lookup
 
 eip:
-  strategy: "dynamic"  # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag {tag_name}-{env}
+  strategy: "persistent"  # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag {tag_name}-{env}
   tag_name: "lablink-eip"  # Tag prefix for EIP name. Both strategies use {tag_name}-{env} format (e.g., lablink-eip-prod).
 
 ssl:
