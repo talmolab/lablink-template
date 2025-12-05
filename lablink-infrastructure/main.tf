@@ -486,8 +486,8 @@ output "private_key_pem" {
 
 # Output the FQDN for the allocator
 output "allocator_fqdn" {
-  value       = local.fqdn
-  description = "The subdomain associated with the allocator EIP"
+  value       = local.allocator_fqdn
+  description = "The full URL (with protocol) to access the allocator service"
 }
 
 output "allocator_instance_type" {
