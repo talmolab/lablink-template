@@ -76,7 +76,7 @@ monitoring:
   email: "your-email@example.com" # Email to receive budget alerts (must be valid for AWS SNS notifications)
   thresholds:
     max_instances_per_5min: 10 # Maximum number of instances launched in 5 minutes
-    max_security_group_changes_per_hour: 10 # Maximum number of security group changes in 1 hour
+    max_terminations_per_5min: 10 # Maximum number of terminations in 5 minutes
     max_unauthorized_calls_per_15min: 5 # Maximum number of unauthorized API calls in 15 minutes
   budget:
     enabled: true
