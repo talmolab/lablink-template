@@ -199,6 +199,11 @@ resource "tls_private_key" "lablink_key" {
 resource "aws_key_pair" "lablink_key_pair" {
   key_name   = "lablink-key-${var.resource_suffix}"
   public_key = tls_private_key.lablink_key.public_key_openssh
+
+  tags = {
+    Name        = "lablink-key-${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 resource "aws_security_group" "allow_http" {
@@ -300,6 +305,11 @@ data "aws_route53_zone" "existing" {
   count        = local.dns_enabled && !local.dns_create_zone && local.dns_zone_id == "" ? 1 : 0
   name         = "${local.dns_domain}."
   private_zone = false
+
+  tags = {
+    Name        = "lablink-zone-${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 # DNS Zone Creation (if creating new zone)
@@ -355,12 +365,22 @@ resource "aws_eip_association" "lablink_allocator_ip_assoc" {
 resource "aws_cloudwatch_log_group" "client_vm_logs" {
   name              = "lablink-cloud-init-${var.resource_suffix}"
   retention_in_days = 30
+
+  tags = {
+    Name        = "lablink-cloud-init-${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 # CloudWatch Log Group for Lambda logs
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/lablink_log_processor_${var.resource_suffix}"
   retention_in_days = 14
+
+  tags = {
+    Name        = "/aws/lambda/lablink_log_processor_${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 # IAM Role for Lambda
@@ -376,17 +396,32 @@ resource "aws_iam_role" "lambda_exec" {
       },
     ]
   })
+
+  tags = {
+    Name        = "lablink_lambda_exec_${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 
 resource "aws_iam_policy" "s3_backend_policy" {
   name   = "lablink_s3_backend_${var.resource_suffix}"
   policy = data.aws_iam_policy_document.s3_backend_doc.json
+
+  tags = {
+    Name        = "lablink_s3_backend_${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 resource "aws_iam_policy" "ec2_vm_management_policy" {
   name   = "lablink_ec2_vm_management_${var.resource_suffix}"
   policy = data.aws_iam_policy_document.ec2_vm_management_doc.json
+
+  tags = {
+    Name        = "lablink_ec2_vm_management_${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 resource "aws_iam_role" "instance_role" {
@@ -400,6 +435,11 @@ resource "aws_iam_role" "instance_role" {
       Action    = "sts:AssumeRole"
     }]
   })
+
+  tags = {
+    Name        = "lablink_instance_role_${var.resource_suffix}"
+    Environment = var.resource_suffix
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "attach_ec2_management" {
@@ -415,6 +455,10 @@ resource "aws_iam_role_policy_attachment" "attach_s3_backend" {
 resource "aws_iam_instance_profile" "allocator_instance_profile" {
   name = "lablink_instance_profile_${var.resource_suffix}"
   role = aws_iam_role.instance_role.name
+
+  tags = {
+    Environment = var.resource_suffix
+  }
 }
 
 # Subscription filter to send CloudWatch logs to Lambda
@@ -441,6 +485,10 @@ resource "aws_lambda_function" "log_processor" {
     variables = {
       API_ENDPOINT = "${local.fqdn}/api/vm-logs"
     }
+  }
+
+  tags = {
+    Environment = var.resource_suffix
   }
 }
 
