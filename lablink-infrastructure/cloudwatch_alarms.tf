@@ -142,7 +142,7 @@ PATTERN
   metric_transformation {
     name      = "TerminateInstancesCount"
     namespace = "LabLinkSecurity/${var.resource_suffix}"
-    value     = "$.requestParameters.instancesSet.items"
+    value     = "1"
     unit      = "Count"
     default_value = 0
   }

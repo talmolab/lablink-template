@@ -11,8 +11,7 @@ resource "aws_budgets_budget" "lablink_monthly" {
   cost_filter {
     name = "TagKeyValue"
     values = [
-      "user:Environment$${var.resource_suffix}",
-      "user:ManagedBy$lablink-allocator-${var.resource_suffix}"
+      format("user:Environment$%s", var.resource_suffix),
     ]
   }
 
