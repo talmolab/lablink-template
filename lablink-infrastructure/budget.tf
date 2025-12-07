@@ -8,11 +8,22 @@ resource "aws_budgets_budget" "lablink_monthly" {
   time_period_start = formatdate("YYYY-MM-01_00:00", timestamp())
   time_unit         = "MONTHLY"
 
-  cost_filter {
-    name = "TagKeyValue"
-    values = [
-      format("user:Environment$%s", var.resource_suffix),
-    ]
+  # Note: cost_filter with tags doesn't work reliably in linked AWS accounts
+  # Tags must be activated in the management/payer account
+  # For linked accounts, budget tracks all costs in this account
+  # If you need tag filtering, contact your AWS Organization administrator
+
+  cost_types {
+    include_credit             = false
+    include_discount           = true
+    include_other_subscription = true
+    include_recurring          = true
+    include_refund             = false
+    include_subscription       = true
+    include_support            = false
+    include_tax                = false
+    include_upfront            = true
+    use_blended                = false
   }
 
   # 50% warning
