@@ -30,6 +30,7 @@ PATTERN
     namespace = "LabLinkSecurity/${var.resource_suffix}"
     value     = "$.requestParameters.maxCount"
     unit      = "Count"
+    default_value = 0
   }
 }
 
@@ -98,7 +99,7 @@ resource "aws_cloudwatch_log_metric_filter" "unauthorized_calls" {
   log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
 
   pattern = <<PATTERN
-{ ($.errorCode = AccessDenied) || ($.errorCode = UnauthorizedOperation) && ($.userIdentity.principalId = *lablink_instance_role*) }
+{ (($.errorCode = AccessDenied) || ($.errorCode = UnauthorizedOperation)) && ($.userIdentity.principalId = *lablink_instance_role*) }
 PATTERN
 
   metric_transformation {
