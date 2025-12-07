@@ -30,7 +30,6 @@ PATTERN
     namespace = "LabLinkSecurity/${var.resource_suffix}"
     value     = "$.requestParameters.maxCount"
     unit      = "Count"
-    default_value = 1
   }
 }
 
