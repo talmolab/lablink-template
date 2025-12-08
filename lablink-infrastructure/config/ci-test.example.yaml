@@ -17,7 +17,7 @@
 db:
   dbname: "lablink_db"
   user: "lablink"
-  password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret at deploy time
+  password: "PLACEHOLDER_DB_PASSWORD" # Injected from GitHub secret at deploy time
   host: "localhost"
   port: 5432
   table_name: "vms"
@@ -25,13 +25,13 @@ db:
 
 machine:
   # Client VM instance type (can use smaller for testing)
-  machine_type: "t3.medium"  # Cheaper for template testing
+  machine_type: "t3.medium" # Cheaper for template testing
 
   # Docker image for client VMs
   image: "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-latest-test"
 
   # AMI ID for your AWS region (Ubuntu 24.04 with Docker + Nvidia GPU Driver)
-  ami_id: "ami-0601752c11b394251"  # us-west-2 Ubuntu 24.04 custom AMI
+  ami_id: "ami-0601752c11b394251" # us-west-2 Ubuntu 24.04 custom AMI
 
   # Git repository with test/tutorial data
   repository: "https://github.com/talmolab/sleap-tutorial-data.git"
@@ -49,30 +49,48 @@ allocator:
 
 app:
   admin_user: "admin"
-  admin_password: "PLACEHOLDER_ADMIN_PASSWORD"  # Injected from GitHub secret at deploy time
+  admin_password: "PLACEHOLDER_ADMIN_PASSWORD" # Injected from GitHub secret at deploy time
   region: "us-west-2"
 
 dns:
   # DNS enabled for testing (required to work around Caddy bug)
   enabled: true
-  terraform_managed: true  # Let Terraform manage DNS records
-  domain: "lablink-template-testing.com"  # Template testing domain
-  zone_id: ""  # Will be set by setup-aws-infrastructure.sh
-  app_name: ""  # Not used with custom pattern
-  pattern: "custom"  # Using custom pattern (workaround for allocator bug - see issue #212)
-  custom_subdomain: "ci-test"  # Creates: ci-test.lablink-template-testing.com
-  create_zone: false  # Use existing zone created by setup script
+  terraform_managed: true # Let Terraform manage DNS records
+  domain: "lablink-template-testing.com" # Template testing domain
+  zone_id: "" # Will be set by setup-aws-infrastructure.sh
+  app_name: "" # Not used with custom pattern
+  pattern: "custom" # Using custom pattern (workaround for allocator bug - see issue #212)
+  custom_subdomain: "ci-test" # Creates: ci-test.lablink-template-testing.com
+  create_zone: false # Use existing zone created by setup script
 
 eip:
   # Use dynamic EIPs for ci-test (creates new, releases on destroy)
   strategy: "dynamic"
-  tag_name: "lablink-eip"  # Will become lablink-eip-ci-test
+  tag_name: "lablink-eip" # Will become lablink-eip-ci-test
 
 ssl:
   # Use Let's Encrypt staging certs for testing (unlimited, not trusted)
   provider: "letsencrypt"
-  email: "admin@example.com"  # Update with maintainer email
-  staging: true  # Staging certs = HTTP only, no rate limits
+  email: "admin@example.com" # Update with maintainer email
+  staging: true # Staging certs = HTTP only, no rate limits
+
+startup_script:
+  enabled: false
+  path: ""
+  on_error: "continue"
+
+monitoring:
+  enabled: false
+  email: ""
+  thresholds:
+    max_instances_per_5min: 10
+    max_terminations_per_5min: 20
+    max_unauthorized_calls_per_15min: 5
+  budget:
+    enabled: false
+    monthly_budget_usd: 500
+  cloudtrail:
+    retention_days: 90
 
 # S3 bucket for Terraform state (template testing infrastructure)
 # Separate from production deployments to avoid conflicts
