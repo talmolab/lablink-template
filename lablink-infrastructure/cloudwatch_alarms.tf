@@ -22,15 +22,14 @@ resource "aws_cloudwatch_log_metric_filter" "run_instances" {
   log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
 
   pattern = <<PATTERN
-{ ($.eventName = RunInstances) && ($.userIdentity.principalId = *lablink_instance_role*) }
+{ ($.eventName = RunInstances) && ($.userIdentity.arn = *lablink_instance_role*) && ($.errorCode NOT EXISTS) }
 PATTERN
 
   metric_transformation {
     name      = "RunInstancesCount"
     namespace = "LabLinkSecurity/${var.resource_suffix}"
-    value     = "$.requestParameters.maxCount"
+    value     = "$.requestParameters.instancesSet.items[0].maxCount"
     unit      = "Count"
-    default_value = 0
   }
 }
 
@@ -61,7 +60,7 @@ resource "aws_cloudwatch_log_metric_filter" "large_instances" {
   log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
 
   pattern = <<PATTERN
-{ ($.eventName = RunInstances) && ($.userIdentity.principalId = *lablink_instance_role*) && (($.requestParameters.instanceType = p4d.*) || ($.requestParameters.instanceType = p3.*) || ($.requestParameters.instanceType = g5.*)) }
+{ ($.eventName = RunInstances) && ($.userIdentity.arn = *lablink_instance_role*) && ($.errorCode NOT EXISTS) && (($.requestParameters.instanceType = p4d.*) || ($.requestParameters.instanceType = p3.*) || ($.requestParameters.instanceType = g5.*)) }
 PATTERN
 
   metric_transformation {
@@ -99,7 +98,7 @@ resource "aws_cloudwatch_log_metric_filter" "unauthorized_calls" {
   log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
 
   pattern = <<PATTERN
-{ (($.errorCode = AccessDenied) || ($.errorCode = UnauthorizedOperation)) && ($.userIdentity.principalId = *lablink_instance_role*) }
+{ (($.errorCode = AccessDenied) || ($.errorCode = UnauthorizedOperation)) && ($.userIdentity.arn = *lablink_instance_role*) }
 PATTERN
 
   metric_transformation {
@@ -136,7 +135,7 @@ resource "aws_cloudwatch_log_metric_filter" "high_termination_rate" {
   name           = "lablink-high-termination-rate-${var.resource_suffix}"
   log_group_name = aws_cloudwatch_log_group.cloudtrail_logs.name
   pattern        = <<PATTERN
-{ ($.eventName = TerminateInstances) && ($.userIdentity.principalId = *lablink_instance_role*) }
+{ ($.eventName = TerminateInstances) && ($.userIdentity.arn = *lablink_instance_role*) && ($.errorCode NOT EXISTS) }
 PATTERN
 
   metric_transformation {
@@ -144,7 +143,6 @@ PATTERN
     namespace = "LabLinkSecurity/${var.resource_suffix}"
     value     = "1"
     unit      = "Count"
-    default_value = 0
   }
 }
 
