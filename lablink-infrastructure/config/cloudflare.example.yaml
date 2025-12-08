@@ -1,14 +1,18 @@
 # LabLink Configuration: Use Case 2 - CloudFlare DNS + SSL
 # Use CloudFlare for DNS management and SSL termination
 #
+# ✅ NO RATE LIMITS - CloudFlare SSL has no certificate issuance limits
+# Ideal for frequent testing and redeployments
+#
 # Prerequisites:
 # - Domain registered and managed in CloudFlare
 # - CloudFlare proxy enabled (orange cloud icon)
 #
 # Setup:
-# 1. Create A record in CloudFlare: lablink.example.com → {allocator_public_ip}
-# 2. Enable CloudFlare proxy (orange cloud)
-# 3. SSL/TLS mode: Full (not Strict)
+# 1. Deploy infrastructure (note allocator IP from output)
+# 2. Create A record in CloudFlare: lablink.example.com → {allocator_public_ip}
+# 3. Enable CloudFlare proxy (orange cloud)
+# 4. SSL/TLS mode: Full (not Strict)
 #
 # Access URL: https://lablink.example.com (CloudFlare provides SSL)
 
@@ -38,10 +42,10 @@ app:
   region: "us-west-2"
 
 dns:
-  enabled: false  # DNS managed in CloudFlare, not Route53
-  terraform_managed: false
+  enabled: true  # DNS required for SSL (managed in CloudFlare, not Route53)
+  terraform_managed: false  # DNS records created manually in CloudFlare
   domain: "lablink.example.com"  # Used for Caddyfile configuration
-  zone_id: ""
+  zone_id: ""  # Not used (CloudFlare manages DNS)
 
 eip:
   strategy: "persistent"

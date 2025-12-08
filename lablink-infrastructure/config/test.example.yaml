@@ -1,14 +1,31 @@
 # LabLink Test Environment Configuration
 # For staging/pre-production testing with S3 backend
-# Copy to config.yaml for test deployments
 #
-# Usage:
+# Use this for:
+# - Staging environment for pre-production validation
+# - Testing with team before production deployment
+# - CI/CD workflows with S3 state
+#
+# ⚠️ Rate Limit Consideration:
+# - If using Let's Encrypt, limit to 1-2 deployments per week
+# - For frequent testing, configure with CloudFlare SSL or IP-only
+# - See config/README.md for SSL provider comparison
+#
+# Prerequisites:
+# - S3 bucket for Terraform state
+# - DynamoDB table for state locking
+# - Route53 hosted zone (if using DNS)
+# - GitHub secrets configured for test environment
+#
+# Setup:
 #   cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
-#   # Edit config.yaml with your values
+#   # Edit config.yaml with your values (domain, SSL provider, region, etc.)
 #   ./scripts/setup-aws-infrastructure.sh  # Creates S3, DynamoDB, Route53
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh test
 #   terraform apply -var="resource_suffix=test"
+#
+# Access URL: Depends on dns/ssl configuration
 
 db:
   dbname: "lablink_db"

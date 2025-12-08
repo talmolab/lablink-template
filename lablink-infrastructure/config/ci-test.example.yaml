@@ -2,6 +2,18 @@
 # For template maintainers testing infrastructure changes
 # This configuration is for validating the template itself works correctly
 #
+# ⚠️ IMPORTANT - Template Maintainers Only:
+# - This config uses Let's Encrypt with a shared domain: ci-test.lablink-template-testing.com
+# - RATE LIMIT: 5 deployments per week maximum (Let's Encrypt limit)
+# - Coordinate with team before deploying to avoid hitting limit
+# - Consider using IP-only for some infrastructure tests
+# - Monitor usage: https://crt.sh/?q=lablink-template-testing.com
+#
+# Prerequisites:
+# - Access to talmolab AWS account
+# - GitHub secrets configured for ci-test environment
+# - Coordinate with team to avoid simultaneous deploys
+#
 # Usage:
 #   # Template maintainers only - tests the template repo infrastructure
 #   cp lablink-infrastructure/config/ci-test.example.yaml lablink-infrastructure/config/config.yaml
@@ -10,6 +22,8 @@
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh ci-test
 #   terraform apply -var="resource_suffix=ci-test"
+#
+# Access URL: https://ci-test.lablink-template-testing.com
 #
 # Note: This uses separate AWS infrastructure from production deployments
 # to avoid conflicts when testing template changes.

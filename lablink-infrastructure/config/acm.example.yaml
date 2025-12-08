@@ -1,6 +1,9 @@
 # LabLink Configuration: Use Case 4 - Route53 + ACM (AWS Certificate Manager)
 # Use AWS Route53 for DNS and ACM for SSL certificates via Application Load Balancer
 #
+# ✅ NO RATE LIMITS - AWS ACM has no certificate issuance limits
+# Enterprise-grade SSL with ALB (~$20/month additional cost)
+#
 # Prerequisites:
 # - Route53 hosted zone created
 # - ACM certificate requested and validated for your domain
@@ -14,7 +17,7 @@
 #
 # Access URL: https://lablink.example.com
 #
-# Note: ALB adds ~$20/month cost but provides enterprise-grade SSL termination
+# Cost Note: ALB adds ~$20/month but provides enterprise-grade SSL termination and scalability
 
 db:
   dbname: "lablink_db"

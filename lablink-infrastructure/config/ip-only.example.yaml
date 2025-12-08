@@ -1,12 +1,25 @@
 # LabLink Configuration: Use Case 1 - IP-Only (No DNS, No SSL)
 # Simplest deployment: Access allocator via public IP address over HTTP
 #
+# ✅ NO RATE LIMITS - Perfect for frequent testing and development
+# No DNS or SSL means no certificate issuance limits
+#
 # Use this when:
 # - You don't have a domain name
 # - You want fastest setup for testing
 # - SSL/HTTPS is not required
+# - Testing infrastructure changes frequently
+# - Avoiding Let's Encrypt rate limits
 #
-# Access URL: http://52.40.142.146 (IP will be output after deployment)
+# Prerequisites:
+# - None (no domain or DNS required)
+#
+# Setup:
+# 1. Run setup script: ./scripts/setup-aws-infrastructure.sh
+# 2. Deploy infrastructure
+# 3. Note allocator IP from Terraform output
+#
+# Access URL: http://<ALLOCATOR_IP>:5000 (IP will be output after deployment)
 
 db:
   dbname: "lablink_db"

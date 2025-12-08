@@ -237,8 +237,20 @@ Each environment maintains separate Terraform state to avoid conflicts.
 - `acm`: AWS Certificate Manager via Application Load Balancer (enterprise-grade SSL)
 - `none`: HTTP only (no SSL) - for testing purposes only
 
-**Note:** Let's Encrypt always uses production certificates (no staging mode). Rate limit is 50 certificates per registered domain per week.
-- Subject to Let's Encrypt rate limits
+**Let's Encrypt Rate Limits:**
+
+⚠️ **Critical for Testing**: When using `provider: "letsencrypt"`, be aware of strict rate limits:
+- **5 certificates per exact domain every 7 days** (e.g., `test.lablink.example.com`) - **NO override available**
+- 50 certificates per registered domain every 7 days (e.g., all `*.example.com` subdomains)
+- Rate limit violations result in **7-day lockout**
+
+**Testing Recommendations:**
+- **For development**: Use IP-only deployment (`dns.enabled: false`, `ssl.provider: "none"`) - no rate limits
+- **For frequent testing**: Rotate subdomains (test1, test2, test3) - 5 attempts per subdomain
+- **For SSL testing**: Use CloudFlare (`ssl.provider: "cloudflare"`) - no Let's Encrypt limits
+- **Monitor usage**: Check [crt.sh](https://crt.sh/) to see certificate count (search your domain)
+
+📖 **See [Testing Best Practices](../docs/TESTING_BEST_PRACTICES.md) for detailed strategies and monitoring.**
 
 ### Terraform State (`bucket_name`)
 - S3 bucket name for Terraform state storage (test/prod only)

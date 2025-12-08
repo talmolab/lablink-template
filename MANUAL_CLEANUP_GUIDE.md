@@ -611,6 +611,104 @@ aws ec2 delete-security-group --region us-west-2 --group-id "${SG_ID}"
 
 ---
 
+### Scenario 6: Let's Encrypt Rate Limit Reached
+
+**Error:**
+```
+too many certificates already issued for exact set of domains
+```
+
+**Cause:** Let's Encrypt has strict rate limits:
+- **5 certificates per exact domain every 7 days** (e.g., `test.lablink.example.com`)
+- 50 certificates per registered domain every 7 days (e.g., all `*.example.com` subdomains)
+- Rate limit violations result in **7-day lockout with NO override available**
+
+**What Triggers a New Certificate:**
+- Deploying with `terraform apply` (first time or after destroy)
+- Re-deploying after DNS changes
+- Re-deploying after changing the domain name
+- Caddy container restart with lost certificate cache
+
+**Important:** Deleting old certificates from Let's Encrypt does NOT help. The limit is on **certificate issuance**, not on active certificates. Once you've requested 5 certificates for a domain within 7 days, you must wait.
+
+**Recovery Options:**
+
+**Option 1: Wait for Rate Limit to Reset**
+```bash
+# Check current certificate usage for your domain
+# Visit: https://crt.sh/?q=your-domain.com
+
+# Rate limit window is sliding 7-day basis
+# Calculate reset time: 7 days from oldest certificate in the window
+```
+
+**Option 2: Switch to Different Subdomain**
+```bash
+# Each subdomain gets its own 5-certificate quota
+# Example: If test.lablink.example.com is locked out, use test2.lablink.example.com
+
+# Update config.yaml
+sed -i 's/domain: "test\.lablink\.example\.com"/domain: "test2.lablink.example.com"/' \
+  lablink-infrastructure/config/config.yaml
+
+# Deploy with new subdomain
+# Don't forget to update DNS records if using terraform_managed: false
+```
+
+**Option 3: Switch to IP-Only Deployment (No Rate Limits)**
+```bash
+# Edit lablink-infrastructure/config/config.yaml
+# Set:
+#   dns:
+#     enabled: false
+#   ssl:
+#     provider: "none"
+#   eip:
+#     strategy: "dynamic"  # or "persistent" if you have an EIP
+
+# Deploy without DNS/SSL
+# Access via IP address: http://<ALLOCATOR_IP>:5000
+```
+
+**Option 4: Switch to CloudFlare SSL (No Let's Encrypt Limits)**
+```bash
+# Edit lablink-infrastructure/config/config.yaml
+# Set:
+#   dns:
+#     enabled: true
+#     terraform_managed: false  # Manage DNS in CloudFlare
+#     domain: "test.lablink.example.com"
+#   ssl:
+#     provider: "cloudflare"
+
+# Deploy infrastructure
+# Then manually create A record in CloudFlare console pointing to allocator IP
+# Enable CloudFlare proxy (orange cloud icon) for SSL
+```
+
+**Prevention:**
+
+Before deploying with Let's Encrypt, check your certificate quota:
+
+```bash
+# Visit crt.sh to monitor certificate issuance
+# URL: https://crt.sh/?q=your-domain.com
+
+# Count certificates issued in last 7 days
+# Calculate remaining quota: 5 - (certificates in last 7 days)
+
+# If quota is low (1-2 remaining), consider:
+# - Using CloudFlare SSL instead
+# - Using IP-only deployment for testing
+# - Using subdomain rotation for multiple test deployments
+```
+
+**See Also:**
+- [TESTING_BEST_PRACTICES.md](docs/TESTING_BEST_PRACTICES.md) - Comprehensive testing strategies to avoid rate limits
+- [Let's Encrypt Rate Limits](https://letsencrypt.org/docs/rate-limits/) - Official documentation
+
+---
+
 ## Automated Cleanup Script
 
 An automated cleanup script is available at [scripts/cleanup-orphaned-resources.sh](scripts/cleanup-orphaned-resources.sh) that handles the complete cleanup process for orphaned resources.

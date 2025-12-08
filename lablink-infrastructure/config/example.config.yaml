@@ -1,6 +1,27 @@
-# LabLink Allocator Configuration
-# This file configures the allocator service and client VM specifications
-# Copy to config.yaml and customize for your deployment
+# LabLink Configuration Reference
+# This is a complete configuration template showing ALL available options with inline documentation
+#
+# ⚠️ For most users: Use one of the specific example configs instead:
+# - ip-only.example.yaml - Fastest setup, no DNS/SSL
+# - cloudflare.example.yaml - CloudFlare DNS + SSL (no rate limits)
+# - letsencrypt.example.yaml - Route53 + Let's Encrypt (rate limits apply)
+# - acm.example.yaml - Route53 + AWS ACM (enterprise, ~$20/mo)
+# - dev.example.yaml - Local development environment
+# - test.example.yaml - Staging environment
+# - prod.example.yaml - Production environment
+#
+# See config/README.md for detailed comparison and selection guide
+#
+# This file is useful for:
+# - Understanding all available configuration options
+# - Creating custom configurations
+# - Reference documentation
+#
+# Usage:
+#   cp lablink-infrastructure/config/example.config.yaml lablink-infrastructure/config/config.yaml
+#   # Edit ALL fields below with your values
+#   # Validate: docker run --rm -v "$(pwd)/lablink-infrastructure/config/config.yaml:/config/config.yaml:ro" \
+#   #   ghcr.io/talmolab/lablink-allocator-image:latest uv run lablink-validate-config /config/config.yaml
 
 db:
   dbname: "lablink_db"

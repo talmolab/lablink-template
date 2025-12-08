@@ -10,6 +10,14 @@
 # - Route53 hosted zone created
 # - Manually create A record: test.lablink.example.com → {allocator_eip}
 #
+# ⚠️ IMPORTANT - Let's Encrypt Rate Limits:
+# - 5 certificates per exact domain every 7 days (e.g., test.lablink.example.com)
+# - Rate limit violations = 7-day lockout with NO override
+# - Each terraform apply triggers a new certificate
+# - For frequent testing, use cloudflare.example.yaml or ip-only.example.yaml instead
+# - Monitor usage: https://crt.sh/?q=your-domain.com
+# - See docs/TESTING_BEST_PRACTICES.md for rate limit strategies
+#
 # Setup:
 # 1. Deploy infrastructure (get allocator EIP from output)
 # 2. Manually create A record in Route53 console

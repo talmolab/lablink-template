@@ -1,14 +1,33 @@
 # LabLink Production Configuration
 # For production deployments with S3 backend
-# Copy to config.yaml for production
 #
-# Usage:
+# Use this for:
+# - Production environment serving real users
+# - Stable, infrequent infrastructure changes
+# - Mission-critical deployments
+#
+# ✅ Recommended for Production:
+# - Use persistent EIP for stable IP address
+# - Use Let's Encrypt or ACM for SSL
+# - Enable monitoring and backups
+# - Use stable Docker image tags (not 'latest')
+#
+# Prerequisites:
+# - S3 bucket for Terraform state
+# - DynamoDB table for state locking
+# - Route53 hosted zone (if using DNS)
+# - GitHub secrets configured for prod environment
+# - Domain with DNS properly configured
+#
+# Setup:
 #   cp lablink-infrastructure/config/prod.example.yaml lablink-infrastructure/config/config.yaml
-#   # Edit config.yaml with your values
+#   # Edit config.yaml with your values (use stable domain, production SSL)
 #   ./scripts/setup-aws-infrastructure.sh  # Creates S3, DynamoDB, Route53
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh prod
 #   terraform apply -var="resource_suffix=prod"
+#
+# Access URL: https://your-domain.com (configure in dns.domain)
 
 db:
   dbname: "lablink_db"

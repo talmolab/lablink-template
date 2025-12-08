@@ -1,13 +1,24 @@
 # LabLink Development Configuration
 # For local development and testing with local Terraform state
-# Copy to config.yaml when doing local development
 #
-# Usage:
+# Use this for:
+# - Local development on your machine
+# - Testing Terraform changes locally
+# - Quick prototyping without S3 backend
+#
+# Prerequisites:
+# - AWS CLI configured with credentials
+# - Terraform installed locally
+# - None (local state, no S3 bucket required)
+#
+# Setup:
 #   cp lablink-infrastructure/config/dev.example.yaml lablink-infrastructure/config/config.yaml
-#   # Edit config.yaml with your values
+#   # Edit config.yaml with your values (domain, region, bucket if using S3)
 #   cd lablink-infrastructure
-#   ../scripts/init-terraform.sh dev
+#   ../scripts/init-terraform.sh dev  # Uses local state
 #   terraform apply -var="resource_suffix=dev"
+#
+# Access URL: Depends on dns/ssl configuration (typically http://<IP>:5000 for dev)
 
 db:
   dbname: "lablink_db"
