@@ -1,7 +1,8 @@
 # Validate all example configuration files
 # This script validates each *.example.yaml file in lablink-infrastructure/config
 
-$configDir = "c:\repos\lablink-template\lablink-infrastructure\config"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configDir = Join-Path (Split-Path -Parent $scriptDir) "lablink-infrastructure\config"
 $dockerImage = "ghcr.io/talmolab/lablink-allocator-image:linux-amd64-latest-test"
 
 Write-Host "=== Validating All Example Configs ===" -ForegroundColor Cyan

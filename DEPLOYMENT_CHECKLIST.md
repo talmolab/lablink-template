@@ -123,7 +123,7 @@ Use this checklist to ensure you have completed all required setup steps before 
   - `false` = You manually create DNS records in Route 53
 
 **SSL Settings** (if using SSL):
-- [ ] Set `provider`: "letsencrypt", "cloudflare", or "none"
+- [ ] Set `provider`: "letsencrypt", "cloudflare", "acm", or "none"
 - [ ] Updated `email` for Let's Encrypt notifications
 - [ ] Set `ssl.provider` appropriately
   - `letsencrypt`: Automatic SSL with production certs

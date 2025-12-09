@@ -1,10 +1,18 @@
 # Application Load Balancer for ACM SSL termination
 # Only created when ssl.provider = "acm"
 
+# Get default VPC for ALB and security group placement
+data "aws_vpc" "default" {
+  count   = local.create_alb ? 1 : 0
+  default = true
+}
+
 # Security group for ALB (allow HTTP/HTTPS from internet)
+# NOTE: Security group must be in the same VPC as the ALB. Using default VPC.
 resource "aws_security_group" "alb_sg" {
-  count = local.create_alb ? 1 : 0
-  name  = "lablink-alb-sg-${var.resource_suffix}"
+  count  = local.create_alb ? 1 : 0
+  name   = "lablink-alb-sg-${var.resource_suffix}"
+  vpc_id = data.aws_vpc.default[0].id
 
   ingress {
     from_port   = 80

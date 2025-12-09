@@ -253,7 +253,7 @@ resource "aws_instance" "lablink_allocator_server" {
     INSTALL_CADDY         = local.install_caddy
     SSL_PROVIDER          = local.ssl_provider
     SSL_EMAIL             = local.ssl_email
-    DOMAIN_NAME           = local.dns_enabled ? local.dns_domain : ""
+    DOMAIN_NAME           = local.install_caddy ? local.dns_domain : ""
   })
 
   tags = {
@@ -295,6 +295,9 @@ locals {
   # Split domain by dots and progressively check parent zones
   domain_parts = split(".", local.dns_domain)
   # For sub-subdomains, try parent domains (e.g., test.lablink.sleap.ai → lablink.sleap.ai)
+  # IMPORTANT: This only removes the first subdomain part. If the parent zone doesn't exist
+  # (e.g., you specify test.lablink.sleap.ai but only sleap.ai zone exists), lookup will fail.
+  # In that case, either create the intermediate zone or provide zone_id explicitly in config.
   dns_zone_name = local.dns_enabled && local.dns_domain != "" && length(local.domain_parts) > 2 ? join(".", slice(local.domain_parts, 1, length(local.domain_parts))) : local.dns_domain
 }
 
@@ -302,6 +305,8 @@ locals {
 # AWS Route53 zone lookup finds the hosted zone that contains dns.domain
 # For dns.domain="test.lablink.sleap.ai", it will look for zone "lablink.sleap.ai." or "sleap.ai."
 # Skip lookup if zone_id is already provided in config (avoids lookup errors)
+# NOTE: AWS Route53 data source automatically handles trailing dots - both "example.com"
+# and "example.com." will match the zone. No need to append trailing dot explicitly.
 data "aws_route53_zone" "existing" {
   count        = local.dns_enabled && local.dns_zone_id == "" ? 1 : 0
   name         = local.dns_zone_name

@@ -105,7 +105,7 @@ The system SHALL support four SSL providers: none, letsencrypt, cloudflare, and 
 
 #### Scenario: CloudFlare SSL
 - **WHEN** ssl.provider="cloudflare"
-- **THEN** Caddy is installed with CloudFlare DNS plugin
+- **THEN** Caddy is installed and serves HTTP (CloudFlare proxy handles SSL termination)
 
 #### Scenario: ACM SSL
 - **WHEN** ssl.provider="acm"

@@ -46,7 +46,7 @@ fi
 # - acm: 0.0.0.0:5000 (ALB proxies)
 # - none: 0.0.0.0:5000 (direct access)
 IMAGE="ghcr.io/talmolab/lablink-allocator-image:${ALLOCATOR_IMAGE_TAG}"
-docker pull $IMAGE
+docker pull "$IMAGE"
 
 if [ "${INSTALL_CADDY}" = "true" ]; then
   PORT_BINDING="127.0.0.1:5000:5000"
@@ -54,14 +54,14 @@ else
   PORT_BINDING="0.0.0.0:5000:5000"
 fi
 
-docker run -d -p $PORT_BINDING \
+docker run -d -p "$PORT_BINDING" \
   --mount type=bind,src=/etc/lablink-allocator,dst=/config,ro \
   -e ENVIRONMENT=${RESOURCE_SUFFIX} \
   -e ALLOCATOR_PUBLIC_IP=${ALLOCATOR_PUBLIC_IP} \
   -e ALLOCATOR_KEY_NAME=${ALLOCATOR_KEY_NAME} \
   -e CLOUD_INIT_LOG_GROUP=${CLOUD_INIT_LOG_GROUP} \
   -e ALLOCATOR_FQDN=${ALLOCATOR_FQDN} \
-  $IMAGE
+  "$IMAGE"
 
 # Configure Caddy for SSL termination (if installed)
 if [ "${INSTALL_CADDY}" = "true" ]; then
