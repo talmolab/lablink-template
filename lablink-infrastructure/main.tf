@@ -234,7 +234,7 @@ resource "aws_security_group" "allow_http" {
   }
 
   tags = {
-    Name = "allow_http_https_${var.resource_suffix}"
+    Name        = "allow_http_https_${var.resource_suffix}"
     Environment = var.resource_suffix
   }
 }
