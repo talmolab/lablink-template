@@ -13,19 +13,15 @@ locals {
   dns_terraform_managed = try(local.config_file.dns.terraform_managed, true) # default true for backwards compatibility
   dns_domain            = try(local.config_file.dns.domain, "")
   dns_zone_id           = try(local.config_file.dns.zone_id, "")
-  dns_app_name          = try(local.config_file.dns.app_name, "lablink")
-  dns_pattern           = try(local.config_file.dns.pattern, "auto")
-  dns_custom_subdomain  = try(local.config_file.dns.custom_subdomain, "")
-  dns_create_zone       = try(local.config_file.dns.create_zone, false)
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
   eip_tag_name = try(local.config_file.eip.tag_name, "lablink-eip")
 
   # SSL configuration from config.yaml
-  ssl_provider = try(local.config_file.ssl.provider, "letsencrypt")
-  ssl_email    = try(local.config_file.ssl.email, "")
-  ssl_staging  = try(local.config_file.ssl.staging, false)
+  ssl_provider        = try(local.config_file.ssl.provider, "none")
+  ssl_email           = try(local.config_file.ssl.email, "")
+  ssl_certificate_arn = try(local.config_file.ssl.certificate_arn, "")
 
   # Allocator configuration from config.yaml
   allocator_image_tag = try(local.config_file.allocator.image_tag, "linux-amd64-latest-test")
@@ -238,7 +234,7 @@ resource "aws_security_group" "allow_http" {
   }
 
   tags = {
-    Name = "allow_http_https_${var.resource_suffix}"
+    Name        = "allow_http_https_${var.resource_suffix}"
     Environment = var.resource_suffix
   }
 }
@@ -259,8 +255,11 @@ resource "aws_instance" "lablink_allocator_server" {
     CONFIG_CONTENT        = file("${path.module}/config/config.yaml")
     CLIENT_STARTUP_SCRIPT = local.startup_script_content
     STARTUP_ENABLED       = local.startup_enabled
-    DOMAIN_NAME           = local.fqdn
-    SSL_STAGING           = local.ssl_staging
+    ALLOCATOR_FQDN        = local.allocator_fqdn
+    INSTALL_CADDY         = local.install_caddy
+    SSL_PROVIDER          = local.ssl_provider
+    SSL_EMAIL             = local.ssl_email
+    DOMAIN_NAME           = local.install_caddy ? local.dns_domain : ""
   })
 
   tags = {
@@ -296,14 +295,27 @@ locals {
   eip_public_ip     = local.eip_strategy == "persistent" ? data.aws_eip.existing[0].public_ip : aws_eip.new[0].public_ip
 }
 
+# Extract base zone name from full domain for zone lookup
+# For "test.lablink.sleap.ai" → find zone for "lablink.sleap.ai." or "sleap.ai."
+locals {
+  # Split domain by dots and progressively check parent zones
+  domain_parts = split(".", local.dns_domain)
+  # For sub-subdomains, try parent domains (e.g., test.lablink.sleap.ai → lablink.sleap.ai)
+  # IMPORTANT: This only removes the first subdomain part. If the parent zone doesn't exist
+  # (e.g., you specify test.lablink.sleap.ai but only sleap.ai zone exists), lookup will fail.
+  # In that case, either create the intermediate zone or provide zone_id explicitly in config.
+  dns_zone_name = local.dns_enabled && local.dns_domain != "" && length(local.domain_parts) > 2 ? join(".", slice(local.domain_parts, 1, length(local.domain_parts))) : local.dns_domain
+}
+
 # DNS Zone Lookup (if using existing zone)
-# AWS Route53 zone lookup matches EXACT zone name only
-# If lablink.example.com zone exists, it will ONLY match "lablink.example.com."
-# If it doesn't exist, it will fail (not fall back to parent zone)
-# Skip lookup if zone_id is already provided in config (avoids "multiple zones" error)
+# AWS Route53 zone lookup finds the hosted zone that contains dns.domain
+# For dns.domain="test.lablink.sleap.ai", it will look for zone "lablink.sleap.ai." or "sleap.ai."
+# Skip lookup if zone_id is already provided in config (avoids lookup errors)
+# NOTE: AWS Route53 data source automatically handles trailing dots - both "example.com"
+# and "example.com." will match the zone. No need to append trailing dot explicitly.
 data "aws_route53_zone" "existing" {
-  count        = local.dns_enabled && !local.dns_create_zone && local.dns_zone_id == "" ? 1 : 0
-  name         = "${local.dns_domain}."
+  count        = local.dns_enabled && local.dns_zone_id == "" ? 1 : 0
+  name         = local.dns_zone_name
   private_zone = false
 
   tags = {
@@ -312,33 +324,29 @@ data "aws_route53_zone" "existing" {
   }
 }
 
-# DNS Zone Creation (if creating new zone)
-resource "aws_route53_zone" "new" {
-  count = local.dns_enabled && local.dns_create_zone ? 1 : 0
-  name  = local.dns_domain
-
-  tags = {
-    Name        = "lablink-zone-${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
-}
-
-# Generate FQDN based on environment and DNS settings from config.yaml
+# Compute FQDN, allocator URL, and other derived values
 locals {
-  # Subdomain pattern: auto generates prod.lablink or test.lablink, custom uses custom_subdomain
-  subdomain = local.dns_pattern == "custom" ? local.dns_custom_subdomain : (
-    var.resource_suffix == "prod" ? local.dns_app_name : "${var.resource_suffix}.${local.dns_app_name}"
+  # FQDN is the dns.domain directly (no pattern logic)
+  fqdn = local.dns_enabled ? local.dns_domain : local.eip_public_ip
+
+  # Zone ID from either config or lookup (priority: config > lookup)
+  zone_id = local.dns_enabled ? (
+    local.dns_zone_id != "" ? local.dns_zone_id : data.aws_route53_zone.existing[0].zone_id
+  ) : ""
+
+  # Compute full allocator URL with protocol
+  # If DNS + SSL: https://{domain}
+  # If DNS without SSL: http://{domain}
+  # If no DNS: http://{ip}
+  allocator_fqdn = local.dns_enabled && contains(["letsencrypt", "cloudflare", "acm"], local.ssl_provider) ? "https://${local.dns_domain}" : (
+    local.dns_enabled ? "http://${local.dns_domain}" : "http://${local.eip_public_ip}"
   )
 
-  # Full domain name
-  fqdn = local.dns_enabled ? "${local.subdomain}.${local.dns_domain}" : "N/A"
+  # Conditional Caddy installation (only for letsencrypt and cloudflare)
+  install_caddy = contains(["letsencrypt", "cloudflare"], local.ssl_provider)
 
-  # Zone ID from either config, lookup, or creation (priority: config > create > lookup)
-  zone_id = local.dns_enabled ? (
-    local.dns_zone_id != "" ? local.dns_zone_id : (
-      local.dns_create_zone ? aws_route53_zone.new[0].zone_id : data.aws_route53_zone.existing[0].zone_id
-    )
-  ) : ""
+  # Conditional ALB creation (only for ACM)
+  create_alb = local.ssl_provider == "acm"
 
   allocator_instance_type = "t3.large"
 }
@@ -346,13 +354,19 @@ locals {
 # DNS A Record for the allocator
 # Only created when terraform_managed is true
 # If terraform_managed is false, you must manually create the A record in Route53
+# Points to EIP for direct EC2 access, or ALB for ACM SSL termination
 resource "aws_route53_record" "lablink_a_record" {
-  count   = local.dns_enabled && local.dns_terraform_managed ? 1 : 0
-  zone_id = local.zone_id != "" ? local.zone_id : "Z0000000000000000000" # Dummy value when DNS disabled
-  name    = local.fqdn != "" ? local.fqdn : "dummy.example.com"
+  count   = local.dns_enabled && local.dns_terraform_managed && !local.create_alb ? 1 : 0
+  zone_id = local.zone_id
+  name    = local.dns_domain
   type    = "A"
   ttl     = 300
-  records = [local.eip_public_ip != "" ? local.eip_public_ip : "0.0.0.0"]
+  records = [local.eip_public_ip]
+
+  lifecycle {
+    # Prevent accidental deletion in production
+    prevent_destroy = false # Set to true for production environments
+  }
 }
 
 # Associate Elastic IP with EC2 instance
@@ -483,7 +497,7 @@ resource "aws_lambda_function" "log_processor" {
   depends_on       = [aws_cloudwatch_log_group.lambda_logs]
   environment {
     variables = {
-      API_ENDPOINT = "${local.fqdn}/api/vm-logs"
+      API_ENDPOINT = "${local.allocator_fqdn}/api/vm-logs"
     }
   }
 
@@ -526,8 +540,8 @@ output "private_key_pem" {
 
 # Output the FQDN for the allocator
 output "allocator_fqdn" {
-  value       = local.fqdn
-  description = "The subdomain associated with the allocator EIP"
+  value       = local.allocator_fqdn
+  description = "The full URL (with protocol) to access the allocator service"
 }
 
 output "allocator_instance_type" {

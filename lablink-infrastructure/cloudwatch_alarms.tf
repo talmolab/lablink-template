@@ -40,7 +40,7 @@ resource "aws_cloudwatch_metric_alarm" "mass_instance_launch" {
   evaluation_periods  = 1
   metric_name         = "RunInstancesCount"
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
-  period              = 300  # 5 minutes
+  period              = 300 # 5 minutes
   statistic           = "Sum"
   threshold           = try(local.config_file.monitoring.thresholds.max_instances_per_5min, 10)
   alarm_description   = "Alert when allocator launches >${try(local.config_file.monitoring.thresholds.max_instances_per_5min, 10)} instances in 5 minutes"
@@ -80,7 +80,7 @@ resource "aws_cloudwatch_metric_alarm" "large_instance_launched" {
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
   period              = 300
   statistic           = "Sum"
-  threshold           = 0  # Alert on ANY large instance
+  threshold           = 0 # Alert on ANY large instance
   alarm_description   = "Alert when allocator launches expensive instance types (p4d, p3, g5)"
   alarm_actions       = [aws_sns_topic.admin_alerts.arn]
   treat_missing_data  = "notBreaching"
@@ -116,7 +116,7 @@ resource "aws_cloudwatch_metric_alarm" "unauthorized_calls" {
   evaluation_periods  = 1
   metric_name         = "UnauthorizedAPICalls"
   namespace           = "LabLinkSecurity/${var.resource_suffix}"
-  period              = 900  # 15 minutes
+  period              = 900 # 15 minutes
   statistic           = "Sum"
   threshold           = try(local.config_file.monitoring.thresholds.max_unauthorized_calls_per_15min, 5)
   alarm_description   = "Alert when allocator makes unauthorized API calls (possible attack or permission issue)"

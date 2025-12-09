@@ -123,10 +123,30 @@ Use this checklist to ensure you have completed all required setup steps before 
   - `false` = You manually create DNS records in Route 53
 
 **SSL Settings** (if using SSL):
-- [ ] Set `provider`: "letsencrypt", "cloudflare", or "none"
+- [ ] Set `provider`: "letsencrypt", "cloudflare", "acm", or "none"
 - [ ] Updated `email` for Let's Encrypt notifications
-- [ ] Set `staging: false` for production SSL certs
-  - Keep `staging: true` for testing (unlimited rate)
+- [ ] Set `ssl.provider` appropriately
+  - `letsencrypt`: Automatic SSL with production certs
+  - `cloudflare`: CloudFlare proxy provides SSL
+  - `acm`: Use AWS Certificate Manager (enterprise)
+  - `none`: HTTP only for testing
+
+**⚠️ Let's Encrypt Rate Limit Check** (if using `ssl.provider: "letsencrypt"`):
+- [ ] Understand rate limits **before deploying**:
+  - **5 certificates per exact domain every 7 days** (e.g., `test.example.com`)
+  - 50 certificates per registered domain every 7 days (e.g., all `*.example.com`)
+  - **Rate limit violations = 7-day lockout with NO override**
+- [ ] Check existing certificate count for your domain:
+  - Visit [crt.sh](https://crt.sh/?q=your-domain.com) (replace with your domain)
+  - Count certificates issued in last 7 days
+  - Calculate remaining quota: `5 - (certificates in last 7 days)`
+- [ ] Choose appropriate testing strategy if deploying frequently:
+  - **IP-only** (no DNS/SSL): `dns.enabled: false`, `ssl.provider: "none"` - No rate limits
+  - **Subdomain rotation**: Use different subdomains (`test1`, `test2`, etc.) - 5 attempts per subdomain
+  - **CloudFlare SSL**: `ssl.provider: "cloudflare"` - No Let's Encrypt limits
+  - See [TESTING_BEST_PRACTICES.md](docs/TESTING_BEST_PRACTICES.md) for detailed guidance
+- [ ] If this is production with stable domain: proceed with Let's Encrypt
+- [ ] If this is testing/staging: consider IP-only or CloudFlare to avoid lockouts
 
 **S3 Bucket:**
 - [ ] Updated `bucket_name` to match created S3 bucket

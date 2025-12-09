@@ -229,8 +229,8 @@ outputs
 # Ignore VS Code workspace settings
 .vscode/
 
-# Ignore Claude Code settings
-.claude/
+# Ignore Claude Code personal settings (but track commands in .claude/commands/)
+.claude/settings.local.json
 
 # Ignore lambda zip files
 lambda_package.zip

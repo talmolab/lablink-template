@@ -12,11 +12,16 @@ apt-get install -y debian-keyring debian-archive-keyring apt-transport-https cur
 systemctl start docker
 systemctl enable docker
 
-# Install Caddy for SSL termination
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt-get update
-apt-get install -y caddy
+# Conditionally install Caddy (only for letsencrypt and cloudflare SSL providers)
+if [ "${INSTALL_CADDY}" = "true" ]; then
+  echo ">> Installing Caddy for SSL termination (provider: ${SSL_PROVIDER})"
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update
+  apt-get install -y caddy
+else
+  echo ">> Skipping Caddy installation (provider: ${SSL_PROVIDER})"
+fi
 
 # Create config directory and file in /etc/lablink-allocator in EC2 instance
 mkdir -p /etc/lablink-allocator
@@ -35,35 +40,60 @@ else
   echo ">> Custom startup: disabled or empty script; skipping"
 fi
 
-# Start allocator container on port 5000 (Caddy will proxy to it)
+# Start allocator container
+# Port binding depends on SSL provider:
+# - letsencrypt/cloudflare: 127.0.0.1:5000 (Caddy proxies)
+# - acm: 0.0.0.0:5000 (ALB proxies)
+# - none: 0.0.0.0:5000 (direct access)
 IMAGE="ghcr.io/talmolab/lablink-allocator-image:${ALLOCATOR_IMAGE_TAG}"
-docker pull $IMAGE
-docker run -d -p 127.0.0.1:5000:5000 \
+docker pull "$IMAGE"
+
+if [ "${INSTALL_CADDY}" = "true" ]; then
+  PORT_BINDING="127.0.0.1:5000:5000"
+else
+  PORT_BINDING="0.0.0.0:5000:5000"
+fi
+
+docker run -d -p "$PORT_BINDING" \
   --mount type=bind,src=/etc/lablink-allocator,dst=/config,ro \
   -e ENVIRONMENT=${RESOURCE_SUFFIX} \
   -e ALLOCATOR_PUBLIC_IP=${ALLOCATOR_PUBLIC_IP} \
   -e ALLOCATOR_KEY_NAME=${ALLOCATOR_KEY_NAME} \
   -e CLOUD_INIT_LOG_GROUP=${CLOUD_INIT_LOG_GROUP} \
-  $IMAGE
+  -e ALLOCATOR_FQDN=${ALLOCATOR_FQDN} \
+  "$IMAGE"
 
-# Configure Caddy for SSL termination with Let's Encrypt
-# If SSL_STAGING is true, serve HTTP only (no SSL, unlimited testing)
-# If SSL_STAGING is false, use Let's Encrypt production server (HTTPS with trusted certs, rate limited)
-if [ "${SSL_STAGING}" = "true" ]; then
-  cat <<EOF > /etc/caddy/Caddyfile
-# Staging mode: HTTP only (no SSL certificates)
-http://${DOMAIN_NAME} {
-    reverse_proxy localhost:5000
+# Configure Caddy for SSL termination (if installed)
+if [ "${INSTALL_CADDY}" = "true" ]; then
+  echo ">> Configuring Caddy for SSL provider: ${SSL_PROVIDER}"
+
+  if [ "${SSL_PROVIDER}" = "letsencrypt" ]; then
+    cat <<EOF > /etc/caddy/Caddyfile
+# Let's Encrypt SSL with automatic HTTPS
+{
+    email ${SSL_EMAIL}
 }
-EOF
-else
-  cat <<EOF > /etc/caddy/Caddyfile
-# Production mode: HTTPS with Let's Encrypt
+
 ${DOMAIN_NAME} {
     reverse_proxy localhost:5000
 }
 EOF
+  elif [ "${SSL_PROVIDER}" = "cloudflare" ]; then
+    cat <<EOF > /etc/caddy/Caddyfile
+# CloudFlare DNS + SSL (managed in CloudFlare)
+# Caddy serves HTTP, CloudFlare proxies with SSL
+http://${DOMAIN_NAME} {
+    reverse_proxy localhost:5000
+}
+EOF
+  fi
+
+  # Restart Caddy to apply configuration
+  systemctl restart caddy
+  echo ">> Caddy configured and started"
+else
+  echo ">> No Caddy configuration needed (provider: ${SSL_PROVIDER})"
 fi
 
-# Restart Caddy to apply configuration
-systemctl restart caddy
+echo ">> LabLink allocator deployment complete"
+echo ">> Allocator URL: ${ALLOCATOR_FQDN}"

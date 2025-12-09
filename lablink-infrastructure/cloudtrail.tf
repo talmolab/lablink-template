@@ -1,6 +1,6 @@
 # S3 bucket for CloudTrail logs
 resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket = "lablink-cloudtrail-${var.resource_suffix}-${data.aws_caller_identity.current.account_id}"
+  bucket        = "lablink-cloudtrail-${var.resource_suffix}-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
 
   tags = {

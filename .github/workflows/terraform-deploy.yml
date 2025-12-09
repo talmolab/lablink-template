@@ -74,6 +74,41 @@ jobs:
           echo "Using environment: ${{ steps.setenv.outputs.env }}"
           echo "Working directory: ${{ steps.setenv.outputs.workdir }}"
 
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Validate configuration before deployment
+        working-directory: ${{ steps.setenv.outputs.workdir }}
+        run: |
+          echo "Validating configuration before deployment..."
+
+          CONFIG_FILE="config/config.yaml"
+
+          # Extract allocator image tag from config
+          IMAGE_TAG=$(grep -A5 "^allocator:" "$CONFIG_FILE" | grep "image_tag:" | awk '{print $2}' | tr -d '"')
+
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "Error: allocator.image_tag not found in $CONFIG_FILE"
+            exit 1
+          fi
+
+          ALLOCATOR_IMAGE="ghcr.io/talmolab/lablink-allocator-image:${IMAGE_TAG}"
+          echo "Using allocator image for validation: $ALLOCATOR_IMAGE"
+
+          # Pull the allocator image
+          docker pull "$ALLOCATOR_IMAGE"
+
+          # Create absolute path for config file
+          CONFIG_PATH="$(pwd)/config/config.yaml"
+
+          # Run validation using the Docker image
+          docker run --rm \
+            -v "$CONFIG_PATH:/config/config.yaml:ro" \
+            "$ALLOCATOR_IMAGE" \
+            uv run lablink-validate-config /config/config.yaml --verbose
+
+          echo "Configuration validation passed!"
+
       - name: Inject Password Secrets
         working-directory: ${{ steps.setenv.outputs.workdir }}
         env:
@@ -213,12 +248,8 @@ jobs:
             echo "DNS is enabled in configuration"
 
             DNS_DOMAIN=$(grep -A 10 "^dns:" "$CONFIG_FILE" | grep "domain:" | awk '{print $2}' | tr -d '"')
-            DNS_PATTERN=$(grep -A 10 "^dns:" "$CONFIG_FILE" | grep "pattern:" | awk '{print $2}' | tr -d '"')
-            DNS_SUBDOMAIN=$(grep -A 10 "^dns:" "$CONFIG_FILE" | grep "custom_subdomain:" | awk '{print $2}' | tr -d '"')
 
-            echo "   Domain: $DNS_DOMAIN"
-            echo "   Subdomain: $DNS_SUBDOMAIN"
-            echo "   Pattern: $DNS_PATTERN"
+            echo "   Full Domain: $DNS_DOMAIN"
 
             # Validate required fields are not empty
             if [ -z "$DNS_DOMAIN" ]; then

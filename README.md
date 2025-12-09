@@ -356,29 +356,53 @@ app:
 dns:
   enabled: false  # true to use DNS, false for IP-only
   terraform_managed: false  # true = Terraform creates records
-  domain: "lablink.example.com"
+  domain: "lablink.example.com"  # Full domain name (e.g., test.lablink.example.com)
   zone_id: ""  # Leave empty for auto-lookup
-  app_name: "lablink"
-  pattern: "auto"  # "auto" or "custom"
 ```
 
-**DNS Patterns**:
-- `auto`: Creates `{env}.{app_name}.{domain}` (e.g., `test.lablink.example.com`)
-- `custom`: Uses `custom_subdomain` value
+**Domain Naming**:
+- Specify the full domain directly (e.g., `lablink.example.com` or `test.lablink.example.com`)
+- No automatic subdomain construction - use exactly what you specify
 
 ### SSL/TLS Settings
 
 ```yaml
 ssl:
-  provider: "none"  # "letsencrypt", "cloudflare", or "none"
+  provider: "none"  # "letsencrypt", "cloudflare", "acm", or "none"
   email: "admin@example.com"  # For Let's Encrypt notifications
-  staging: true  # true = staging certs, false = production certs
+  certificate_arn: ""  # Required when provider="acm"
 ```
 
 **SSL Providers**:
 - `none`: HTTP only (for testing)
-- `letsencrypt`: Automatic SSL with Caddy
+- `letsencrypt`: Automatic SSL with Caddy (production certs)
 - `cloudflare`: Use CloudFlare proxy for SSL
+- `acm`: AWS Certificate Manager via Application Load Balancer
+
+### Let's Encrypt Rate Limits
+
+⚠️ **Important**: When using Let's Encrypt (`ssl.provider: "letsencrypt"`), be aware of rate limits:
+
+| Limit Type | Limit | Lockout Period |
+|------------|-------|----------------|
+| **Certificates per exact domain** | 5 per week | 7 days |
+| Certificates per registered domain | 50 per week | 7 days |
+
+**What this means:**
+- You can only deploy the **same domain** (e.g., `test.lablink.example.com`) **5 times in 7 days**
+- If you hit the limit, you must wait 7 days before deploying that domain again
+- **No override available** for the per-domain limit
+
+**Testing Strategies to Avoid Rate Limits:**
+
+| Strategy | DNS | SSL | Use Case | Rate Limit Risk |
+|----------|-----|-----|----------|-----------------|
+| **IP-only** | Disabled | None | Development/debugging | ✅ None |
+| **CloudFlare** | Enabled | CloudFlare | Frequent testing | ✅ None |
+| **Subdomain rotation** | Enabled | Let's Encrypt | SSL testing | ⚠️ Low (5 per subdomain) |
+| **Production** | Enabled | Let's Encrypt | Stable deployment | ⚠️ Low (rarely redeploy) |
+
+📖 **See [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md) for detailed testing strategies and monitoring certificate usage.**
 
 ### Elastic IP Settings
 
