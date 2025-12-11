@@ -76,8 +76,10 @@ startup_script:
   on_error: "continue"
 
 monitoring:
-  enabled: false
-  email: ""
+  enabled: true # Enable monitoring for production
+
+  # Note: Make sure to accept subscription for AWS SNS
+  email: "admin@example.com" # Replace with your email for alerts
   thresholds:
     max_instances_per_5min: 10
     max_terminations_per_5min: 20
