@@ -56,12 +56,6 @@ resource "aws_security_group_rule" "allow_alb_to_allocator" {
   description              = "Allow ALB to reach allocator on port 5000"
 }
 
-# Get default VPC for ALB
-data "aws_vpc" "default" {
-  count   = local.create_alb ? 1 : 0
-  default = true
-}
-
 # Get default subnets for ALB (requires at least 2 AZs)
 data "aws_subnets" "default" {
   count = local.create_alb ? 1 : 0

@@ -63,7 +63,7 @@ docker run -d -p "$PORT_BINDING" \
   -e ALLOCATOR_FQDN=${ALLOCATOR_FQDN} \
   "$IMAGE"
 
-# Configure Caddy for SSL termination (if installed)
+# Configure Caddy for SSL termination or HTTP reverse proxy
 if [ "${INSTALL_CADDY}" = "true" ]; then
   echo ">> Configuring Caddy for SSL provider: ${SSL_PROVIDER}"
 
@@ -91,6 +91,23 @@ EOF
   # Restart Caddy to apply configuration
   systemctl restart caddy
   echo ">> Caddy configured and started"
+elif [ "${SSL_PROVIDER}" = "none" ]; then
+  echo ">> Installing Caddy for HTTP reverse proxy (port 80 -> 5000)"
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update
+  apt-get install -y caddy
+
+  # Configure Caddy for simple HTTP reverse proxy on port 80
+  cat <<EOF > /etc/caddy/Caddyfile
+# Simple HTTP reverse proxy (no SSL)
+:80 {
+    reverse_proxy localhost:5000
+}
+EOF
+
+  systemctl restart caddy
+  echo ">> Caddy configured for HTTP reverse proxy"
 else
   echo ">> No Caddy configuration needed (provider: ${SSL_PROVIDER})"
 fi

@@ -122,8 +122,12 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:CreateRole",
       "iam:DeleteRole",
       "iam:GetRole",
+      "iam:TagRole",
+      "iam:UntagRole",
       "iam:CreateInstanceProfile",
       "iam:DeleteInstanceProfile",
+      "iam:TagInstanceProfile",
+      "iam:UntagInstanceProfile",
       "iam:AddRoleToInstanceProfile",
       "iam:RemoveRoleFromInstanceProfile",
       "iam:ListRolePolicies",
@@ -217,6 +221,14 @@ resource "aws_security_group" "allow_http" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow direct access to allocator service"
   }
 
   ingress {
@@ -330,9 +342,10 @@ locals {
   fqdn = local.dns_enabled ? local.dns_domain : local.eip_public_ip
 
   # Zone ID from either config or lookup (priority: config > lookup)
+  # Use a placeholder value when DNS is disabled to avoid Terraform validation errors
   zone_id = local.dns_enabled ? (
     local.dns_zone_id != "" ? local.dns_zone_id : data.aws_route53_zone.existing[0].zone_id
-  ) : ""
+  ) : "Z0000000000000000000"
 
   # Compute full allocator URL with protocol
   # If DNS + SSL: https://{domain}
