@@ -8,6 +8,11 @@ on:
 
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Branch to run validation on'
+        required: false
+        default: 'main'
+        type: string
       config_path:
         description: 'Path to config file to validate'
         required: false
@@ -23,6 +28,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
