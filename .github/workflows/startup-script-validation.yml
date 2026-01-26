@@ -5,10 +5,6 @@ on:
         paths:
             - "lablink-infrastructure/config/custom-startup.sh"
 
-    pull_request:
-        paths:
-            - "lablink-infrastructure/config/custom-startup.sh"
-
     workflow_dispatch:
 
 permissions:
