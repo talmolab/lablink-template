@@ -3,15 +3,15 @@ name: Validate Configuration
 on:
   pull_request:
     paths:
-      - 'lablink-infrastructure/config/config.yaml'
-      - 'lablink-infrastructure/config/*.example.yaml'
+      - "lablink-infrastructure/config/config.yaml"
+      - "lablink-infrastructure/config/*.example.yaml"
 
   workflow_dispatch:
     inputs:
       config_path:
-        description: 'Path to config file to validate'
+        description: "Path to config file to validate"
         required: false
-        default: 'lablink-infrastructure/config/config.yaml'
+        default: "lablink-infrastructure/config/config.yaml"
 
 permissions:
   contents: read
