@@ -36,6 +36,10 @@ locals {
     file("${path.module}/${local.startup_path}") : ""
   )
 
+  # Base64 encode startup script to preserve $ and other special characters
+  # This prevents bash from expanding variables when user_data.sh runs
+  startup_script_b64 = local.startup_script_content != "" ? base64encode(local.startup_script_content) : ""
+
   # Bucket name from config.yaml for S3 backend
   bucket_name = try(local.config_file.bucket_name, "tf-state-lablink-allocator-bucket")
 }
@@ -264,9 +268,9 @@ resource "aws_instance" "lablink_allocator_server" {
     ALLOCATOR_PUBLIC_IP   = local.eip_public_ip
     ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
     CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT        = file("${path.module}/config/config.yaml")
-    CLIENT_STARTUP_SCRIPT = local.startup_script_content
-    STARTUP_ENABLED       = local.startup_enabled
+    CONFIG_CONTENT          = file("${path.module}/config/config.yaml")
+    CLIENT_STARTUP_SCRIPT_B64 = local.startup_script_b64
+    STARTUP_ENABLED         = local.startup_enabled
     ALLOCATOR_FQDN        = local.allocator_fqdn
     INSTALL_CADDY         = local.install_caddy
     SSL_PROVIDER          = local.ssl_provider
