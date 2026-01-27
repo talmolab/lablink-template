@@ -30,12 +30,12 @@ ${CONFIG_CONTENT}
 EOF
 
 # Create startup script file in /etc/lablink-allocator in EC2 instance if enabled
-if [ "${STARTUP_ENABLED}" = "true" ]; then
-  echo ">> Custom startup: enabled; writing script"
-  cat <<EOF > /etc/lablink-allocator/custom-startup.sh
-${CLIENT_STARTUP_SCRIPT}
-EOF
+# Use base64 decoding to preserve $ variables in the script (bash would expand them otherwise)
+if [ "${STARTUP_ENABLED}" = "true" ] && [ -n "${CLIENT_STARTUP_SCRIPT_B64}" ]; then
+  echo ">> Custom startup: enabled; decoding and writing script"
+  echo '${CLIENT_STARTUP_SCRIPT_B64}' | base64 -d > /etc/lablink-allocator/custom-startup.sh
   chmod +x /etc/lablink-allocator/custom-startup.sh
+  echo ">> Custom startup script written successfully"
 else
   echo ">> Custom startup: disabled or empty script; skipping"
 fi
