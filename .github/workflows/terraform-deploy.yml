@@ -7,6 +7,11 @@ on:
 
   workflow_dispatch:
     inputs:
+      deployment_name:
+        description: "Unique deployment name (e.g., sleap-lablink). Used as prefix for all AWS resources."
+        required: true
+        default: "my-lablink"
+        type: string
       environment:
         description: "Environment to deploy (test, prod, or ci-test) - dev uses local state and should only be used locally"
         required: true
@@ -47,6 +52,16 @@ jobs:
       - name: Determine Environment
         id: setenv
         run: |
+          # Set deployment_name from input or use default
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DEPLOYMENT_NAME="${{ github.event.inputs.deployment_name }}"
+          else
+            # For automatic triggers, use repository variable or default
+            DEPLOYMENT_NAME="${{ vars.DEPLOYMENT_NAME || 'my-lablink' }}"
+          fi
+          echo "deployment_name=${DEPLOYMENT_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Set environment
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.environment }}" in
               test|prod|ci-test)
@@ -71,6 +86,7 @@ jobs:
 
       - name: Debug Environment
         run: |
+          echo "Deployment name: ${{ steps.setenv.outputs.deployment_name }}"
           echo "Using environment: ${{ steps.setenv.outputs.env }}"
           echo "Working directory: ${{ steps.setenv.outputs.workdir }}"
 
@@ -157,14 +173,16 @@ jobs:
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform plan \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
+            -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
+            -var="environment=${{ steps.setenv.outputs.env }}"
 
       - name: Terraform Apply
         id: apply
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
           terraform apply -auto-approve \
-            -var="resource_suffix=${{ steps.setenv.outputs.env }}"
+            -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
+            -var="environment=${{ steps.setenv.outputs.env }}"
         continue-on-error: true
 
       - name: Save PEM Key to Artifact
@@ -212,4 +230,4 @@ jobs:
       - name: Terraform Destroy on Failure
         working-directory: ${{ steps.setenv.outputs.workdir }}
         if: steps.apply.outcome == 'failure'
-        run: terraform destroy -auto-approve -var="resource_suffix=${{ steps.setenv.outputs.env }}"
+        run: terraform destroy -auto-approve -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" -var="environment=${{ steps.setenv.outputs.env }}"

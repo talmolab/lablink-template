@@ -53,8 +53,8 @@ dns:
   zone_id: ""
 
 eip:
-  strategy: "dynamic"
-  tag_name: "lablink-eip"
+  # EIP name is derived from deployment_name: {deployment_name}-eip-{environment}
+  strategy: "dynamic"  # Create new EIP each deployment
 
 ssl:
   provider: "none"  # No SSL - HTTP only

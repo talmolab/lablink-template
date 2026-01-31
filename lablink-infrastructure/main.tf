@@ -1,7 +1,41 @@
-variable "resource_suffix" {
-  description = "Suffix to append to all resources"
+variable "deployment_name" {
+  description = "Unique name for this deployment (e.g., sleap-lablink, deeplabcut-lablink). Used as prefix for all resources."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.deployment_name)) && length(var.deployment_name) >= 3 && length(var.deployment_name) <= 32
+    error_message = "deployment_name must be 3-32 characters, lowercase kebab-case (e.g., 'sleap-lablink')."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment (e.g., dev, test, ci-test, prod)"
   type        = string
   default     = "prod"
+
+  validation {
+    condition     = contains(["dev", "test", "ci-test", "prod"], var.environment)
+    error_message = "environment must be one of: dev, test, ci-test, prod."
+  }
+}
+
+variable "repository" {
+  description = "Source repository for traceability (e.g., talmolab/sleap-lablink). Optional."
+  type        = string
+  default     = ""
+}
+
+# Resource naming convention: {deployment_name}-{resource_type}-{environment}
+locals {
+  # Standard tags applied to all resources
+  common_tags = merge(
+    {
+      Environment = var.environment
+      Project     = var.deployment_name
+      ManagedBy   = "terraform"
+    },
+    var.repository != "" ? { Repository = var.repository } : {}
+  )
 }
 
 # Read configuration from YAML file
@@ -16,7 +50,6 @@ locals {
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
-  eip_tag_name = try(local.config_file.eip.tag_name, "lablink-eip")
 
   # SSL configuration from config.yaml
   ssl_provider        = try(local.config_file.ssl.provider, "none")
@@ -65,7 +98,7 @@ data "aws_iam_policy_document" "s3_backend_doc" {
     effect  = "Allow"
     actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = [
-      "arn:aws:s3:::${local.bucket_name}/${var.resource_suffix}/*"
+      "arn:aws:s3:::${local.bucket_name}/${var.environment}/*"
     ]
   }
 
@@ -167,17 +200,16 @@ resource "tls_private_key" "lablink_key" {
 
 # Register the public key with AWS
 resource "aws_key_pair" "lablink_key_pair" {
-  key_name   = "lablink-key-${var.resource_suffix}"
+  key_name   = "${var.deployment_name}-keypair-${var.environment}"
   public_key = tls_private_key.lablink_key.public_key_openssh
 
-  tags = {
-    Name        = "lablink-key-${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-keypair-${var.environment}"
+  })
 }
 
 resource "aws_security_group" "allow_http" {
-  name = "allow_http_https_${var.resource_suffix}"
+  name = "${var.deployment_name}-allocator-sg-${var.environment}"
 
   ingress {
     from_port   = 80
@@ -215,10 +247,9 @@ resource "aws_security_group" "allow_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name        = "allow_http_https_${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-allocator-sg-${var.environment}"
+  })
 }
 
 resource "aws_instance" "lablink_allocator_server" {
@@ -244,10 +275,9 @@ resource "aws_instance" "lablink_allocator_server" {
     DOMAIN_NAME               = local.install_caddy ? local.dns_domain : ""
   }))
 
-  tags = {
-    Name        = "lablink_allocator_server_${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-allocator-${var.environment}"
+  })
 }
 
 # EIP Lookup (for persistent strategy - reuse existing tagged EIP)
@@ -255,8 +285,8 @@ data "aws_eip" "existing" {
   count = local.eip_strategy == "persistent" ? 1 : 0
 
   tags = {
-    Name        = "${local.eip_tag_name}-${var.resource_suffix}"
-    Environment = var.resource_suffix
+    Name        = "${var.deployment_name}-eip-${var.environment}"
+    Environment = var.environment
   }
 }
 
@@ -265,10 +295,9 @@ resource "aws_eip" "new" {
   count  = local.eip_strategy == "dynamic" ? 1 : 0
   domain = "vpc"
 
-  tags = {
-    Name        = "${local.eip_tag_name}-${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-eip-${var.environment}"
+  })
 }
 
 # Determine which EIP to use based on strategy
@@ -299,11 +328,6 @@ data "aws_route53_zone" "existing" {
   count        = local.dns_enabled && local.dns_zone_id == "" ? 1 : 0
   name         = local.dns_zone_name
   private_zone = false
-
-  tags = {
-    Name        = "lablink-zone-${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
 }
 
 # Compute FQDN, allocator URL, and other derived values
@@ -359,27 +383,25 @@ resource "aws_eip_association" "lablink_allocator_ip_assoc" {
 }
 
 resource "aws_iam_policy" "s3_backend_policy" {
-  name   = "lablink_s3_backend_${var.resource_suffix}"
+  name   = "${var.deployment_name}-s3-backend-policy-${var.environment}"
   policy = data.aws_iam_policy_document.s3_backend_doc.json
 
-  tags = {
-    Name        = "lablink_s3_backend_${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-s3-backend-policy-${var.environment}"
+  })
 }
 
 resource "aws_iam_policy" "ec2_vm_management_policy" {
-  name   = "lablink_ec2_vm_management_${var.resource_suffix}"
+  name   = "${var.deployment_name}-ec2-mgmt-policy-${var.environment}"
   policy = data.aws_iam_policy_document.ec2_vm_management_doc.json
 
-  tags = {
-    Name        = "lablink_ec2_vm_management_${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-ec2-mgmt-policy-${var.environment}"
+  })
 }
 
 resource "aws_iam_role" "instance_role" {
-  name = "lablink_instance_role_${var.resource_suffix}"
+  name = "${var.deployment_name}-allocator-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -390,10 +412,9 @@ resource "aws_iam_role" "instance_role" {
     }]
   })
 
-  tags = {
-    Name        = "lablink_instance_role_${var.resource_suffix}"
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-allocator-role-${var.environment}"
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "attach_ec2_management" {
@@ -407,12 +428,12 @@ resource "aws_iam_role_policy_attachment" "attach_s3_backend" {
 }
 
 resource "aws_iam_instance_profile" "allocator_instance_profile" {
-  name = "lablink_instance_profile_${var.resource_suffix}"
+  name = "${var.deployment_name}-allocator-profile-${var.environment}"
   role = aws_iam_role.instance_role.name
 
-  tags = {
-    Environment = var.resource_suffix
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.deployment_name}-allocator-profile-${var.environment}"
+  })
 }
 
 # Output the EC2 public IP
@@ -452,15 +473,20 @@ output "allocator_instance_type" {
 # - A security group allowing inbound HTTP (port 80) and SSH (port 22) traffic.
 # - An association between the EC2 instance and the fixed EIP.
 #
-# DNS records are managed manually in Route 53.
-# - The EIP is manually mapped to either `lablink.example.com` (for prod) or
-#   `{resource_suffix}.lablink.example.com` (for dev, test, etc.).
-# Note: EIPs must be pre-allocated and tagged as "lablink-eip-prod", "lablink-eip-dev", etc.
+# DNS records are managed manually in Route 53 or via Terraform (dns.terraform_managed).
+#
+# Resource Naming Convention:
+# All resources follow the pattern: {deployment_name}-{resource-type}-{environment}
+# Example: sleap-lablink-allocator-prod, sleap-lablink-eip-dev
+#
+# For persistent EIP strategy, EIPs must be pre-allocated and tagged with the
+# matching name: {deployment_name}-eip-{environment}
 #
 # The container is pulled from GitHub Container Registry and exposed on port 5000,
 # which is made externally accessible via port 80 on the EC2 instance.
 #
-# The configuration is environment-aware, using the `resource_suffix` variable
-# to differentiate resource names and subdomains (e.g., `prod`, `dev`, `test`).
+# The configuration uses two variables:
+# - deployment_name: Unique identifier for this deployment (e.g., sleap-lablink)
+# - environment: The deployment environment (dev, test, ci-test, prod)
 #
 # Outputs include the EC2 public IP, SSH key name, and the generated private key (marked sensitive).
