@@ -50,8 +50,8 @@ dns:
   zone_id: "Z1038183268T83E91AYJF"  # (Optional) Hardcode zone ID to skip lookup - leave empty for auto-lookup
 
 eip:
-  strategy: "persistent"  # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag {tag_name}-{env}
-  tag_name: "lablink-eip"  # Tag prefix for EIP name. Both strategies use {tag_name}-{env} format (e.g., lablink-eip-prod).
+  # EIP name is derived from deployment_name: {deployment_name}-eip-{environment}
+  strategy: "persistent"  # "persistent" = reuse existing EIP with matching name tag, "dynamic" = create new EIP each deployment
 
 ssl:
   provider: "letsencrypt"  # "letsencrypt" = Caddy auto-SSL, "cloudflare" = CloudFlare proxy, "acm" = AWS Certificate Manager, "none" = HTTP only
@@ -62,6 +62,23 @@ startup_script:
   enabled: true # true = run custom startup script on client VMs, false = no script
   path: "config/custom-startup.sh"  # Path to custom startup script (optional)
   on_error: "continue"  # "continue" = ignore errors, "fail" = stop VM setup on error
+
+# Monitoring and alerting configuration
+monitoring:
+  enabled: true  # Enable CloudWatch alarms and SNS notifications
+  email: "admin@example.com"  # Email for budget alerts and CloudWatch alarms
+
+  budget:
+    enabled: false  # Enable AWS Budget alerts (requires monitoring.email)
+    monthly_budget_usd: "100"  # Monthly budget limit in USD
+
+  thresholds:
+    max_instances_per_5min: 10  # Alert if more than N instances launched in 5 min
+    max_unauthorized_calls_per_15min: 5  # Alert on unauthorized API calls
+    max_terminations_per_5min: 10  # Alert on mass instance terminations
+
+  cloudtrail:
+    retention_days: 90  # CloudTrail log retention in days
 
 # S3 bucket for Terraform state (must be unique globally)
 # Only used for test/prod environments with S3 backend (not used in dev)
