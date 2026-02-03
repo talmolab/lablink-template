@@ -61,7 +61,7 @@ fi
 echo "Reading configuration from: $CONFIG_FILE"
 BUCKET_NAME=$(grep "^bucket_name:" "$CONFIG_FILE" | awk '{print $2}' | tr -d '"')
 REGION=$(grep -A 5 "^app:" "$CONFIG_FILE" | grep "^  region:" | awk '{print $2}' | tr -d '"')
-DNS_ENABLED=$(grep -A 20 "^dns:" "$CONFIG_FILE" | grep "^  enabled:" | awk '{print $2}' | tr -d '"')
+DNS_ENABLED=$(grep -A 20 "^dns:" "$CONFIG_FILE" | grep "^  enabled:" | head -1 | awk '{print $2}' | tr -d '"')
 DOMAIN=$(grep -A 20 "^dns:" "$CONFIG_FILE" | grep "^  domain:" | head -1 | awk '{print $2}' | tr -d '"')
 
 # Validate required values
