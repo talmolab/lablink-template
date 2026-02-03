@@ -47,10 +47,6 @@ dns:
   terraform_managed: false # false = manual DNS records (you create in Route53), true = Terraform creates/destroys records
   domain: "lablink.example.com" # Your Route53 hosted zone domain
   zone_id: "" # (Optional) Hardcode zone ID to skip lookup - leave empty for auto-lookup
-  app_name: "lablink" # Used with "auto" pattern
-  pattern: "auto" # "auto" = {env}.{app_name}.{domain}, "custom" = {custom_subdomain}.{domain}
-  custom_subdomain: "" # Only used with "custom" pattern
-  create_zone: false # false = use existing zone, true = create new zone
 
 eip:
   strategy: "dynamic" # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag {tag_name}-{env}

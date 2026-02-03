@@ -54,10 +54,6 @@ dns:
   terraform_managed: true # Let Terraform manage DNS records
   domain: "example.com" # Your base domain (Route53 hosted zone)
   zone_id: "" # Will be set by setup-aws-infrastructure.sh
-  app_name: "" # Not used with custom pattern
-  pattern: "custom" # Using custom pattern (workaround for allocator bug - see issue #212)
-  custom_subdomain: "" # Leave empty for apex domain: example.com
-  create_zone: false # Use existing zone
 
 eip:
   # Consider persistent EIP for production (keeps IP across redeploys)
