@@ -64,7 +64,7 @@ ssl:
   # No SSL for local dev (HTTP only)
   provider: "none"
   email: "dev@example.com"
-  staging: true
+  certificate_arn: ""
 
 startup_script:
   enabled: false

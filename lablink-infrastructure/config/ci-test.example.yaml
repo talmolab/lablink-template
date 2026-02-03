@@ -65,10 +65,10 @@ eip:
   tag_name: "lablink-eip" # Will become lablink-eip-ci-test
 
 ssl:
-  # Use Let's Encrypt staging certs for testing (unlimited, not trusted)
+  # Use Let's Encrypt for CI testing
   provider: "letsencrypt"
   email: "admin@example.com" # Update with maintainer email
-  staging: true # Staging certs = HTTP only, no rate limits
+  certificate_arn: "" # Not used for letsencrypt
 
 startup_script:
   enabled: false

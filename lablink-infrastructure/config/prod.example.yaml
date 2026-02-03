@@ -64,7 +64,7 @@ ssl:
   # Use Let's Encrypt production certs
   provider: "letsencrypt"
   email: "admin@example.com" # Your email for Let's Encrypt notifications
-  staging: false # Production certs = trusted HTTPS (rate limited)
+  certificate_arn: "" # Not used for letsencrypt
 
 startup_script:
   enabled: false
