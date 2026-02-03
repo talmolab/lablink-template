@@ -53,8 +53,8 @@ dns:
   zone_id: ""
 
 eip:
-  strategy: "dynamic"
-  tag_name: "lablink-eip"
+  # EIP name is derived from deployment_name: {deployment_name}-eip-{environment}
+  strategy: "dynamic"  # Create new EIP each deployment
 
 ssl:
   provider: "none"  # No SSL - HTTP only
@@ -65,5 +65,19 @@ startup_script:
   enabled: false
   path: "config/custom-startup.sh"
   on_error: "continue"
+
+# Monitoring - disabled for testing
+monitoring:
+  enabled: false
+  email: ""
+  budget:
+    enabled: false
+    monthly_budget_usd: "100"
+  thresholds:
+    max_instances_per_5min: 10
+    max_unauthorized_calls_per_15min: 5
+    max_terminations_per_5min: 10
+  cloudtrail:
+    retention_days: 30
 
 bucket_name: "tf-state-lablink-YOURORG"

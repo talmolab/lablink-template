@@ -8,7 +8,7 @@
 #   ./scripts/setup-aws-infrastructure.sh  # Creates S3, DynamoDB, Route53
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh prod
-#   terraform apply -var="resource_suffix=prod"
+#   terraform apply -var="deployment_name=your-lablink" -var="environment=prod"
 
 db:
   dbname: "lablink_db"
@@ -61,8 +61,8 @@ dns:
 
 eip:
   # Consider persistent EIP for production (keeps IP across redeploys)
-  strategy: "persistent" # Reuses existing EIP with tag
-  tag_name: "lablink-eip" # Will become lablink-eip-prod
+  # EIP name is derived from deployment_name: {deployment_name}-eip-{environment}
+  strategy: "persistent" # Reuses existing EIP with matching name tag
 
 ssl:
   # Use Let's Encrypt production certs

@@ -8,6 +8,11 @@ on:
         required: true
         default: "no"
         type: string
+      deployment_name:
+        description: "Unique deployment name (must match the deployment to destroy)"
+        required: true
+        default: "my-lablink"
+        type: string
       environment:
         description: "Environment to destroy (test, prod, or ci-test) - dev uses local state and should only be used locally"
         required: true
@@ -107,4 +112,5 @@ jobs:
         working-directory: lablink-infrastructure
         run: |
           terraform destroy -auto-approve \
-            -var="resource_suffix=${{ github.event.inputs.environment }}"
+            -var="deployment_name=${{ github.event.inputs.deployment_name }}" \
+            -var="environment=${{ github.event.inputs.environment }}"
