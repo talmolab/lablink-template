@@ -53,10 +53,6 @@ dns:
   terraform_managed: false
   domain: "example.com" # Your base domain (not used when DNS disabled)
   zone_id: ""
-  app_name: "" # Not used when DNS disabled
-  pattern: "custom" # Using custom pattern (workaround for allocator bug - see issue #212)
-  custom_subdomain: "dev" # Not used when DNS disabled
-  create_zone: false
 
 eip:
   # Always use dynamic for dev (don't reuse EIPs)
@@ -68,7 +64,7 @@ ssl:
   # No SSL for local dev (HTTP only)
   provider: "none"
   email: "dev@example.com"
-  staging: true
+  certificate_arn: ""
 
 startup_script:
   enabled: false
