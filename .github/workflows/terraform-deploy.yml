@@ -266,8 +266,11 @@ jobs:
         run: |
           echo "Verifying DNS and HTTPS connectivity..."
 
-          FQDN=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
+          # allocator_fqdn already includes protocol (e.g., https://domain or http://ip)
+          FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
           PUBLIC_IP=$(terraform output -raw ec2_public_ip)
+          # Strip protocol prefix to get bare hostname/IP
+          FQDN=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
 
           if [ -z "$FQDN" ] || [ "$FQDN" = "N/A" ]; then
             echo "✓ No DNS configured (using IP address only)"
@@ -302,8 +305,11 @@ jobs:
         run: |
           echo "Verifying allocator service health..."
 
-          FQDN=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
+          # allocator_fqdn already includes protocol (e.g., https://domain or http://ip)
+          FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
           PUBLIC_IP=$(terraform output -raw ec2_public_ip)
+          # Strip protocol prefix to get bare hostname/IP
+          FQDN=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
 
           # Read SSL config from config.yaml
           if [ -f "config/config.yaml" ]; then
