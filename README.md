@@ -24,60 +24,31 @@ LabLink automates deployment and management of cloud-based VMs for running resea
 
 Click the **"Use this template"** button at the top of this repository to create your own deployment repository.
 
-### 2. Set Up GitHub Secrets
+### 2. Run the Setup Script
 
-Go to your repository → Settings → Secrets and variables → Actions, and add these secrets:
-
-| Secret Name | Description | Example Value |
-|-------------|-------------|---------------|
-| `AWS_ROLE_ARN` | IAM role ARN for GitHub Actions OIDC | `arn:aws:iam::123456789012:role/github-actions-role` |
-| `AWS_REGION` | AWS region for deployment | `us-west-2` |
-| `ADMIN_PASSWORD` | Password for allocator web interface | `your-secure-password` |
-| `DB_PASSWORD` | PostgreSQL database password | `your-secure-db-password` |
-
-### 3. Set Up AWS Infrastructure
-
-Run the automated setup script to create required AWS resources:
+The unified setup script handles everything interactively — AWS resources, GitHub secrets, and config generation:
 
 ```bash
-# 1. Copy example config
-cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
-
-# 2. Edit with your values
-# Update bucket_name, domain, region, etc.
-
-# 3. Run setup (creates S3, DynamoDB, Route53)
-./scripts/setup-aws-infrastructure.sh
+./scripts/setup.sh
 ```
 
-See [AWS Setup Guide](#aws-setup-guide) for details.
+**What the script does:**
+- Checks prerequisites (AWS CLI, GitHub CLI, credentials)
+- Walks you through configuration with smart defaults
+- Creates OIDC provider and IAM role for GitHub Actions
+- Creates S3 bucket (with versioning) and DynamoDB table
+- Creates Route53 hosted zone (if using custom domain)
+- Sets GitHub secrets (`AWS_ROLE_ARN`, `AWS_REGION`, `ADMIN_PASSWORD`, `DB_PASSWORD`)
+- Generates `lablink-infrastructure/config/config.yaml`
+- Verifies all resources were created successfully
 
-### 4. Configure Your Deployment
-
-Edit [`lablink-infrastructure/config/config.yaml`](lablink-infrastructure/config/config.yaml):
-
-```yaml
-# Update these values for your deployment:
-allocator:
-  image_tag: "linux-amd64-latest-test"  # For prod, use specific version like "linux-amd64-v1.2.3"
-
-machine:
-  repository: "https://github.com/YOUR_ORG/YOUR_DATA_REPO.git"
-  software: "your-software-name"
-  extension: "your-file-ext"
-
-dns:
-  enabled: true  # Set to true if using custom domain
-  domain: "your-domain.com"
-
-bucket_name: "tf-state-YOUR-ORG-lablink"  # Must be globally unique
-```
+The script is idempotent — safe to re-run if interrupted.
 
 **Important:** The config file path (`lablink-infrastructure/config/config.yaml`) is hardcoded in the infrastructure. Do not move or rename this file.
 
-See [Configuration Reference](#configuration-reference) for all options.
+See [Configuration Reference](#configuration-reference) for all options, or [Manual Setup](#manual-setup-alternative) if you prefer to create resources individually.
 
-### 5. Deploy
+### 3. Deploy
 
 **Via GitHub Actions (Recommended):**
 1. Go to Actions → "Deploy LabLink Infrastructure"
@@ -92,7 +63,7 @@ cd lablink-infrastructure
 terraform apply -var="resource_suffix=test"
 ```
 
-### 6. Access Your Infrastructure
+### 4. Access Your Infrastructure
 
 After deployment completes:
 - **Allocator URL**: Check workflow output or Terraform output for the URL/IP
@@ -193,47 +164,25 @@ This is stored securely and injected into the configuration at deployment time.
 
 ## AWS Setup Guide
 
-### Quick Start: Automated Setup (Recommended)
+### Automated Setup (Recommended)
 
-Use the automated setup script to create all required AWS resources:
+The unified setup script handles everything interactively:
 
 ```bash
-# 1. Configure your deployment
-cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml
-# Edit config.yaml with your values (bucket_name, domain, region, etc.)
-
-# 2. Run automated setup
-./scripts/setup-aws-infrastructure.sh
+./scripts/setup.sh
 ```
 
-**What the script does:**
-- Checks prerequisites (AWS CLI installed, credentials configured)
-- Creates S3 bucket for Terraform state (with versioning)
-- Creates DynamoDB table for state locking
-- Creates Route53 hosted zone (if DNS enabled) - the DNS management container
-- Updates config.yaml with zone_id automatically
-- Idempotent (safe to run multiple times)
+This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, and generates `config.yaml`. It is idempotent and safe to re-run.
 
 **What the script does NOT do:**
 - Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)
-- Does NOT create DNS records (Terraform can create these, or you create manually)
+- Does NOT create DNS records (Terraform handles these, or you create manually)
 
-**After setup, choose your DNS/SSL approach:**
+**After setup, your DNS/SSL approach is configured based on your wizard choices:**
 
-1. **Route53 + Let's Encrypt**:
-   - Register domain → Update nameservers → Set `dns.terraform_managed: true/false`
-   - DNS records: Terraform-managed or manual in Route53 console
-
-2. **CloudFlare DNS + SSL**:
-   - Manage domain/DNS in CloudFlare (no Route53 needed)
-   - Set `ssl.provider: "cloudflare"`
-   - Create A record in CloudFlare pointing to allocator IP
-
-3. **IP-only** (no DNS/SSL):
-   - Set `dns.enabled: false`
-   - Access via IP address
-
-**Note**: Config will be simplified in future releases. See DNS-SSL-SIMPLIFICATION-PLAN.md for upcoming changes.
+1. **Route53 + Let's Encrypt**: Register domain, update nameservers to Route53
+2. **CloudFlare DNS + SSL**: Manage domain/DNS in CloudFlare, create A record pointing to allocator IP
+3. **IP-only** (no DNS/SSL): Access via IP address directly
 
 ---
 
