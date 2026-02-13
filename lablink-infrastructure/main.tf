@@ -32,8 +32,10 @@ locals {
   startup_on_error = try(local.config_file.startup_script.on_error, "continue")
 
   startup_script_content = (
-    local.startup_enabled && fileexists("${path.module}/${local.startup_path}") ?
-    file("${path.module}/${local.startup_path}") : ""
+    local.startup_enabled && local.startup_path != "" ? (
+      fileexists("${path.module}/${local.startup_path}") ?
+      file("${path.module}/${local.startup_path}") : ""
+    ) : ""
   )
 
   # Base64 encode startup script to preserve $ and other special characters
