@@ -36,7 +36,7 @@ allocator:
   # Docker image tag for the allocator service
   # For test: use "linux-amd64-latest-test"
   # For prod: use specific version like "linux-amd64-v1.2.3"
-  image_tag: "linux-amd64-0d73aef91a90afe5289b2252fcde76aa1fd4e31f-test"
+  image_tag: "linux-amd64-latest-test"
 
 app:
   admin_user: "admin"
