@@ -189,9 +189,40 @@ if [ -n "$GITHUB_REPO" ]; then
     DEFAULT_ORG=$(echo "$GITHUB_REPO" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
 fi
 
-ask CFG_BUCKET "S3 bucket name (must be globally unique)" "tf-state-${DEFAULT_ORG:-myorg}-lablink"
+# Check for existing S3 buckets that look like terraform state buckets
+info "Checking for existing S3 buckets..."
+EXISTING_BUCKETS=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null \
+    | tr '\t' '\n' | grep -iE 'tf-state|terraform|lablink' | sort || echo "")
 
-# Check bucket name uniqueness (only if it doesn't exist yet)
+if [ -n "$EXISTING_BUCKETS" ]; then
+    echo ""
+    echo -e "  ${BOLD}Existing buckets that may be terraform state buckets:${NC}"
+    BUCKET_INDEX=0
+    declare -a BUCKET_ARRAY=()
+    while IFS= read -r bucket; do
+        BUCKET_INDEX=$((BUCKET_INDEX + 1))
+        BUCKET_ARRAY+=("$bucket")
+        echo "    ${BUCKET_INDEX}) ${bucket}"
+    done <<< "$EXISTING_BUCKETS"
+    echo "    N) Create a new bucket"
+    echo ""
+
+    prompt "Select a bucket number or 'N' to create new [N]: "
+    read -r BUCKET_CHOICE
+    BUCKET_CHOICE="${BUCKET_CHOICE:-N}"
+
+    if [[ "$BUCKET_CHOICE" =~ ^[0-9]+$ ]] && [ "$BUCKET_CHOICE" -ge 1 ] && [ "$BUCKET_CHOICE" -le "$BUCKET_INDEX" ]; then
+        CFG_BUCKET="${BUCKET_ARRAY[$((BUCKET_CHOICE - 1))]}"
+        success "Using existing bucket: ${CFG_BUCKET}"
+    else
+        ask CFG_BUCKET "New S3 bucket name (must be globally unique)" "tf-state-${DEFAULT_ORG:-myorg}-lablink"
+    fi
+else
+    info "No existing terraform state buckets found"
+    ask CFG_BUCKET "S3 bucket name (must be globally unique)" "tf-state-${DEFAULT_ORG:-myorg}-lablink"
+fi
+
+# Validate bucket: check ownership if it already exists
 if aws s3api head-bucket --bucket "$CFG_BUCKET" 2>/dev/null; then
     info "Bucket '${CFG_BUCKET}' already exists (will reuse)"
 elif aws s3api head-bucket --bucket "$CFG_BUCKET" 2>&1 | grep -q "403"; then
