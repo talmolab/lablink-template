@@ -10,6 +10,8 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Reviewed README.md for overview
 
 ### GitHub Secrets Configuration
+> **Note:** If you used `./scripts/setup.sh` (Option A below), secrets are already configured. Skip to [Configuration Customization](#configuration-customization).
+
 - [ ] Added `AWS_ROLE_ARN` secret
   - Format: `arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME`
   - Verified IAM role exists and has correct permissions
@@ -28,23 +30,40 @@ Use this checklist to ensure you have completed all required setup steps before 
 
 **Choose one approach:**
 
-#### Option A: Automated Setup (Recommended)
-- [ ] Copied example config: `cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml`
-- [ ] Edited `config.yaml` with your values (bucket_name, domain, region)
-- [ ] Ran setup script: `./scripts/setup-aws-infrastructure.sh`
-- [ ] Script created AWS infrastructure:
+#### Option A: One-Command Setup (Recommended)
+- [ ] Ran one-time setup script: `./scripts/setup.sh`
+- [ ] Script handled all of the following:
+  - ✓ OIDC provider for GitHub Actions
+  - ✓ IAM role with required managed policies
   - ✓ S3 bucket with versioning
   - ✓ DynamoDB lock-table
-  - ✓ Route53 hosted zone (if DNS enabled) - empty DNS container
-  - ✓ Updated config.yaml with zone_id
+  - ✓ Route53 hosted zone (if DNS enabled)
+  - ✓ GitHub secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)
+  - ✓ Called `configure.sh` to generate config.yaml with your values
+- [ ] Saved the displayed passwords securely
+- [ ] (Optional) To update config later without re-creating infrastructure: `./scripts/configure.sh`
 
-**What script does NOT create:**
+**What setup.sh does NOT create:**
 - Domain registration (you must register domain separately - costs ~$12-15/year)
 - DNS records (created by Terraform if `dns.terraform_managed: true`, or manually)
 
-**Or if you prefer manual setup:**
+**Or if you prefer partial automation:**
 
-#### Option B: Manual S3 Bucket Setup
+#### Option B: Infrastructure-Only Setup
+- [ ] Copied example config: `cp lablink-infrastructure/config/test.example.yaml lablink-infrastructure/config/config.yaml`
+- [ ] Edited `config.yaml` with your values (bucket_name, domain, region)
+- [ ] Ran infrastructure script: `./scripts/setup-aws-infrastructure.sh`
+- [ ] Script created AWS infrastructure:
+  - ✓ S3 bucket with versioning
+  - ✓ DynamoDB lock-table
+  - ✓ Route53 hosted zone (if DNS enabled)
+  - ✓ Updated config.yaml with zone_id
+- [ ] Manually created OIDC provider and IAM role (see GitHub Secrets section)
+- [ ] Manually set GitHub secrets
+
+**Or if you prefer fully manual setup:**
+
+#### Option C: Manual S3 Bucket Setup
 - [ ] Created S3 bucket for Terraform state
   - Bucket name format: `tf-state-YOUR-ORG-lablink`
   - Bucket is globally unique across ALL of AWS
