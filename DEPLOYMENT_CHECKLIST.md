@@ -31,7 +31,7 @@ Use this checklist to ensure you have completed all required setup steps before 
 **Choose one approach:**
 
 #### Option A: One-Command Setup (Recommended)
-- [ ] Ran unified setup script: `./scripts/setup.sh`
+- [ ] Ran one-time setup script: `./scripts/setup.sh`
 - [ ] Script handled all of the following:
   - ✓ OIDC provider for GitHub Actions
   - ✓ IAM role with required managed policies
@@ -39,10 +39,11 @@ Use this checklist to ensure you have completed all required setup steps before 
   - ✓ DynamoDB lock-table
   - ✓ Route53 hosted zone (if DNS enabled)
   - ✓ GitHub secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)
-  - ✓ Generated config.yaml with your values
+  - ✓ Called `configure.sh` to generate config.yaml with your values
 - [ ] Saved the displayed passwords securely
+- [ ] (Optional) To update config later without re-creating infrastructure: `./scripts/configure.sh`
 
-**What script does NOT create:**
+**What setup.sh does NOT create:**
 - Domain registration (you must register domain separately - costs ~$12-15/year)
 - DNS records (created by Terraform if `dns.terraform_managed: true`, or manually)
 

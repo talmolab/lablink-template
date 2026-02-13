@@ -24,9 +24,9 @@ LabLink automates deployment and management of cloud-based VMs for running resea
 
 Click the **"Use this template"** button at the top of this repository to create your own deployment repository.
 
-### 2. Run the Setup Script
+### 2. Run the Setup Script (One-Time)
 
-The unified setup script handles everything interactively — AWS resources, GitHub secrets, and config generation:
+The setup script creates AWS infrastructure and GitHub secrets:
 
 ```bash
 ./scripts/setup.sh
@@ -34,15 +34,22 @@ The unified setup script handles everything interactively — AWS resources, Git
 
 **What the script does:**
 - Checks prerequisites (AWS CLI, GitHub CLI, credentials)
-- Walks you through configuration with smart defaults
 - Creates OIDC provider and IAM role for GitHub Actions
 - Creates S3 bucket (with versioning) and DynamoDB table
 - Creates Route53 hosted zone (if using custom domain)
 - Sets GitHub secrets (`AWS_ROLE_ARN`, `AWS_REGION`, `ADMIN_PASSWORD`, `DB_PASSWORD`)
-- Generates `lablink-infrastructure/config/config.yaml`
+- Calls `configure.sh` to generate `lablink-infrastructure/config/config.yaml`
 - Verifies all resources were created successfully
 
 The script is idempotent — safe to re-run if interrupted.
+
+**Updating configuration later:** To change settings like instance type, image tags, or DNS options without re-creating infrastructure, run the configuration wizard directly:
+
+```bash
+./scripts/configure.sh
+```
+
+This can be run as many times as needed. It reads your existing `config.yaml` values as defaults.
 
 **Important:** The config file path (`lablink-infrastructure/config/config.yaml`) is hardcoded in the infrastructure. Do not move or rename this file.
 
@@ -166,13 +173,19 @@ This is stored securely and injected into the configuration at deployment time.
 
 ### Automated Setup (Recommended)
 
-The unified setup script handles everything interactively:
+The setup script creates all infrastructure and secrets in one go:
 
 ```bash
 ./scripts/setup.sh
 ```
 
-This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, and generates `config.yaml`. It is idempotent and safe to re-run.
+This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, and calls `configure.sh` to generate `config.yaml`. It is idempotent and safe to re-run.
+
+To update configuration later (instance types, image tags, DNS/SSL options, etc.), run the config wizard directly:
+
+```bash
+./scripts/configure.sh
+```
 
 **What the script does NOT do:**
 - Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)

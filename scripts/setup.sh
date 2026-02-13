@@ -1,9 +1,13 @@
 #!/bin/bash
-# Unified LabLink Setup Script
-# Handles: Prerequisites, Configuration, OIDC, IAM, S3, DynamoDB, Route53, GitHub Secrets, config.yaml
+# LabLink One-Time Setup Script
+# Handles: Prerequisites, OIDC, IAM, S3, DynamoDB, Route53, GitHub Secrets
+# Then calls configure.sh to generate config.yaml
 #
 # Usage: ./scripts/setup.sh
 # Must be run from the repository root directory.
+#
+# For updating configuration later (instance types, image tags, etc.),
+# run ./scripts/configure.sh directly — no need to re-run this script.
 
 set -euo pipefail
 
@@ -18,22 +22,24 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-info()    { echo -e "${BLUE}ℹ${NC}  $*"; }
-success() { echo -e "${GREEN}✅${NC} $*"; }
-warn()    { echo -e "${YELLOW}⚠️${NC}  $*"; }
-error()   { echo -e "${RED}❌${NC} $*"; }
+info()    { echo -e "${BLUE}i${NC}  $*"; }
+success() { echo -e "${GREEN}OK${NC} $*"; }
+warn()    { echo -e "${YELLOW}!!${NC}  $*"; }
+error()   { echo -e "${RED}ERR${NC} $*"; }
 header()  { echo -e "\n${BOLD}${CYAN}$*${NC}"; echo -e "${CYAN}$(printf '=%.0s' $(seq 1 ${#1}))${NC}"; }
 prompt()  { echo -en "${BOLD}$*${NC}"; }
 
 # ============================================================================
 # Phase 1: Prerequisites Check
 # ============================================================================
-header "LabLink Unified Setup"
+header "LabLink One-Time Setup"
 echo ""
-echo "This script will set up everything you need to deploy LabLink:"
+echo "This script sets up AWS infrastructure and GitHub secrets (run once)."
 echo "  - AWS resources (OIDC, IAM role, S3, DynamoDB, Route53)"
 echo "  - GitHub Actions secrets"
-echo "  - Configuration file (config.yaml)"
+echo "  - Calls configure.sh to generate config.yaml"
+echo ""
+echo "To update configuration later, run: ./scripts/configure.sh"
 echo ""
 
 header "Phase 1: Prerequisites Check"
@@ -84,6 +90,12 @@ success "GitHub CLI authenticated"
 # Check: openssl for password generation
 if ! command -v openssl &> /dev/null; then
     warn "openssl not found — password auto-generation will use /dev/urandom fallback"
+fi
+
+# Check: configure.sh exists
+if [ ! -f "scripts/configure.sh" ]; then
+    error "scripts/configure.sh not found. This file is required."
+    exit 1
 fi
 
 # Auto-detect values
@@ -149,17 +161,16 @@ generate_password() {
 }
 
 # ============================================================================
-# Phase 2: Interactive Configuration Wizard
+# Phase 2: Infrastructure Configuration
 # ============================================================================
-header "Phase 2: Configuration Wizard"
+header "Phase 2: Infrastructure Configuration"
 echo ""
-echo "Answer the following prompts to configure your LabLink deployment."
+echo "Answer the following prompts to configure AWS infrastructure."
 echo "Press Enter to accept the default value shown in brackets."
 echo ""
 
-# --- Basic settings ---
-echo -e "${BOLD}--- Basic Settings ---${NC}"
-
+# --- AWS Region ---
+echo -e "${BOLD}--- AWS Region ---${NC}"
 ask CFG_REGION "AWS Region" "${AUTO_REGION:-us-west-2}"
 
 # Validate region
@@ -167,6 +178,10 @@ if ! aws ec2 describe-regions --region-names "$CFG_REGION" &> /dev/null 2>&1; th
     error "Invalid AWS region: ${CFG_REGION}"
     exit 1
 fi
+
+# --- S3 Bucket ---
+echo ""
+echo -e "${BOLD}--- S3 Bucket ---${NC}"
 
 # Derive a default org name from the GitHub repo
 DEFAULT_ORG=""
@@ -184,7 +199,10 @@ elif aws s3api head-bucket --bucket "$CFG_BUCKET" 2>&1 | grep -q "403"; then
     exit 1
 fi
 
-# GitHub repo
+# --- GitHub Repo ---
+echo ""
+echo -e "${BOLD}--- GitHub Repository ---${NC}"
+
 if [ -z "$GITHUB_REPO" ]; then
     ask GITHUB_REPO "GitHub repository (org/repo)" ""
     if [ -z "$GITHUB_REPO" ]; then
@@ -193,16 +211,14 @@ if [ -z "$GITHUB_REPO" ]; then
     fi
 fi
 
+# --- DNS (basic — just enough for Route53 zone + IAM policy) ---
 echo ""
-echo -e "${BOLD}--- DNS & SSL Settings ---${NC}"
+echo -e "${BOLD}--- DNS Settings ---${NC}"
 
 ask_yes_no CFG_DNS_ENABLED "Enable custom domain? (y/N)" "N"
 
 CFG_DOMAIN=""
 CFG_DNS_PROVIDER="route53"
-CFG_SSL_PROVIDER="none"
-CFG_SSL_EMAIL=""
-CFG_TERRAFORM_MANAGED="false"
 
 if [ "$CFG_DNS_ENABLED" = "true" ]; then
     ask CFG_DOMAIN "Domain name (e.g., lablink.example.com)" ""
@@ -216,63 +232,9 @@ if [ "$CFG_DNS_ENABLED" = "true" ]; then
     echo "    1) route53   - AWS Route53 (this script will create hosted zone)"
     echo "    2) cloudflare - CloudFlare (you manage DNS in CloudFlare)"
     ask CFG_DNS_PROVIDER "DNS provider" "route53"
-
-    if [ "$CFG_DNS_PROVIDER" = "route53" ]; then
-        ask_yes_no CFG_TERRAFORM_MANAGED "Let Terraform manage DNS records? (y/N)" "y"
-    fi
-
-    echo ""
-    echo "  SSL Provider options:"
-    echo "    1) letsencrypt - Automatic SSL via Caddy (rate limits apply: 5 certs/domain/week)"
-    echo "    2) cloudflare  - SSL via CloudFlare proxy"
-    echo "    3) acm         - AWS Certificate Manager"
-    echo "    4) none        - HTTP only (no SSL)"
-    ask CFG_SSL_PROVIDER "SSL provider" "letsencrypt"
-
-    if [ "$CFG_SSL_PROVIDER" = "letsencrypt" ]; then
-        warn "Let's Encrypt rate limit: 5 certificates per exact domain per 7 days."
-        warn "If you redeploy frequently, consider 'cloudflare' or 'none' for testing."
-        ask CFG_SSL_EMAIL "Email for Let's Encrypt notifications" ""
-    fi
 fi
 
-echo ""
-echo -e "${BOLD}--- EC2 & Machine Settings ---${NC}"
-
-echo "  Common GPU instance types:"
-echo "    g4dn.xlarge  - NVIDIA T4 (good for ML, ~\$0.53/hr)"
-echo "    g5.xlarge    - NVIDIA A10G (better GPU, ~\$1.01/hr)"
-echo "    p3.2xlarge   - NVIDIA V100 (powerful, ~\$3.06/hr)"
-echo "    t3.large     - CPU only (no GPU, ~\$0.08/hr)"
-ask CFG_INSTANCE_TYPE "EC2 instance type" "g4dn.xlarge"
-
-DEFAULT_AMI=""
-if [ "$CFG_REGION" = "us-west-2" ]; then
-    DEFAULT_AMI="ami-0601752c11b394251"
-fi
-ask CFG_AMI_ID "AMI ID (Ubuntu 24.04 with Docker+Nvidia)" "${DEFAULT_AMI}"
-if [ -z "$CFG_AMI_ID" ]; then
-    warn "No AMI ID provided. You will need to set this in config.yaml before deploying."
-fi
-
-ask CFG_DATA_REPO "Data repository URL (optional, press Enter to skip)" ""
-ask CFG_SOFTWARE "Software name" "sleap"
-ask CFG_EXTENSION "File extension" "slp"
-
-echo ""
-echo -e "${BOLD}--- Image Tags ---${NC}"
-echo "  These control which Docker image versions are used."
-echo "  For testing, use 'linux-amd64-latest-test'."
-echo "  For production, pin to a specific version like 'linux-amd64-v1.2.3'."
-ask CFG_ALLOCATOR_TAG "Allocator image tag" "linux-amd64-latest-test"
-ask CFG_CLIENT_TAG "Client VM image tag" "linux-amd64-latest-test"
-
-echo ""
-echo -e "${BOLD}--- EIP Settings ---${NC}"
-echo "  persistent - Reuse the same Elastic IP across deployments"
-echo "  dynamic    - Create a new Elastic IP each deployment"
-ask CFG_EIP_STRATEGY "EIP strategy" "dynamic"
-
+# --- Passwords ---
 echo ""
 echo -e "${BOLD}--- Passwords ---${NC}"
 
@@ -293,27 +255,13 @@ printf "  %-25s %s\n" "AWS Account:" "$AWS_ACCOUNT_ID"
 printf "  %-25s %s\n" "AWS Region:" "$CFG_REGION"
 printf "  %-25s %s\n" "GitHub Repo:" "$GITHUB_REPO"
 printf "  %-25s %s\n" "S3 Bucket:" "$CFG_BUCKET"
-printf "  %-25s %s\n" "Instance Type:" "$CFG_INSTANCE_TYPE"
-printf "  %-25s %s\n" "AMI ID:" "${CFG_AMI_ID:-<not set>}"
-printf "  %-25s %s\n" "Software:" "$CFG_SOFTWARE"
-printf "  %-25s %s\n" "Extension:" "$CFG_EXTENSION"
-printf "  %-25s %s\n" "Data Repo:" "${CFG_DATA_REPO:-<none>}"
-printf "  %-25s %s\n" "Allocator Image Tag:" "$CFG_ALLOCATOR_TAG"
-printf "  %-25s %s\n" "Client Image Tag:" "$CFG_CLIENT_TAG"
-printf "  %-25s %s\n" "EIP Strategy:" "$CFG_EIP_STRATEGY"
 
 if [ "$CFG_DNS_ENABLED" = "true" ]; then
     printf "  %-25s %s\n" "DNS:" "Enabled"
     printf "  %-25s %s\n" "Domain:" "$CFG_DOMAIN"
     printf "  %-25s %s\n" "DNS Provider:" "$CFG_DNS_PROVIDER"
-    printf "  %-25s %s\n" "Terraform-managed DNS:" "$CFG_TERRAFORM_MANAGED"
-    printf "  %-25s %s\n" "SSL Provider:" "$CFG_SSL_PROVIDER"
-    if [ -n "$CFG_SSL_EMAIL" ]; then
-        printf "  %-25s %s\n" "SSL Email:" "$CFG_SSL_EMAIL"
-    fi
 else
     printf "  %-25s %s\n" "DNS:" "Disabled (IP-only)"
-    printf "  %-25s %s\n" "SSL:" "None"
 fi
 echo ""
 
@@ -326,7 +274,7 @@ if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
     echo "  5. Route53 Hosted Zone for $(echo "$CFG_DOMAIN" | awk -F. '{if (NF>=2) print $(NF-1)"."$NF; else print $0}')"
 fi
 echo "  6. GitHub Secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)"
-echo "  7. Config file: lablink-infrastructure/config/config.yaml"
+echo "  7. Config file via configure.sh"
 echo ""
 
 prompt "Proceed with setup? [y/N]: "
@@ -350,7 +298,7 @@ COMPLETED_STEPS=()
 
 # --- Step 1: OIDC Provider ---
 echo ""
-info "Step 1/7: OIDC Provider"
+info "Step 1/6: OIDC Provider"
 
 OIDC_EXISTS=false
 if aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$OIDC_PROVIDER_ARN" &> /dev/null 2>&1; then
@@ -375,7 +323,7 @@ COMPLETED_STEPS+=("OIDC Provider")
 
 # --- Step 2: IAM Role ---
 echo ""
-info "Step 2/7: IAM Role"
+info "Step 2/6: IAM Role"
 
 ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ROLE_NAME}"
 
@@ -446,7 +394,7 @@ COMPLETED_STEPS+=("IAM Role")
 
 # --- Step 3: S3 Bucket ---
 echo ""
-info "Step 3/7: S3 Bucket"
+info "Step 3/6: S3 Bucket"
 
 if aws s3api head-bucket --bucket "$CFG_BUCKET" 2>/dev/null; then
     success "S3 bucket already exists: ${CFG_BUCKET}"
@@ -474,7 +422,7 @@ COMPLETED_STEPS+=("S3 Bucket")
 
 # --- Step 4: DynamoDB Table ---
 echo ""
-info "Step 4/7: DynamoDB Table"
+info "Step 4/6: DynamoDB Table"
 
 if aws dynamodb describe-table --table-name lock-table --region "$CFG_REGION" &> /dev/null 2>&1; then
     success "DynamoDB table already exists: lock-table"
@@ -492,7 +440,7 @@ COMPLETED_STEPS+=("DynamoDB Table")
 
 # --- Step 5: Route53 Hosted Zone ---
 echo ""
-info "Step 5/7: Route53 Hosted Zone"
+info "Step 5/6: Route53 Hosted Zone"
 
 CFG_ZONE_ID=""
 
@@ -514,7 +462,7 @@ if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
             --caller-reference "lablink-setup-$(date +%s)" \
             --query 'HostedZone.Id' \
             --output text)
-        CFG_ZONE_ID=$(echo "$ZONE_OUTPUT" | sed 's|/hostedzone/||')
+        CFG_ZONE_ID="${ZONE_OUTPUT//\/hostedzone\//}"
         success "Created hosted zone: ${ZONE_NAME} (ID: ${CFG_ZONE_ID})"
 
         NS_RECORDS=$(aws route53 get-hosted-zone --id "$CFG_ZONE_ID" \
@@ -543,7 +491,7 @@ COMPLETED_STEPS+=("Route53")
 
 # --- Step 6: GitHub Secrets ---
 echo ""
-info "Step 6/7: GitHub Secrets"
+info "Step 6/6: GitHub Secrets"
 
 info "Setting AWS_ROLE_ARN..."
 echo "$ROLE_ARN" | gh secret set AWS_ROLE_ARN --repo "$GITHUB_REPO"
@@ -563,82 +511,8 @@ success "Set DB_PASSWORD"
 
 COMPLETED_STEPS+=("GitHub Secrets")
 
-# --- Step 7: Generate config.yaml ---
-echo ""
-info "Step 7/7: Generating config.yaml"
-
-CONFIG_FILE="lablink-infrastructure/config/config.yaml"
-
-cat > "$CONFIG_FILE" <<CONFIGEOF
-# LabLink Configuration
-# Generated by setup.sh on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-db:
-  dbname: "lablink_db"
-  user: "lablink"
-  password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret at deploy time
-  host: "localhost"
-  port: 5432
-  table_name: "vms"
-  message_channel: "vm_updates"
-
-machine:
-  machine_type: "${CFG_INSTANCE_TYPE}"
-  image: "ghcr.io/talmolab/lablink-client-base-image:${CFG_CLIENT_TAG}"
-  ami_id: "${CFG_AMI_ID}"
-  repository: "${CFG_DATA_REPO}"
-  software: "${CFG_SOFTWARE}"
-  extension: "${CFG_EXTENSION}"
-
-allocator:
-  image_tag: "${CFG_ALLOCATOR_TAG}"
-
-app:
-  admin_user: "admin"
-  admin_password: "PLACEHOLDER_ADMIN_PASSWORD"  # Injected from GitHub secret at deploy time
-  region: "${CFG_REGION}"
-
-dns:
-  enabled: ${CFG_DNS_ENABLED}
-  terraform_managed: ${CFG_TERRAFORM_MANAGED}
-  domain: "${CFG_DOMAIN}"
-  zone_id: "${CFG_ZONE_ID}"
-
-eip:
-  strategy: "${CFG_EIP_STRATEGY}"
-  tag_name: "lablink-eip"
-
-ssl:
-  provider: "${CFG_SSL_PROVIDER}"
-  email: "${CFG_SSL_EMAIL}"
-  certificate_arn: ""
-
-startup_script:
-  enabled: false
-  path: ""
-  on_error: "continue"
-
-monitoring:
-  enabled: false
-  email: ""
-  thresholds:
-    max_instances_per_5min: 10
-    max_terminations_per_5min: 20
-    max_unauthorized_calls_per_15min: 5
-  budget:
-    enabled: false
-    monthly_budget_usd: 500
-  cloudtrail:
-    retention_days: 90
-
-bucket_name: "${CFG_BUCKET}"
-CONFIGEOF
-
-success "Generated ${CONFIG_FILE}"
-COMPLETED_STEPS+=("config.yaml")
-
 # ============================================================================
-# Phase 5: Verification & Next Steps
+# Phase 5: Verification
 # ============================================================================
 header "Phase 5: Verification"
 
@@ -687,14 +561,6 @@ for SECRET_NAME in AWS_ROLE_ARN AWS_REGION ADMIN_PASSWORD DB_PASSWORD; do
     fi
 done
 
-# Verify config file exists
-if [ -f "$CONFIG_FILE" ]; then
-    success "Config file exists: ${CONFIG_FILE}"
-else
-    error "Config file NOT found: ${CONFIG_FILE}"
-    VERIFY_PASS=false
-fi
-
 echo ""
 if [ "$VERIFY_PASS" = "true" ]; then
     success "All verifications passed!"
@@ -703,19 +569,45 @@ else
 fi
 
 # ============================================================================
-# Next Steps
+# Phase 6: Passwords & Config Generation
 # ============================================================================
-header "Setup Complete!"
+header "Infrastructure Setup Complete!"
 echo ""
 echo -e "${BOLD}Passwords (save these now — they won't be shown again):${NC}"
 echo -e "  Admin password: ${YELLOW}${CFG_ADMIN_PASSWORD}${NC}"
 echo -e "  DB password:    ${YELLOW}${CFG_DB_PASSWORD}${NC}"
 echo ""
 
+# ============================================================================
+# Phase 7: Call configure.sh with env var bridge
+# ============================================================================
+header "Phase 7: Generating config.yaml"
+echo ""
+info "Calling configure.sh to generate config.yaml..."
+echo "  (You can re-run ./scripts/configure.sh later to update config.)"
+echo ""
+
+# Export values so configure.sh can use them as defaults
+export LABLINK_REGION="$CFG_REGION"
+export LABLINK_BUCKET="$CFG_BUCKET"
+export LABLINK_DNS_ENABLED="$CFG_DNS_ENABLED"
+if [ "$CFG_DNS_ENABLED" = "true" ]; then
+    export LABLINK_DOMAIN="$CFG_DOMAIN"
+    export LABLINK_DNS_PROVIDER="$CFG_DNS_PROVIDER"
+    if [ -n "$CFG_ZONE_ID" ]; then
+        export LABLINK_ZONE_ID="$CFG_ZONE_ID"
+    fi
+fi
+
+bash scripts/configure.sh
+
+echo ""
+header "All Done!"
+echo ""
 echo -e "${BOLD}Next steps:${NC}"
 echo ""
 echo "  1. Review the generated config:"
-echo "     ${CONFIG_FILE}"
+echo "     lablink-infrastructure/config/config.yaml"
 echo ""
 echo "  2. Commit and push:"
 echo "     git add lablink-infrastructure/config/config.yaml"
@@ -723,7 +615,7 @@ echo "     git commit -m \"Add LabLink configuration\""
 echo "     git push"
 echo ""
 echo "  3. Deploy via GitHub Actions:"
-echo "     Go to Actions → 'Deploy LabLink Infrastructure' → Run workflow"
+echo "     Go to Actions -> 'Deploy LabLink Infrastructure' -> Run workflow"
 echo "     Select your environment (test or prod)"
 echo ""
 
@@ -733,5 +625,8 @@ if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
     echo ""
 fi
 
+echo "  To update configuration later (instance type, image tags, etc.):"
+echo "     ./scripts/configure.sh"
+echo ""
 echo "  For help: see README.md or https://talmolab.github.io/lablink/"
 echo ""
