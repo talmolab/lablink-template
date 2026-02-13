@@ -263,19 +263,19 @@ resource "aws_instance" "lablink_allocator_server" {
   iam_instance_profile = aws_iam_instance_profile.allocator_instance_profile.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    ALLOCATOR_IMAGE_TAG   = local.allocator_image_tag
-    RESOURCE_SUFFIX       = var.resource_suffix
-    ALLOCATOR_PUBLIC_IP   = local.eip_public_ip
-    ALLOCATOR_KEY_NAME    = aws_key_pair.lablink_key_pair.key_name
-    CLOUD_INIT_LOG_GROUP  = aws_cloudwatch_log_group.client_vm_logs.name
-    CONFIG_CONTENT          = file("${path.module}/config/config.yaml")
+    ALLOCATOR_IMAGE_TAG       = local.allocator_image_tag
+    RESOURCE_SUFFIX           = var.resource_suffix
+    ALLOCATOR_PUBLIC_IP       = local.eip_public_ip
+    ALLOCATOR_KEY_NAME        = aws_key_pair.lablink_key_pair.key_name
+    CLOUD_INIT_LOG_GROUP      = aws_cloudwatch_log_group.client_vm_logs.name
+    CONFIG_CONTENT            = file("${path.module}/config/config.yaml")
     CLIENT_STARTUP_SCRIPT_B64 = local.startup_script_b64
-    STARTUP_ENABLED         = local.startup_enabled
-    ALLOCATOR_FQDN        = local.allocator_fqdn
-    INSTALL_CADDY         = local.install_caddy
-    SSL_PROVIDER          = local.ssl_provider
-    SSL_EMAIL             = local.ssl_email
-    DOMAIN_NAME           = local.install_caddy ? local.dns_domain : ""
+    STARTUP_ENABLED           = local.startup_enabled
+    ALLOCATOR_FQDN            = local.allocator_fqdn
+    INSTALL_CADDY             = local.install_caddy
+    SSL_PROVIDER              = local.ssl_provider
+    SSL_EMAIL                 = local.ssl_email
+    DOMAIN_NAME               = local.install_caddy ? local.dns_domain : ""
   })
 
   tags = {
