@@ -264,6 +264,15 @@ jobs:
         if: steps.apply.outcome == 'success'
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
+          CONFIG_FILE="config/config.yaml"
+
+          # Check if DNS is enabled in config
+          DNS_ENABLED=$(grep -A 10 "^dns:" "$CONFIG_FILE" | grep "enabled:" | awk '{print $2}')
+          if [ "$DNS_ENABLED" != "true" ]; then
+            echo "✓ DNS is disabled in config — skipping DNS/HTTPS verification"
+            exit 0
+          fi
+
           echo "Verifying DNS and HTTPS connectivity..."
 
           # allocator_fqdn already includes protocol (e.g., https://domain or http://ip)
@@ -272,8 +281,8 @@ jobs:
           # Strip protocol prefix to get bare hostname/IP
           FQDN=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
 
-          if [ -z "$FQDN" ] || [ "$FQDN" = "N/A" ]; then
-            echo "✓ No DNS configured (using IP address only)"
+          if [ -z "$FQDN" ] || [ "$FQDN" = "N/A" ] || [ "$FQDN" = "$PUBLIC_IP" ]; then
+            echo "✓ No DNS domain configured (using IP address only)"
             exit 0
           fi
 
