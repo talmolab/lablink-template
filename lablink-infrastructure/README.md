@@ -162,7 +162,7 @@ DOMAIN=$(terraform output -raw allocator_fqdn)
 IP=$(terraform output -raw ec2_public_ip)
 
 # Run verification script
-./verify-deployment.sh "$DOMAIN" "$IP"
+../scripts/verify-deployment.sh "$DOMAIN" "$IP"
 ```
 
 The verification script checks:
@@ -317,11 +317,12 @@ Comprehensive deployment verification script for post-deployment testing.
 **Usage:**
 
 ```bash
-./verify-deployment.sh [domain] [ip]
+../scripts/verify-deployment.sh [--ci] [domain] [ip]
 
 # Examples:
-./verify-deployment.sh test.lablink.sleap.ai 52.10.119.234
-./verify-deployment.sh "" 52.10.119.234  # IP-only deployment
+../scripts/verify-deployment.sh test.lablink.sleap.ai 52.10.119.234
+../scripts/verify-deployment.sh "" 52.10.119.234  # IP-only deployment
+../scripts/verify-deployment.sh --ci test.lablink.sleap.ai 52.10.119.234  # CI mode (no colors)
 ```
 
 **What it checks:**

@@ -587,8 +587,10 @@ lablink-template/
 │   ├── main.tf                 # Core Terraform config
 │   ├── backend-*.hcl           # Environment-specific backends
 │   ├── user_data.sh            # EC2 initialization script
-│   ├── verify-deployment.sh    # Deployment verification
 │   └── README.md               # Infrastructure documentation
+├── scripts/                    # Helper scripts
+│   ├── init-terraform.sh       # Terraform init helper
+│   └── verify-deployment.sh    # Deployment verification
 ├── MANUAL_CLEANUP_GUIDE.md     # Manual cleanup procedures
 ├── README.md                   # This file
 ├── DEPLOYMENT_CHECKLIST.md     # Pre-deployment checklist
