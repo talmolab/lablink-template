@@ -395,32 +395,33 @@ TRUSTEOF
         --query 'Role.Arn' \
         --output text)
     success "Created IAM role: ${ROLE_ARN}"
-
-    # Attach managed policies
-    POLICIES=(
-        "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-        "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-        "arn:aws:iam::aws:policy/IAMFullAccess"
-        "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-        "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-        "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess"
-        "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
-        "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
-    )
-
-    # Attach Route53 if DNS is enabled with Route53
-    if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
-        POLICIES+=("arn:aws:iam::aws:policy/AmazonRoute53FullAccess")
-    fi
-
-    for POLICY_ARN in "${POLICIES[@]}"; do
-        POLICY_SHORT=$(echo "$POLICY_ARN" | awk -F'/' '{print $NF}')
-        aws iam attach-role-policy \
-            --role-name "$ROLE_NAME" \
-            --policy-arn "$POLICY_ARN" 2>/dev/null || true
-        success "  Attached: ${POLICY_SHORT}"
-    done
 fi
+
+# Always ensure managed policies are attached (handles re-runs and partial setups)
+info "Ensuring managed policies are attached..."
+POLICIES=(
+    "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+    "arn:aws:iam::aws:policy/IAMFullAccess"
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+    "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess"
+    "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
+    "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+)
+
+# Attach Route53 if DNS is enabled with Route53
+if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
+    POLICIES+=("arn:aws:iam::aws:policy/AmazonRoute53FullAccess")
+fi
+
+for POLICY_ARN in "${POLICIES[@]}"; do
+    POLICY_SHORT=$(echo "$POLICY_ARN" | awk -F'/' '{print $NF}')
+    aws iam attach-role-policy \
+        --role-name "$ROLE_NAME" \
+        --policy-arn "$POLICY_ARN" 2>/dev/null || true
+    success "  Attached: ${POLICY_SHORT}"
+done
 COMPLETED_STEPS+=("IAM Role")
 
 # --- Step 3: S3 Bucket ---
