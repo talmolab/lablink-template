@@ -9,20 +9,21 @@
 #   - curl, nslookup (for DNS verification)
 #
 # Usage:
-#   verify-deployment.sh [--ci] <domain> <ip>
+#   verify-deployment.sh [--ci] <environment>       # Config-aware (reads config.yaml + terraform outputs)
+#   verify-deployment.sh [--ci] <domain> <ip>        # Backwards-compatible (explicit values)
 #
 # Options:
 #   --ci    Disable ANSI colors for clean CI logs
 #
 # Examples:
-#   # Verify with explicit domain and IP
+#   # Config-aware: auto-detect domain and IP from config + terraform
+#   verify-deployment.sh prod
+#   verify-deployment.sh --ci ci-test
+#
+#   # Backwards-compatible: explicit domain and IP
 #   verify-deployment.sh test.lablink.sleap.ai 52.10.119.234
-#
-#   # IP-only deployment (no DNS)
-#   verify-deployment.sh "" 52.10.119.234
-#
-#   # CI mode (no colors)
 #   verify-deployment.sh --ci test.lablink.sleap.ai 52.10.119.234
+#   verify-deployment.sh "" 52.10.119.234
 #
 
 set -e
@@ -49,36 +50,187 @@ else
     NC='\033[0m' # No Color
 fi
 
-# Parse arguments
-DOMAIN_NAME="${1:-}"
-EXPECTED_IP="${2:-}"
+# ============================================================================
+# Config helper (lightweight version of configure.sh's cfg_get)
+# ============================================================================
+cfg_get() {
+    local key="$1"
+    local fallback="${2:-}"
+    local file="config/config.yaml"
 
-# Read configuration from config.yaml
-DNS_ENABLED=false
-SSL_PROVIDER="letsencrypt"
-if [ -f "config/config.yaml" ]; then
-    DNS_ENABLED_RAW=$(grep -A 10 "^dns:" config/config.yaml | grep "enabled:" | awk '{print $2}' || echo "false")
-    if [ "$DNS_ENABLED_RAW" = "true" ]; then
-        DNS_ENABLED=true
+    if [ ! -f "$file" ]; then
+        echo "$fallback"
+        return
     fi
-    SSL_PROVIDER=$(grep -A5 "^ssl:" config/config.yaml | grep "provider:" | awk '{print $2}' | tr -d '"' 2>/dev/null || echo "letsencrypt")
+
+    local value=""
+    case "$key" in
+        dns.enabled)
+            value=$(awk '/^dns:/{found=1} found && /enabled:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        dns.domain)
+            value=$(awk '/^dns:/{found=1} found && /domain:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        dns.terraform_managed)
+            value=$(awk '/^dns:/{found=1} found && /terraform_managed:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        dns.zone_id)
+            value=$(awk '/^dns:/{found=1} found && /zone_id:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        ssl.provider)
+            value=$(awk '/^ssl:/{found=1} found && /provider:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        ssl.email)
+            value=$(awk '/^ssl:/{found=1} found && /email:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        app.region)
+            value=$(awk '/^app:/{found=1} found && /region:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+    esac
+
+    # Strip inline comments and whitespace
+    value=$(echo "$value" | sed 's/ *#.*//' | xargs 2>/dev/null || true)
+
+    if [ -n "$value" ]; then
+        echo "$value"
+    else
+        echo "$fallback"
+    fi
+}
+
+# ============================================================================
+# Determine mode: config-aware vs backwards-compatible
+# ============================================================================
+MODE=""
+ENVIRONMENT=""
+
+if [ $# -eq 0 ]; then
+    echo -e "${RED}Error: Missing arguments${NC}"
+    echo ""
+    echo "Usage:"
+    echo "  verify-deployment.sh [--ci] <environment>       # Config-aware mode"
+    echo "  verify-deployment.sh [--ci] <domain> <ip>        # Backwards-compatible mode"
+    echo ""
+    echo "Examples:"
+    echo "  verify-deployment.sh prod"
+    echo "  verify-deployment.sh test.lablink.sleap.ai 52.10.119.234"
+    exit 1
+elif [ $# -eq 1 ]; then
+    # Single arg: if it contains a dot, treat as domain (legacy); otherwise environment name
+    if echo "$1" | grep -q '\.'; then
+        MODE="legacy"
+        DOMAIN_NAME="$1"
+        EXPECTED_IP=""
+    else
+        MODE="config-aware"
+        ENVIRONMENT="$1"
+    fi
+elif [ $# -eq 2 ]; then
+    MODE="legacy"
+    DOMAIN_NAME="$1"
+    EXPECTED_IP="$2"
+else
+    echo -e "${RED}Error: Too many arguments${NC}"
+    echo "Usage:"
+    echo "  verify-deployment.sh [--ci] <environment>"
+    echo "  verify-deployment.sh [--ci] <domain> <ip>"
+    exit 1
 fi
 
-echo -e "${BLUE}================================${NC}"
-echo -e "${BLUE}LabLink Deployment Verification${NC}"
-echo -e "${BLUE}================================${NC}"
-echo ""
-echo -e "Domain:       ${GREEN}${DOMAIN_NAME:-N/A (IP-only)}${NC}"
-echo -e "IP Address:   ${GREEN}${EXPECTED_IP}${NC}"
-echo -e "SSL Provider: ${GREEN}${SSL_PROVIDER}${NC}"
-echo -e "DNS Enabled:  ${GREEN}${DNS_ENABLED}${NC}"
-echo ""
+# ============================================================================
+# Config-aware mode: resolve values from config.yaml + terraform outputs
+# ============================================================================
+if [ "$MODE" = "config-aware" ]; then
+    # Locate lablink-infrastructure directory
+    if [ -f "config/config.yaml" ]; then
+        # Already in lablink-infrastructure/
+        true
+    elif [ -f "lablink-infrastructure/config/config.yaml" ]; then
+        cd lablink-infrastructure
+    else
+        echo -e "${RED}Error: Cannot find config/config.yaml${NC}"
+        echo "  Run this script from the lablink-infrastructure/ directory,"
+        echo "  or from the repository root (lablink-infrastructure/ must exist)."
+        exit 1
+    fi
+
+    # Read config values
+    DNS_ENABLED=$(cfg_get "dns.enabled" "false")
+    DOMAIN_NAME=$(cfg_get "dns.domain" "")
+    DNS_TF_MANAGED=$(cfg_get "dns.terraform_managed" "false")
+    SSL_PROVIDER=$(cfg_get "ssl.provider" "letsencrypt")
+    REGION=$(cfg_get "app.region" "us-west-2")
+
+    # Read IP from terraform output
+    EXPECTED_IP=$(terraform output -raw ec2_public_ip 2>/dev/null || echo "")
+    if [ -z "$EXPECTED_IP" ]; then
+        echo -e "${RED}Error: Could not read ec2_public_ip from Terraform outputs${NC}"
+        echo "  Terraform may not be initialized for the '$ENVIRONMENT' environment."
+        echo "  Run: ./scripts/init-terraform.sh $ENVIRONMENT"
+        echo "  Then: terraform apply -var=\"resource_suffix=$ENVIRONMENT\""
+        exit 1
+    fi
+
+    # Read FQDN from terraform output (with fallback to config domain)
+    FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
+    if [ -n "$FQDN_RAW" ]; then
+        # Strip protocol prefix if present
+        DOMAIN_NAME=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
+    fi
+    # If terraform didn't provide FQDN, DOMAIN_NAME is already set from config
+
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}LabLink Deployment Verification${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+    echo -e "Domain:             ${GREEN}${DOMAIN_NAME:-N/A (IP-only)}${NC}"
+    echo -e "IP Address:         ${GREEN}${EXPECTED_IP}${NC}"
+    echo -e "SSL Provider:       ${GREEN}${SSL_PROVIDER}${NC}"
+    echo -e "DNS Enabled:        ${GREEN}${DNS_ENABLED}${NC}"
+    echo -e "Terraform Managed:  ${GREEN}${DNS_TF_MANAGED}${NC}"
+    echo -e "Region:             ${GREEN}${REGION}${NC}"
+    echo -e "Environment:        ${GREEN}${ENVIRONMENT}${NC}"
+    echo -e "Mode:               ${GREEN}config-aware${NC}"
+    echo ""
+else
+    # ============================================================================
+    # Legacy mode: use provided domain and IP directly
+    # ============================================================================
+    DOMAIN_NAME="${DOMAIN_NAME:-}"
+    EXPECTED_IP="${EXPECTED_IP:-}"
+
+    # Read configuration from config.yaml (best-effort, may not exist in legacy mode)
+    DNS_ENABLED=false
+    SSL_PROVIDER="letsencrypt"
+    if [ -f "config/config.yaml" ]; then
+        DNS_ENABLED_RAW=$(cfg_get "dns.enabled" "false")
+        if [ "$DNS_ENABLED_RAW" = "true" ]; then
+            DNS_ENABLED=true
+        fi
+        SSL_PROVIDER=$(cfg_get "ssl.provider" "letsencrypt")
+    fi
+
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}LabLink Deployment Verification${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo ""
+    echo -e "Domain:       ${GREEN}${DOMAIN_NAME:-N/A (IP-only)}${NC}"
+    echo -e "IP Address:   ${GREEN}${EXPECTED_IP}${NC}"
+    echo -e "SSL Provider: ${GREEN}${SSL_PROVIDER}${NC}"
+    echo -e "DNS Enabled:  ${GREEN}${DNS_ENABLED}${NC}"
+    echo -e "Mode:         ${GREEN}legacy${NC}"
+    echo ""
+fi
 
 # Step 0: Validate DNS Configuration
 if [ "$DNS_ENABLED" = true ]; then
     echo -e "${YELLOW}[0/3] Validating DNS configuration...${NC}"
 
-    CONFIG_DOMAIN=$(grep -A 10 "^dns:" config/config.yaml | grep "domain:" | awk '{print $2}' | tr -d '"' 2>/dev/null || echo "")
+    if [ "$MODE" = "config-aware" ]; then
+        CONFIG_DOMAIN=$(cfg_get "dns.domain" "")
+    else
+        CONFIG_DOMAIN=$(grep -A 10 "^dns:" config/config.yaml 2>/dev/null | grep "domain:" | awk '{print $2}' | tr -d '"' 2>/dev/null || echo "")
+    fi
 
     if [ -z "$CONFIG_DOMAIN" ]; then
         echo -e "${RED}Error: DNS is enabled but domain is empty in config/config.yaml${NC}"
