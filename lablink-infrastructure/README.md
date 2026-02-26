@@ -157,11 +157,12 @@ terraform apply
 After deployment completes, you can verify everything is working:
 
 ```bash
-# Get outputs from Terraform
+# Config-aware mode (recommended) — auto-reads config.yaml + terraform outputs
+../scripts/verify-deployment.sh dev
+
+# Or with explicit domain and IP (backwards-compatible)
 DOMAIN=$(terraform output -raw allocator_fqdn)
 IP=$(terraform output -raw ec2_public_ip)
-
-# Run verification script
 ../scripts/verify-deployment.sh "$DOMAIN" "$IP"
 ```
 
@@ -317,12 +318,19 @@ Comprehensive deployment verification script for post-deployment testing.
 **Usage:**
 
 ```bash
-../scripts/verify-deployment.sh [--ci] [domain] [ip]
+# Config-aware mode (recommended): reads config.yaml + terraform outputs automatically
+../scripts/verify-deployment.sh <environment>
+../scripts/verify-deployment.sh --ci <environment>
+
+# Backwards-compatible mode: explicit domain and IP
+../scripts/verify-deployment.sh <domain> <ip>
+../scripts/verify-deployment.sh --ci <domain> <ip>
 
 # Examples:
-../scripts/verify-deployment.sh test.lablink.sleap.ai 52.10.119.234
-../scripts/verify-deployment.sh "" 52.10.119.234  # IP-only deployment
-../scripts/verify-deployment.sh --ci test.lablink.sleap.ai 52.10.119.234  # CI mode (no colors)
+../scripts/verify-deployment.sh prod                                        # Config-aware
+../scripts/verify-deployment.sh --ci ci-test                                # Config-aware in CI
+../scripts/verify-deployment.sh test.lablink.sleap.ai 52.10.119.234         # Legacy mode
+../scripts/verify-deployment.sh "" 52.10.119.234                            # IP-only (legacy)
 ```
 
 **What it checks:**
@@ -454,6 +462,42 @@ See the workflows in the `.github` directory for automated deployment examples.
 - Check DynamoDB lock table in AWS console
 - Manually remove lock if workflow was interrupted
 - Use `terraform force-unlock <lock-id>` as last resort
+
+### Running Scripts Locally
+
+If you want to run the verification or other scripts locally (outside of CI), follow these steps:
+
+**Prerequisites:**
+
+```bash
+# 1. Navigate to the infrastructure directory
+cd lablink-infrastructure
+
+# 2. Ensure config/config.yaml exists
+cp config/example.config.yaml config/config.yaml  # if not already created
+
+# 3. Initialize Terraform for your environment
+../scripts/init-terraform.sh dev    # local state
+../scripts/init-terraform.sh test   # S3 backend
+
+# 4. Deploy (or have an existing deployment)
+terraform apply -var="resource_suffix=dev"
+```
+
+**Running verification:**
+
+```bash
+# From lablink-infrastructure/
+../scripts/verify-deployment.sh dev
+```
+
+**Common errors:**
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Cannot find config/config.yaml` | Script not run from correct directory | `cd lablink-infrastructure` first, or run from repo root |
+| `Could not read ec2_public_ip from Terraform outputs` | Terraform not initialized or no deployment exists | Run `../scripts/init-terraform.sh <env>` then `terraform apply` |
+| `nslookup: command not found` | Missing DNS tools | Install `dnsutils` (Ubuntu) or `bind` (macOS: `brew install bind`) |
 
 ### Getting Help
 
