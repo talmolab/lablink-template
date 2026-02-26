@@ -340,27 +340,21 @@ ask CFG_SOFTWARE "Software name" "$DEFAULT_SOFTWARE"
 DEFAULT_EXTENSION=$(cfg_get machine.extension "slp")
 ask CFG_EXTENSION "File extension" "$DEFAULT_EXTENSION"
 
-# --- Image Tags ---
+# --- Image Configuration ---
 echo ""
-echo -e "${BOLD}--- Image Tags ---${NC}"
-echo "  These control which Docker image versions are used."
-echo "  For testing, use 'linux-amd64-latest-test'."
+echo -e "${BOLD}--- Image Configuration ---${NC}"
+echo "  These control which Docker images are used."
+echo "  For testing, use tag 'linux-amd64-latest-test'."
 echo "  For production, pin to a specific version like 'linux-amd64-v1.2.3'."
 
 DEFAULT_ALLOCATOR_TAG=$(cfg_get allocator.image_tag "linux-amd64-latest-test")
 ask CFG_ALLOCATOR_TAG "Allocator image tag" "$DEFAULT_ALLOCATOR_TAG"
 
-# Extract client tag from the full image string
-EXISTING_CLIENT_IMAGE=$(cfg_get machine.image "")
-DEFAULT_CLIENT_TAG="linux-amd64-latest-test"
-if [ -n "$EXISTING_CLIENT_IMAGE" ]; then
-    # Extract tag after the last colon
-    EXTRACTED_TAG="${EXISTING_CLIENT_IMAGE##*:}"
-    if [ -n "$EXTRACTED_TAG" ] && [ "$EXTRACTED_TAG" != "$EXISTING_CLIENT_IMAGE" ]; then
-        DEFAULT_CLIENT_TAG="$EXTRACTED_TAG"
-    fi
-fi
-ask CFG_CLIENT_TAG "Client VM image tag" "$DEFAULT_CLIENT_TAG"
+echo ""
+echo "  Client VM image: full Docker image URL (e.g., ghcr.io/your-org/your-image:tag)."
+echo "  Use a custom image or the default LabLink base image."
+DEFAULT_CLIENT_IMAGE=$(cfg_get machine.image "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-latest-test")
+ask CFG_CLIENT_IMAGE "Client VM image" "$DEFAULT_CLIENT_IMAGE"
 
 # --- EIP Settings ---
 echo ""
@@ -472,7 +466,7 @@ db:
 
 machine:
   machine_type: "${CFG_INSTANCE_TYPE}"
-  image: "ghcr.io/talmolab/lablink-client-base-image:${CFG_CLIENT_TAG}"
+  image: "${CFG_CLIENT_IMAGE}"
   ami_id: "${CFG_AMI_ID}"
   repository: "${CFG_DATA_REPO}"
   software: "${CFG_SOFTWARE}"
