@@ -156,7 +156,6 @@ if [ "$MODE" = "config-aware" ]; then
 
     # Read config values
     DNS_ENABLED=$(cfg_get "dns.enabled" "false")
-    DOMAIN_NAME=$(cfg_get "dns.domain" "")
     DNS_TF_MANAGED=$(cfg_get "dns.terraform_managed" "false")
     SSL_PROVIDER=$(cfg_get "ssl.provider" "letsencrypt")
     REGION=$(cfg_get "app.region" "us-west-2")
@@ -171,13 +170,18 @@ if [ "$MODE" = "config-aware" ]; then
         exit 1
     fi
 
-    # Read FQDN from terraform output (with fallback to config domain)
-    FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
-    if [ -n "$FQDN_RAW" ]; then
-        # Strip protocol prefix if present
-        DOMAIN_NAME=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
+    # Resolve domain: only if DNS is enabled
+    DOMAIN_NAME=""
+    if [ "$DNS_ENABLED" = "true" ]; then
+        # Try FQDN from terraform output first, fallback to config domain
+        FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
+        if [ -n "$FQDN_RAW" ]; then
+            # Strip protocol prefix if present
+            DOMAIN_NAME=$(echo "$FQDN_RAW" | sed 's|^https\?://||')
+        else
+            DOMAIN_NAME=$(cfg_get "dns.domain" "")
+        fi
     fi
-    # If terraform didn't provide FQDN, DOMAIN_NAME is already set from config
 
     echo -e "${BLUE}================================${NC}"
     echo -e "${BLUE}LabLink Deployment Verification${NC}"
