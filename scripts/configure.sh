@@ -320,7 +320,29 @@ echo "    g5.xlarge    - NVIDIA A10G (better GPU, ~\$1.01/hr)"
 echo "    p3.2xlarge   - NVIDIA V100 (powerful, ~\$3.06/hr)"
 echo "    t3.large     - CPU only (no GPU, ~\$0.08/hr)"
 DEFAULT_INSTANCE_TYPE=$(cfg_get machine.machine_type "g4dn.xlarge")
-ask CFG_INSTANCE_TYPE "EC2 instance type" "$DEFAULT_INSTANCE_TYPE"
+while true; do
+    ask CFG_INSTANCE_TYPE "EC2 instance type" "$DEFAULT_INSTANCE_TYPE"
+
+    # Validate the instance type against AWS API
+    if command -v aws &>/dev/null; then
+        if aws_output=$(aws ec2 describe-instance-types \
+            --instance-types "$CFG_INSTANCE_TYPE" \
+            --region "$EXISTING_REGION" 2>&1); then
+            success "Instance type '${CFG_INSTANCE_TYPE}' is valid in ${EXISTING_REGION}."
+            break
+        elif echo "$aws_output" | grep -q "InvalidInstanceType"; then
+            warn "Invalid instance type '${CFG_INSTANCE_TYPE}'. Please enter a valid EC2 instance type."
+            DEFAULT_INSTANCE_TYPE="$CFG_INSTANCE_TYPE"
+            continue
+        else
+            warn "Could not validate instance type (AWS API error). Proceeding anyway."
+            break
+        fi
+    else
+        warn "AWS CLI not found. Skipping instance type validation."
+        break
+    fi
+done
 
 DEFAULT_AMI=$(cfg_get machine.ami_id "")
 if [ -z "$DEFAULT_AMI" ] && [ "$EXISTING_REGION" = "us-west-2" ]; then
