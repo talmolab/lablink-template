@@ -320,16 +320,63 @@ echo "    g5.xlarge    - NVIDIA A10G (better GPU, ~\$1.01/hr)"
 echo "    p3.2xlarge   - NVIDIA V100 (powerful, ~\$3.06/hr)"
 echo "    t3.large     - CPU only (no GPU, ~\$0.08/hr)"
 DEFAULT_INSTANCE_TYPE=$(cfg_get machine.machine_type "g4dn.xlarge")
-ask CFG_INSTANCE_TYPE "EC2 instance type" "$DEFAULT_INSTANCE_TYPE"
+while true; do
+    ask CFG_INSTANCE_TYPE "EC2 instance type" "$DEFAULT_INSTANCE_TYPE"
+
+    # Validate the instance type against AWS API
+    if command -v aws &>/dev/null; then
+        if aws_output=$(aws ec2 describe-instance-types \
+            --instance-types "$CFG_INSTANCE_TYPE" \
+            --region "$EXISTING_REGION" 2>&1); then
+            success "Instance type '${CFG_INSTANCE_TYPE}' is valid in ${EXISTING_REGION}."
+            break
+        elif echo "$aws_output" | grep -q "InvalidInstanceType"; then
+            warn "Invalid instance type '${CFG_INSTANCE_TYPE}'. Please enter a valid EC2 instance type."
+            DEFAULT_INSTANCE_TYPE="$CFG_INSTANCE_TYPE"
+            continue
+        else
+            warn "Could not validate instance type (AWS API error). Proceeding anyway."
+            break
+        fi
+    else
+        warn "AWS CLI not found. Skipping instance type validation."
+        break
+    fi
+done
 
 DEFAULT_AMI=$(cfg_get machine.ami_id "")
 if [ -z "$DEFAULT_AMI" ] && [ "$EXISTING_REGION" = "us-west-2" ]; then
     DEFAULT_AMI="ami-0601752c11b394251"
 fi
-ask CFG_AMI_ID "AMI ID (Ubuntu 24.04 with Docker+Nvidia)" "$DEFAULT_AMI"
-if [ -z "$CFG_AMI_ID" ]; then
-    warn "No AMI ID provided. You will need to set this in config.yaml before deploying."
-fi
+while true; do
+    ask CFG_AMI_ID "AMI ID (Ubuntu 24.04 with Docker+Nvidia)" "$DEFAULT_AMI"
+
+    # Allow empty — user may set it later
+    if [ -z "$CFG_AMI_ID" ]; then
+        warn "No AMI ID provided. You will need to set this in config.yaml before deploying."
+        break
+    fi
+
+    # Validate the AMI exists in the region
+    if command -v aws &>/dev/null; then
+        if aws_output=$(aws ec2 describe-images \
+            --image-ids "$CFG_AMI_ID" \
+            --region "$EXISTING_REGION" 2>&1); then
+            success "AMI '${CFG_AMI_ID}' found in ${EXISTING_REGION}."
+            break
+        elif echo "$aws_output" | grep -q "InvalidAMIID"; then
+            warn "AMI '${CFG_AMI_ID}' not found in ${EXISTING_REGION}. Please enter a valid AMI ID."
+            DEFAULT_AMI="$CFG_AMI_ID"
+            continue
+        else
+            warn "Could not validate AMI (AWS API error). Proceeding anyway."
+            break
+        fi
+    else
+        warn "AWS CLI not found. Skipping AMI validation."
+        break
+    fi
+done
 
 DEFAULT_DATA_REPO=$(cfg_get machine.repository "")
 ask CFG_DATA_REPO "Data repository URL (optional, press Enter to skip)" "$DEFAULT_DATA_REPO"
