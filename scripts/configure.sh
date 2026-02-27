@@ -568,3 +568,64 @@ echo ""
 info "Review the config:"
 echo "    ${CONFIG_FILE}"
 echo ""
+
+# ============================================================================
+# Auto-commit and push config.yaml
+# ============================================================================
+if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+    if git diff --quiet "$CONFIG_FILE" 2>/dev/null && git diff --cached --quiet "$CONFIG_FILE" 2>/dev/null && git ls-files --error-unmatch "$CONFIG_FILE" &>/dev/null 2>&1; then
+        info "Config unchanged, nothing to commit."
+    else
+        prompt "Commit and push config.yaml to git? [Y/n]: "
+        read -r PUSH_CONFIRM
+        PUSH_CONFIRM="${PUSH_CONFIRM:-Y}"
+
+        if [[ "$PUSH_CONFIRM" =~ ^[Yy]$ ]]; then
+        info "Committing config.yaml..."
+        git add "$CONFIG_FILE"
+
+        # Detect if this is a new file or an update
+        if git ls-files --error-unmatch "$CONFIG_FILE" &>/dev/null 2>&1 && git log -1 -- "$CONFIG_FILE" &>/dev/null 2>&1 && [ "$(git log --oneline -- "$CONFIG_FILE" 2>/dev/null | wc -l)" -gt 0 ]; then
+            COMMIT_MSG="Update LabLink configuration"
+        else
+            COMMIT_MSG="Add LabLink configuration"
+        fi
+
+        if git commit -m "$COMMIT_MSG" &>/dev/null; then
+            success "Committed: ${COMMIT_MSG}"
+
+            # Push to remote
+            CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+            if [ -n "$CURRENT_BRANCH" ] && git remote get-url origin &>/dev/null 2>&1; then
+                if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" &>/dev/null 2>&1; then
+                    if git push 2>/dev/null; then
+                        success "Pushed to remote."
+                    else
+                        warn "Push failed. You can push manually:"
+                        echo "    git push"
+                    fi
+                else
+                    if git push -u origin "$CURRENT_BRANCH" 2>/dev/null; then
+                        success "Pushed to remote (set upstream to origin/${CURRENT_BRANCH})."
+                    else
+                        warn "Push failed. You can push manually:"
+                        echo "    git push -u origin ${CURRENT_BRANCH}"
+                    fi
+                fi
+            else
+                warn "No git remote found. Push manually when ready."
+            fi
+        else
+            warn "Commit failed. You can commit manually:"
+            echo "    git add ${CONFIG_FILE}"
+            echo "    git commit -m \"${COMMIT_MSG}\""
+            echo "    git push"
+        fi
+        else
+            info "Skipped commit and push. You can do it manually:"
+            echo "    git add ${CONFIG_FILE}"
+            echo "    git commit -m \"Update LabLink configuration\""
+            echo "    git push"
+        fi
+    fi
+fi
