@@ -573,7 +573,10 @@ echo ""
 # Auto-commit and push config.yaml
 # ============================================================================
 if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
-    if git diff --quiet "$CONFIG_FILE" 2>/dev/null && git diff --cached --quiet "$CONFIG_FILE" 2>/dev/null && git ls-files --error-unmatch "$CONFIG_FILE" &>/dev/null 2>&1; then
+    # Compare non-comment content to detect real changes (ignore timestamp in header)
+    if git ls-files --error-unmatch "$CONFIG_FILE" &>/dev/null 2>&1 && \
+       diff <(grep -v '^#' "$CONFIG_FILE") <(git show HEAD:"$CONFIG_FILE" 2>/dev/null | grep -v '^#') &>/dev/null; then
+        git checkout -- "$CONFIG_FILE"
         info "Config unchanged, nothing to commit."
     else
         prompt "Commit and push config.yaml to git? [Y/n]: "
