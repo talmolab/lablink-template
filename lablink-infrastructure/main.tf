@@ -58,12 +58,6 @@ data "aws_iam_policy_document" "s3_backend_doc" {
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
     resources = ["arn:aws:s3:::${local.bucket_name}"]
-
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["${var.resource_suffix}/*"]
-    }
   }
 
   # Read/Write/Delete objects under the prefix
