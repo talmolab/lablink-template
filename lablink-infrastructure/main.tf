@@ -142,8 +142,8 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:GetInstanceProfile"
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*",
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/lablink_client_instance_profile_*"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-lablink-client-*-cloudwatch-role",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*-lablink-client-*-instance-profile"
     ]
   }
 
@@ -154,7 +154,7 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:PassRole"
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-lablink-client-*-cloudwatch-role"
     ]
     condition {
       test     = "StringEquals"
@@ -176,7 +176,7 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:DetachRolePolicy",
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/lablink_cloud_watch_agent_role_*"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-lablink-client-*-cloudwatch-role"
     ]
     condition {
       test     = "ArnEquals"
