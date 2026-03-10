@@ -346,9 +346,9 @@ EIP_HOURLY=$(get_eip_price "$REGION_NAME" 2>/dev/null) || {
     fi
 }
 
-# Route53 hosted zone (global, not region-specific)
-ROUTE53_MONTHLY=$(get_route53_hz_price 2>/dev/null) || {
-    ROUTE53_MONTHLY="0.50"
+# Route53 hosted zone (global, not region-specific; API returns monthly, convert to daily)
+ROUTE53_DAILY=$(get_route53_hz_price 2>/dev/null | awk '{printf "%.2f", $1 / 30}') || {
+    ROUTE53_DAILY="0.02"  # $0.50/month / 30
     if [ "$PRICING_SOURCE" != "hardcoded estimates" ]; then
         PRICING_SOURCE="mixed (API + fallback)"
     fi
@@ -366,7 +366,6 @@ ALB_HOURLY=$(get_alb_price "$REGION_NAME" 2>/dev/null) || {
 # Calculate daily costs (24 hours/day)
 # ============================================================================
 HOURS_PER_DAY=24
-DAYS_PER_MONTH=30
 
 ALLOCATOR_DAILY=$(calc "$ALLOCATOR_HOURLY * $HOURS_PER_DAY")
 if [ -n "$CLIENT_HOURLY" ]; then
@@ -374,16 +373,15 @@ if [ -n "$CLIENT_HOURLY" ]; then
 else
     CLIENT_DAILY="?"
 fi
-EBS_DAILY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB / $DAYS_PER_MONTH")
+EBS_DAILY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB / 30")
 
 EIP_DAILY=$(calc "$EIP_HOURLY * $HOURS_PER_DAY")
-ROUTE53_DAILY=$(calc "$ROUTE53_MONTHLY / $DAYS_PER_MONTH")
 ALB_DAILY=$(calc "$ALB_HOURLY * $HOURS_PER_DAY")
 
 # Usage-based line items (hardcoded estimates, daily = monthly / 30)
-CLOUDWATCH_DAILY=$(calc "2.00 / $DAYS_PER_MONTH")
-CLOUDTRAIL_DAILY=$(calc "3.00 / $DAYS_PER_MONTH")
-SNS_DAILY=$(calc "1.00 / $DAYS_PER_MONTH")
+CLOUDWATCH_DAILY=$(calc "2.00 / 30")
+CLOUDTRAIL_DAILY=$(calc "3.00 / 30")
+SNS_DAILY=$(calc "1.00 / 30")
 
 # ============================================================================
 # Compute base infrastructure total
