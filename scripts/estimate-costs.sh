@@ -204,6 +204,76 @@ get_ebs_gp3_price() {
     echo "$price"
 }
 
+# Query Elastic IP (public IPv4) hourly price for a region
+get_eip_price() {
+    local region_name="$1"
+
+    if [ "$USE_LIVE_PRICING" != "true" ]; then
+        return 1
+    fi
+
+    local price
+    price=$(aws pricing get-products \
+        --service-code AmazonEC2 \
+        --region us-east-1 \
+        --filters \
+            "Type=TERM_MATCH,Field=location,Value=$region_name" \
+            "Type=TERM_MATCH,Field=productFamily,Value=IP Address" \
+            "Type=TERM_MATCH,Field=group,Value=ElasticIP:Address" \
+        --output json 2>/dev/null \
+        | jq -r '.PriceList[0] | fromjson | .terms.OnDemand | to_entries[0].value.priceDimensions | to_entries[0].value.pricePerUnit.USD' 2>/dev/null) || return 1
+
+    if [ -z "$price" ] || [ "$price" = "null" ]; then
+        return 1
+    fi
+    echo "$price"
+}
+
+# Query Route53 hosted zone monthly price
+get_route53_hz_price() {
+    if [ "$USE_LIVE_PRICING" != "true" ]; then
+        return 1
+    fi
+
+    local price
+    price=$(aws pricing get-products \
+        --service-code AmazonRoute53 \
+        --region us-east-1 \
+        --filters \
+            "Type=TERM_MATCH,Field=productFamily,Value=DNS Zone" \
+        --output json 2>/dev/null \
+        | jq -r '.PriceList[0] | fromjson | .terms.OnDemand | to_entries[0].value.priceDimensions | to_entries[0].value.pricePerUnit.USD' 2>/dev/null) || return 1
+
+    if [ -z "$price" ] || [ "$price" = "null" ]; then
+        return 1
+    fi
+    echo "$price"
+}
+
+# Query ALB hourly price for a region
+get_alb_price() {
+    local region_name="$1"
+
+    if [ "$USE_LIVE_PRICING" != "true" ]; then
+        return 1
+    fi
+
+    local price
+    price=$(aws pricing get-products \
+        --service-code AWSELB \
+        --region us-east-1 \
+        --filters \
+            "Type=TERM_MATCH,Field=location,Value=$region_name" \
+            "Type=TERM_MATCH,Field=productFamily,Value=Load Balancer-Application" \
+        --output json 2>/dev/null \
+        | jq -r '.PriceList[0] | fromjson | .terms.OnDemand | to_entries[0].value.priceDimensions | to_entries[] | select(.value.description | test("hour"; "i")) | .value.pricePerUnit.USD' 2>/dev/null) || return 1
+
+    if [ -z "$price" ] || [ "$price" = "null" ]; then
+        return 1
+    fi
+    echo "$price"
+}
+
 # Hardcoded fallback prices (us-east-1 on-demand, Feb 2025)
 fallback_ec2_price() {
     case "$1" in
@@ -268,6 +338,30 @@ EBS_PER_GB=$(get_ebs_gp3_price "$REGION_NAME" 2>/dev/null) || {
     fi
 }
 
+# Elastic IP
+EIP_HOURLY=$(get_eip_price "$REGION_NAME" 2>/dev/null) || {
+    EIP_HOURLY="0.005"
+    if [ "$PRICING_SOURCE" != "hardcoded estimates" ]; then
+        PRICING_SOURCE="mixed (API + fallback)"
+    fi
+}
+
+# Route53 hosted zone (global, not region-specific)
+ROUTE53_MONTHLY=$(get_route53_hz_price 2>/dev/null) || {
+    ROUTE53_MONTHLY="0.50"
+    if [ "$PRICING_SOURCE" != "hardcoded estimates" ]; then
+        PRICING_SOURCE="mixed (API + fallback)"
+    fi
+}
+
+# ALB
+ALB_HOURLY=$(get_alb_price "$REGION_NAME" 2>/dev/null) || {
+    ALB_HOURLY="0.0225"  # ~$16.43/month at 730 hrs
+    if [ "$PRICING_SOURCE" != "hardcoded estimates" ]; then
+        PRICING_SOURCE="mixed (API + fallback)"
+    fi
+}
+
 # ============================================================================
 # Calculate daily costs (24 hours/day)
 # ============================================================================
@@ -282,16 +376,14 @@ else
 fi
 EBS_DAILY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB / $DAYS_PER_MONTH")
 
-# Elastic IP: $0.005/hr for all public IPv4 addresses (since Feb 2024)
-EIP_HOURLY="0.005"
 EIP_DAILY=$(calc "$EIP_HOURLY * $HOURS_PER_DAY")
+ROUTE53_DAILY=$(calc "$ROUTE53_MONTHLY / $DAYS_PER_MONTH")
+ALB_DAILY=$(calc "$ALB_HOURLY * $HOURS_PER_DAY")
 
-# Fixed-cost line items (daily = monthly / 30)
-ROUTE53_DAILY=$(calc "0.50 / $DAYS_PER_MONTH")
+# Usage-based line items (hardcoded estimates, daily = monthly / 30)
 CLOUDWATCH_DAILY=$(calc "2.00 / $DAYS_PER_MONTH")
 CLOUDTRAIL_DAILY=$(calc "3.00 / $DAYS_PER_MONTH")
 SNS_DAILY=$(calc "1.00 / $DAYS_PER_MONTH")
-ALB_DAILY=$(calc "20.00 / $DAYS_PER_MONTH")
 
 # ============================================================================
 # Compute base infrastructure total
