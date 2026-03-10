@@ -1,6 +1,6 @@
 #!/bin/bash
 # LabLink Infrastructure Cost Estimator
-# Reads config.yaml and queries the AWS Pricing API for a monthly cost breakdown.
+# Reads config.yaml and queries the AWS Pricing API for a daily cost breakdown.
 #
 # Usage: ./scripts/estimate-costs.sh
 # Must be run from the repository root directory.
@@ -269,42 +269,43 @@ EBS_PER_GB=$(get_ebs_gp3_price "$REGION_NAME" 2>/dev/null) || {
 }
 
 # ============================================================================
-# Calculate monthly costs (730 hours/month)
+# Calculate daily costs (24 hours/day)
 # ============================================================================
-HOURS_PER_MONTH=730
+HOURS_PER_DAY=24
+DAYS_PER_MONTH=30
 
-ALLOCATOR_MONTHLY=$(calc "$ALLOCATOR_HOURLY * $HOURS_PER_MONTH")
+ALLOCATOR_DAILY=$(calc "$ALLOCATOR_HOURLY * $HOURS_PER_DAY")
 if [ -n "$CLIENT_HOURLY" ]; then
-    CLIENT_MONTHLY=$(calc "$CLIENT_HOURLY * $HOURS_PER_MONTH")
+    CLIENT_DAILY=$(calc "$CLIENT_HOURLY * $HOURS_PER_DAY")
 else
-    CLIENT_MONTHLY="?"
+    CLIENT_DAILY="?"
 fi
-EBS_MONTHLY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB")
+EBS_DAILY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB / $DAYS_PER_MONTH")
 
 # Elastic IP: $0.005/hr for all public IPv4 addresses (since Feb 2024)
 EIP_HOURLY="0.005"
-EIP_MONTHLY=$(calc "$EIP_HOURLY * $HOURS_PER_MONTH")
+EIP_DAILY=$(calc "$EIP_HOURLY * $HOURS_PER_DAY")
 
-# Fixed-cost line items
-ROUTE53_MONTHLY="0.50"
-CLOUDWATCH_MONTHLY="2.00"
-CLOUDTRAIL_MONTHLY="3.00"
-SNS_MONTHLY="1.00"
-ALB_MONTHLY="20.00"
+# Fixed-cost line items (daily = monthly / 30)
+ROUTE53_DAILY=$(calc "0.50 / $DAYS_PER_MONTH")
+CLOUDWATCH_DAILY=$(calc "2.00 / $DAYS_PER_MONTH")
+CLOUDTRAIL_DAILY=$(calc "3.00 / $DAYS_PER_MONTH")
+SNS_DAILY=$(calc "1.00 / $DAYS_PER_MONTH")
+ALB_DAILY=$(calc "20.00 / $DAYS_PER_MONTH")
 
 # ============================================================================
 # Compute base infrastructure total
 # ============================================================================
-BASE_TOTAL="$ALLOCATOR_MONTHLY + $EBS_MONTHLY + $EIP_MONTHLY + $CLOUDWATCH_MONTHLY"
+BASE_TOTAL="$ALLOCATOR_DAILY + $EBS_DAILY + $EIP_DAILY + $CLOUDWATCH_DAILY"
 
 if [ "$DNS_ENABLED" = "true" ]; then
-    BASE_TOTAL="$BASE_TOTAL + $ROUTE53_MONTHLY"
+    BASE_TOTAL="$BASE_TOTAL + $ROUTE53_DAILY"
 fi
 if [ "$MONITORING_ENABLED" = "true" ]; then
-    BASE_TOTAL="$BASE_TOTAL + $CLOUDTRAIL_MONTHLY + $SNS_MONTHLY"
+    BASE_TOTAL="$BASE_TOTAL + $CLOUDTRAIL_DAILY + $SNS_DAILY"
 fi
 if [ "$SSL_PROVIDER" = "acm" ]; then
-    BASE_TOTAL="$BASE_TOTAL + $ALB_MONTHLY"
+    BASE_TOTAL="$BASE_TOTAL + $ALB_DAILY"
 fi
 
 BASE_TOTAL=$(calc "$BASE_TOTAL")
@@ -321,57 +322,57 @@ echo -e "Prices: $PRICING_SOURCE"
 echo ""
 
 # Table header
-printf "  ${BOLD}%-37s %12s${NC}\n" "Resource" "Monthly Cost"
+printf "  ${BOLD}%-37s %12s${NC}\n" "Resource" "Daily Cost"
 printf "  %-37s %12s\n" "-------------------------------------" "------------"
 
 # Allocator EC2
-printf "  %-37s ${GREEN}%11s${NC}\n" "Allocator EC2 ($ALLOCATOR_TYPE)" "\$${ALLOCATOR_MONTHLY}"
+printf "  %-37s ${GREEN}%11s${NC}\n" "Allocator EC2 ($ALLOCATOR_TYPE)" "\$${ALLOCATOR_DAILY}"
 
 # Client VM EC2
 if [ -n "$CLIENT_HOURLY" ]; then
-    printf "  %-37s ${GREEN}%11s${NC}  *\n" "Client VM EC2 ($CLIENT_TYPE)" "\$${CLIENT_MONTHLY}"
+    printf "  %-37s ${GREEN}%11s${NC}  *\n" "Client VM EC2 ($CLIENT_TYPE)" "\$${CLIENT_DAILY}"
 else
     printf "  %-37s ${YELLOW}%11s${NC}  *\n" "Client VM EC2 ($CLIENT_TYPE)" "unknown"
 fi
 
 # EBS
-printf "  %-37s ${GREEN}%11s${NC}\n" "EBS root volume (gp3, ${EBS_SIZE_GB} GB)" "\$${EBS_MONTHLY}"
+printf "  %-37s ${GREEN}%11s${NC}\n" "EBS root volume (gp3, ${EBS_SIZE_GB} GB)" "\$${EBS_DAILY}"
 
 # Elastic IP
-printf "  %-37s ${GREEN}%11s${NC}\n" "Elastic IP" "\$${EIP_MONTHLY}"
+printf "  %-37s ${GREEN}%11s${NC}\n" "Elastic IP" "\$${EIP_DAILY}"
 
 # Route53
 if [ "$DNS_ENABLED" = "true" ]; then
-    printf "  %-37s ${GREEN}%11s${NC}\n" "Route53 hosted zone" "\$${ROUTE53_MONTHLY}"
+    printf "  %-37s ${GREEN}%11s${NC}\n" "Route53 hosted zone" "\$${ROUTE53_DAILY}"
 fi
 
 # CloudWatch
-printf "  %-37s ${GREEN}%11s${NC}\n" "CloudWatch Logs" "\$${CLOUDWATCH_MONTHLY}"
+printf "  %-37s ${GREEN}%11s${NC}\n" "CloudWatch Logs" "\$${CLOUDWATCH_DAILY}"
 
 # CloudTrail + SNS (if monitoring enabled)
 if [ "$MONITORING_ENABLED" = "true" ]; then
-    printf "  %-37s ${GREEN}%11s${NC}\n" "CloudTrail + S3" "\$${CLOUDTRAIL_MONTHLY}"
-    printf "  %-37s ${GREEN}%11s${NC}\n" "SNS alerts" "\$${SNS_MONTHLY}"
+    printf "  %-37s ${GREEN}%11s${NC}\n" "CloudTrail + S3" "\$${CLOUDTRAIL_DAILY}"
+    printf "  %-37s ${GREEN}%11s${NC}\n" "SNS alerts" "\$${SNS_DAILY}"
 fi
 
 # ALB (if ACM SSL)
 if [ "$SSL_PROVIDER" = "acm" ]; then
-    printf "  %-37s ${GREEN}%11s${NC}\n" "ALB (ACM SSL)" "\$${ALB_MONTHLY}"
+    printf "  %-37s ${GREEN}%11s${NC}\n" "ALB (ACM SSL)" "\$${ALB_DAILY}"
 fi
 
 # Totals
 printf "  %-37s %12s\n" "-------------------------------------" "------------"
-printf "  ${BOLD}%-37s ${GREEN}%11s${NC}/month\n" "Base infrastructure total" "\$${BASE_TOTAL}"
+printf "  ${BOLD}%-37s ${GREEN}%11s${NC}/day\n" "Base infrastructure total" "\$${BASE_TOTAL}"
 if [ -n "$CLIENT_HOURLY" ]; then
-    printf "  ${BOLD}%-37s ${GREEN}%11s${NC}/month *\n" "Per client VM (when running)" "\$${CLIENT_MONTHLY}"
+    printf "  ${BOLD}%-37s ${GREEN}%11s${NC}/day *\n" "Per client VM (when running)" "\$${CLIENT_DAILY}"
 fi
 
 # Usage example
 echo ""
 echo -e "${DIM}  * Client VM costs scale with usage. VMs are billed only while running.${NC}"
 if [ -n "$CLIENT_HOURLY" ]; then
-    EXAMPLE_COST=$(calc "$CLIENT_HOURLY * 8 * 22 * 10")
-    echo -e "${DIM}    Example: 10 VMs x 8hr/day x 22 days/month = \$${EXAMPLE_COST}/month${NC}"
+    EXAMPLE_COST=$(calc "$CLIENT_HOURLY * 8 * 10")
+    echo -e "${DIM}    Example: 10 VMs x 8hr/day = \$${EXAMPLE_COST}/day${NC}"
 fi
 echo -e "${DIM}  * Prices are on-demand estimates from ${PRICING_SOURCE}. Actual costs may vary.${NC}"
 echo ""
