@@ -351,8 +351,8 @@ else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete Lambda role: lablink_lambda_exec_${ENV}"
 fi
 
-# CloudWatch agent role
-echo "  Deleting CloudWatch agent role..."
+# Legacy CloudWatch agent role (may exist from older deployments)
+echo "  Deleting legacy CloudWatch agent role (if exists)..."
 if [ "$DRY_RUN" = false ]; then
   aws iam detach-role-policy --role-name "lablink_cloud_watch_agent_role_${ENV}" \
     --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" 2>/dev/null || true
@@ -360,9 +360,9 @@ if [ "$DRY_RUN" = false ]; then
     --instance-profile-name "lablink_client_instance_profile_${ENV}" \
     --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null || true
   aws iam delete-instance-profile --instance-profile-name "lablink_client_instance_profile_${ENV}" 2>/dev/null || true
-  aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted CloudWatch agent role" || echo -e "    ${GREEN}[OK]${NC} CloudWatch agent role not found"
+  aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted legacy CloudWatch agent role" || echo -e "    ${GREEN}[OK]${NC} Legacy CloudWatch agent role not found"
 else
-  echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete CloudWatch agent role and instance profile"
+  echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete legacy CloudWatch agent role and instance profile"
 fi
 
 # Instance role
