@@ -9,7 +9,7 @@
 #   ./scripts/setup-aws-infrastructure.sh  # Creates template testing infrastructure
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh ci-test
-#   terraform apply -var="resource_suffix=ci-test"
+#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
 #
 # Note: This uses separate AWS infrastructure from production deployments
 # to avoid conflicts when testing template changes.

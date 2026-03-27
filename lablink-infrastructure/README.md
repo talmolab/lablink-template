@@ -481,7 +481,7 @@ cp config/example.config.yaml config/config.yaml  # if not already created
 ../scripts/init-terraform.sh test   # S3 backend
 
 # 4. Deploy (or have an existing deployment)
-terraform apply -var="resource_suffix=dev"
+terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 ```
 
 **Running verification:**

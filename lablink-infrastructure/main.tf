@@ -169,8 +169,8 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:GetInstanceProfile"
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-lablink-client-*-vm-role",
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*-lablink-client-*-instance-profile"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-client-*-vm-role",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/*-client-*-instance-profile"
     ]
   }
 
@@ -181,7 +181,7 @@ data "aws_iam_policy_document" "ec2_vm_management_doc" {
       "iam:PassRole"
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-lablink-client-*-vm-role"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*-client-*-vm-role"
     ]
     condition {
       test     = "StringEquals"
@@ -261,10 +261,10 @@ resource "aws_instance" "lablink_allocator_server" {
 
   user_data_base64 = base64gzip(templatefile("${path.module}/user_data.sh", {
     ALLOCATOR_IMAGE_TAG       = local.allocator_image_tag
-    RESOURCE_SUFFIX           = var.resource_suffix
+    RESOURCE_SUFFIX           = var.environment
     ALLOCATOR_PUBLIC_IP       = local.eip_public_ip
     ALLOCATOR_KEY_NAME        = aws_key_pair.lablink_key_pair.key_name
-    LOG_GROUP                 = "lablink-cloud-init-${var.resource_suffix}"
+    LOG_GROUP                 = "${var.deployment_name}-client-logs-${var.environment}"
     CONFIG_CONTENT            = file("${path.module}/config/config.yaml")
     CLIENT_STARTUP_SCRIPT_B64 = local.startup_script_b64
     STARTUP_ENABLED           = local.startup_enabled

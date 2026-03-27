@@ -80,7 +80,7 @@
 
 ## 7. Configuration Updates
 
-- [ ] 7.1 Update `backend-*.hcl` files with new variable documentation
+- [x] 7.1 Update `backend-*.hcl` files with new variable documentation
 - [x] 7.2 Update example config files:
   - [x] 7.2.1 Add monitoring section to `config/prod.example.yaml`
   - [x] 7.2.2 Add monitoring section to `config/ip-only.example.yaml`
@@ -100,7 +100,7 @@
 
 ## 10. Validation and Testing
 
-- [ ] 10.1 Run `terraform fmt` on all .tf files
+- [x] 10.1 Run `terraform fmt` on all .tf files
 - [x] 10.2 Run `terraform validate` to check syntax
 - [ ] 10.3 Run `terraform plan` with test configuration to verify:
   - [ ] 10.3.1 All resources have correct naming pattern
@@ -114,7 +114,7 @@
 
 ## 11. Final Verification
 
-- [ ] 11.1 Search codebase for remaining `lablink_` (underscore) patterns
-- [ ] 11.2 Search codebase for remaining hardcoded `lablink-` prefixes
+- [x] 11.1 Search codebase for remaining `lablink_` (underscore) patterns
+- [x] 11.2 Search codebase for remaining hardcoded `lablink-` prefixes
 - [ ] 11.3 Verify all resources in terraform plan use new naming
 - [ ] 11.4 Update GitHub issue #28 with completion status

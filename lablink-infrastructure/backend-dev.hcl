@@ -5,16 +5,16 @@
 #
 # Usage (Local):
 #   ../scripts/init-terraform.sh dev
-#   terraform plan -var="resource_suffix=dev"
-#   terraform apply -var="resource_suffix=dev"
+#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
+#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 #
 # Usage (Manual):
 #   terraform init -backend-config=backend-dev.hcl
-#   terraform plan -var="resource_suffix=dev"
-#   terraform apply -var="resource_suffix=dev"
+#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
+#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 #
 # Usage (GitHub Actions):
 #   NOT AVAILABLE - Local development only
 #
 # Note: Not suitable for team collaboration or CI/CD
-# Resource naming: All resources suffixed with -dev (e.g., lablink-eip-dev)
+# Resource naming: {deployment_name}-{resource-type}-dev (e.g., sleap-lablink-eip-dev)
