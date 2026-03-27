@@ -94,27 +94,27 @@
 
 ## 9. Documentation Updates
 
-- [ ] 9.1 Update `openspec/project.md` with new naming convention
-- [ ] 9.2 Update backend-*.hcl header comments with new pattern
-- [ ] 9.3 Add migration guide to release notes
+- [x] 9.1 Update `openspec/project.md` with new naming convention
+- [x] 9.2 Update backend-*.hcl header comments with new pattern
+- [x] 9.3 Add migration guide (see `migration.md` in this directory)
 
 ## 10. Validation and Testing
 
 - [x] 10.1 Run `terraform fmt` on all .tf files
 - [x] 10.2 Run `terraform validate` to check syntax
-- [ ] 10.3 Run `terraform plan` with test configuration to verify:
+- [ ] 10.3 Run `terraform plan` with test configuration to verify: _(requires live AWS credentials)_
   - [ ] 10.3.1 All resources have correct naming pattern
   - [ ] 10.3.2 All resources have standard tags
   - [ ] 10.3.3 No hardcoded `lablink-` prefixes remain
-- [ ] 10.4 Verify tag query works:
+- [ ] 10.4 Verify tag query works: _(post-deployment)_
   ```bash
   aws resourcegroupstaggingapi get-resources --tag-filters Key=Project,Values={deployment_name}
   ```
-- [ ] 10.5 Test multi-deployment scenario (if possible in ci-test)
+- [ ] 10.5 Test multi-deployment scenario (if possible in ci-test) _(post-deployment)_
 
 ## 11. Final Verification
 
 - [x] 11.1 Search codebase for remaining `lablink_` (underscore) patterns
 - [x] 11.2 Search codebase for remaining hardcoded `lablink-` prefixes
-- [ ] 11.3 Verify all resources in terraform plan use new naming
-- [ ] 11.4 Update GitHub issue #28 with completion status
+- [ ] 11.3 Verify all resources in terraform plan use new naming _(requires live AWS credentials)_
+- [ ] 11.4 Update GitHub issue #28 with completion status _(post-merge)_

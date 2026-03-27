@@ -62,7 +62,8 @@ LabLink Infrastructure Template is a GitHub template repository for deploying La
 ### Architecture Patterns
 
 **Multi-Environment Strategy:**
-- Resource suffix pattern: `{resource}-{environment}` (e.g., lablink-allocator-test)
+- Resource naming pattern: `{deployment_name}-{resource-type}-{environment}` (e.g., sleap-lablink-allocator-prod)
+- Two variables: `deployment_name` (required, kebab-case) and `environment` (dev, test, ci-test, prod)
 - Environment-specific backend configs: `backend-{env}.hcl`
 - Shared configuration with environment overrides
 
@@ -137,10 +138,12 @@ LabLink Infrastructure Template is a GitHub template repository for deploying La
 - **Research Software**: Custom software deployed via Docker containers (e.g., SLEAP for animal pose tracking)
 
 **AWS Resource Naming:**
-- Pattern: `{resource}-{suffix}` where suffix is environment name
-- Security Groups: `lablink-allocator-sg-{env}`, `lablink-client-sg-{env}`
-- EC2 Instances: `lablink-allocator-{env}`
-- IAM Roles: `lablink-client-iam-role-{env}`
+- Pattern: `{deployment_name}-{resource-type}-{environment}` (kebab-case everywhere)
+- Standard tags on all resources: `Name`, `Environment`, `Project`, `ManagedBy`, `Repository` (optional)
+- Security Groups: `{deployment}-allocator-sg-{env}`, `{deployment}-alb-sg-{env}`
+- EC2 Instances: `{deployment}-allocator-{env}`
+- IAM Roles: `{deployment}-allocator-role-{env}`
+- See issue #28 for complete resource naming table
 
 **Key Configuration Concepts:**
 - **machine_type**: AWS instance type for client VMs (e.g., g4dn.xlarge for GPU)
@@ -167,7 +170,7 @@ LabLink Infrastructure Template is a GitHub template repository for deploying La
 - config.yaml path is hardcoded: `lablink-infrastructure/config/config.yaml`
 - S3 bucket names must be globally unique across ALL AWS accounts
 - Terraform state must not be deleted while infrastructure exists
-- Environment suffix must be consistent across backend config and variable
+- `deployment_name` and `environment` must be consistent across backend config and Terraform variables
 
 **Security Requirements:**
 - Never commit secrets to repository (use GitHub secrets)

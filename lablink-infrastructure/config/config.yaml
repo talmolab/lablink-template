@@ -76,23 +76,6 @@ monitoring:
   cloudtrail:
     retention_days: 90 # CloudTrail log retention period in days
 
-# Monitoring and alerting configuration
-monitoring:
-  enabled: true  # Enable CloudWatch alarms and SNS notifications
-  email: "admin@example.com"  # Email for budget alerts and CloudWatch alarms
-
-  budget:
-    enabled: false  # Enable AWS Budget alerts (requires monitoring.email)
-    monthly_budget_usd: "100"  # Monthly budget limit in USD
-
-  thresholds:
-    max_instances_per_5min: 10  # Alert if more than N instances launched in 5 min
-    max_unauthorized_calls_per_15min: 5  # Alert on unauthorized API calls
-    max_terminations_per_5min: 10  # Alert on mass instance terminations
-
-  cloudtrail:
-    retention_days: 90  # CloudTrail log retention in days
-
 # S3 bucket for Terraform state (must be unique globally)
 # Only used for test/prod environments with S3 backend (not used in dev)
 # Template testing uses separate bucket from production deployments
