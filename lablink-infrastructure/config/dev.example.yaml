@@ -7,7 +7,7 @@
 #   # Edit config.yaml with your values
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh dev
-#   terraform apply -var="resource_suffix=dev"
+#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 
 db:
   dbname: "lablink_db"

@@ -8,7 +8,7 @@
 #   ./scripts/setup-aws-infrastructure.sh  # Creates S3, DynamoDB, Route53
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh test
-#   terraform apply -var="resource_suffix=test"
+#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=test"
 
 db:
   dbname: "lablink_db"
