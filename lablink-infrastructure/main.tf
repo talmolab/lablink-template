@@ -1,3 +1,9 @@
+variable "region" {
+  description = "AWS region for the deployment"
+  type        = string
+  default     = "us-west-2"
+}
+
 variable "deployment_name" {
   description = "Unique name for this deployment (e.g., sleap-lablink, deeplabcut-lablink). Used as prefix for all resources."
   type        = string
@@ -80,7 +86,7 @@ locals {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = var.region
 }
 
 # Get the current AWS account ID
