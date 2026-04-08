@@ -1,3 +1,9 @@
+variable "region" {
+  description = "AWS region for the deployment"
+  type        = string
+  default     = "us-west-2"
+}
+
 variable "deployment_name" {
   description = "Unique name for this deployment (e.g., sleap-lablink, deeplabcut-lablink). Used as prefix for all resources."
   type        = string
@@ -56,6 +62,9 @@ locals {
   ssl_email           = try(local.config_file.ssl.email, "")
   ssl_certificate_arn = try(local.config_file.ssl.certificate_arn, "")
 
+  # Monitoring configuration from config.yaml
+  monitoring_enabled = try(local.config_file.monitoring.enabled, false)
+
   # Allocator configuration from config.yaml
   allocator_image_tag = try(local.config_file.allocator.image_tag, "linux-amd64-latest-test")
 
@@ -80,7 +89,7 @@ locals {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = var.region
 }
 
 # Get the current AWS account ID

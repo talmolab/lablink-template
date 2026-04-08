@@ -1,5 +1,6 @@
 # S3 bucket for CloudTrail logs
 resource "aws_s3_bucket" "cloudtrail_logs" {
+  count         = local.monitoring_enabled ? 1 : 0
   bucket        = "${var.deployment_name}-cloudtrail-bucket-${var.environment}-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
 
@@ -10,7 +11,8 @@ resource "aws_s3_bucket" "cloudtrail_logs" {
 
 # S3 bucket encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_encryption" {
-  bucket = aws_s3_bucket.cloudtrail_logs.id
+  count  = local.monitoring_enabled ? 1 : 0
+  bucket = aws_s3_bucket.cloudtrail_logs[0].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -21,7 +23,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_encryp
 
 # S3 bucket policy for CloudTrail
 resource "aws_s3_bucket_policy" "cloudtrail_policy" {
-  bucket = aws_s3_bucket.cloudtrail_logs.id
+  count  = local.monitoring_enabled ? 1 : 0
+  bucket = aws_s3_bucket.cloudtrail_logs[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -33,7 +36,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_policy" {
           Service = "cloudtrail.amazonaws.com"
         }
         Action   = "s3:GetBucketAcl"
-        Resource = aws_s3_bucket.cloudtrail_logs.arn
+        Resource = aws_s3_bucket.cloudtrail_logs[0].arn
       },
       {
         Sid    = "AWSCloudTrailWrite"
@@ -42,7 +45,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_policy" {
           Service = "cloudtrail.amazonaws.com"
         }
         Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+        Resource = "${aws_s3_bucket.cloudtrail_logs[0].arn}/*"
         Condition = {
           StringEquals = {
             "s3:x-amz-acl" = "bucket-owner-full-control"
@@ -55,6 +58,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_policy" {
 
 # CloudWatch Log Group for CloudTrail
 resource "aws_cloudwatch_log_group" "cloudtrail_logs" {
+  count             = local.monitoring_enabled ? 1 : 0
   name              = "${var.deployment_name}-cloudtrail-logs-${var.environment}"
   retention_in_days = try(local.config_file.monitoring.cloudtrail.retention_days, 90)
 
@@ -65,7 +69,8 @@ resource "aws_cloudwatch_log_group" "cloudtrail_logs" {
 
 # IAM role for CloudTrail to write to CloudWatch
 resource "aws_iam_role" "cloudtrail_cloudwatch_role" {
-  name = "${var.deployment_name}-cloudtrail-role-${var.environment}"
+  count = local.monitoring_enabled ? 1 : 0
+  name  = "${var.deployment_name}-cloudtrail-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -87,8 +92,9 @@ resource "aws_iam_role" "cloudtrail_cloudwatch_role" {
 
 # IAM policy for CloudTrail CloudWatch access
 resource "aws_iam_role_policy" "cloudtrail_cloudwatch_policy" {
-  name = "${var.deployment_name}-cloudtrail-policy-${var.environment}"
-  role = aws_iam_role.cloudtrail_cloudwatch_role.id
+  count = local.monitoring_enabled ? 1 : 0
+  name  = "${var.deployment_name}-cloudtrail-policy-${var.environment}"
+  role  = aws_iam_role.cloudtrail_cloudwatch_role[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -99,7 +105,7 @@ resource "aws_iam_role_policy" "cloudtrail_cloudwatch_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "${aws_cloudwatch_log_group.cloudtrail_logs.arn}:*"
+        Resource = "${aws_cloudwatch_log_group.cloudtrail_logs[0].arn}:*"
       }
     ]
   })
@@ -107,14 +113,15 @@ resource "aws_iam_role_policy" "cloudtrail_cloudwatch_policy" {
 
 # CloudTrail
 resource "aws_cloudtrail" "lablink_trail" {
+  count                         = local.monitoring_enabled ? 1 : 0
   name                          = "${var.deployment_name}-cloudtrail-${var.environment}"
-  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs[0].id
   include_global_service_events = true
   is_multi_region_trail         = true
   enable_log_file_validation    = true
 
-  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail_logs.arn}:*"
-  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_cloudwatch_role.arn
+  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail_logs[0].arn}:*"
+  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_cloudwatch_role[0].arn
 
   event_selector {
     read_write_type           = "All"
