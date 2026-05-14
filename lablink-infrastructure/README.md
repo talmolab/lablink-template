@@ -256,20 +256,6 @@ Each environment maintains separate Terraform state to avoid conflicts.
 
 **Note:** Let's Encrypt always uses production certificates (no staging mode). Rate limit is 50 certificates per registered domain per week.
 
-### Monitoring (`monitoring`)
-
-- `enabled`: `true` to enable monitoring and alerts, `false` to disable.
-- `email`: Email address to send alerts to.
-- `thresholds`:
-  - `max_instances_per_5min`: Max instances created in 5 minutes.
-  - `max_terminations_per_5min`: Max instances terminated in 5 minutes.
-  - `max_unauthorized_calls_per_15min`: Max unauthorized API calls in 15 minutes.
-- `budget`:
-  - `enabled`: `true` to enable budget monitoring, `false` to disable.
-  - `monthly_budget_usd`: Monthly budget in USD.
-- `cloudtrail`:
-  - `retention_days`: Number of days to retain CloudTrail logs.
-
 ### Terraform State (`bucket_name`)
 
 - S3 bucket name for Terraform state storage (test/prod only)
