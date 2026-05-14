@@ -84,9 +84,6 @@ cfg_get() {
         dns.enabled)
             value=$(awk '/^dns:/{found=1} found && /enabled:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
             ;;
-        monitoring.enabled)
-            value=$(awk '/^monitoring:/{found=1} found && /^  enabled:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
         *)
             value=""
             ;;
@@ -305,7 +302,6 @@ REGION_NAME=$(region_to_name "$REGION")
 CLIENT_TYPE=$(cfg_get machine.machine_type "g4dn.xlarge")
 SSL_PROVIDER=$(cfg_get ssl.provider "none")
 DNS_ENABLED=$(cfg_get dns.enabled "false")
-MONITORING_ENABLED=$(cfg_get monitoring.enabled "false")
 EIP_STRATEGY=$(cfg_get eip.strategy "dynamic")
 
 ALLOCATOR_TYPE="t3.large"  # Hardcoded in Terraform
@@ -380,8 +376,6 @@ ALB_DAILY=$(calc "$ALB_HOURLY * $HOURS_PER_DAY")
 
 # Usage-based line items (hardcoded estimates, daily = monthly / 30)
 CLOUDWATCH_DAILY=$(calc "2.00 / 30")
-CLOUDTRAIL_DAILY=$(calc "3.00 / 30")
-SNS_DAILY=$(calc "1.00 / 30")
 
 # ============================================================================
 # Compute base infrastructure total
@@ -390,9 +384,6 @@ BASE_TOTAL="$ALLOCATOR_DAILY + $EBS_DAILY + $EIP_DAILY + $CLOUDWATCH_DAILY"
 
 if [ "$DNS_ENABLED" = "true" ]; then
     BASE_TOTAL="$BASE_TOTAL + $ROUTE53_DAILY"
-fi
-if [ "$MONITORING_ENABLED" = "true" ]; then
-    BASE_TOTAL="$BASE_TOTAL + $CLOUDTRAIL_DAILY + $SNS_DAILY"
 fi
 if [ "$SSL_PROVIDER" = "acm" ]; then
     BASE_TOTAL="$BASE_TOTAL + $ALB_DAILY"
@@ -438,12 +429,6 @@ fi
 
 # CloudWatch
 printf "  %-37s ${GREEN}%11s${NC}\n" "CloudWatch Logs" "\$${CLOUDWATCH_DAILY}"
-
-# CloudTrail + SNS (if monitoring enabled)
-if [ "$MONITORING_ENABLED" = "true" ]; then
-    printf "  %-37s ${GREEN}%11s${NC}\n" "CloudTrail + S3" "\$${CLOUDTRAIL_DAILY}"
-    printf "  %-37s ${GREEN}%11s${NC}\n" "SNS alerts" "\$${SNS_DAILY}"
-fi
 
 # ALB (if ACM SSL)
 if [ "$SSL_PROVIDER" = "acm" ]; then
