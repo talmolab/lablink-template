@@ -159,30 +159,6 @@ cfg_get() {
         startup_script.on_error)
             value=$(awk '/^startup_script:/{found=1} found && /on_error:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
             ;;
-        monitoring.enabled)
-            value=$(awk '/^monitoring:/{found=1} found && /^  enabled:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.email)
-            value=$(awk '/^monitoring:/{found=1} found && /^  email:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.thresholds.max_instances_per_5min)
-            value=$(awk '/max_instances_per_5min:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.thresholds.max_terminations_per_5min)
-            value=$(awk '/max_terminations_per_5min:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.thresholds.max_unauthorized_calls_per_15min)
-            value=$(awk '/max_unauthorized_calls_per_15min:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.budget.enabled)
-            value=$(awk '/budget:/{found=1} found && /enabled:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.budget.monthly_budget_usd)
-            value=$(awk '/monthly_budget_usd:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
-        monitoring.cloudtrail.retention_days)
-            value=$(awk '/retention_days:/{print $2; exit}' "$CONFIG_FILE" 2>/dev/null | tr -d '"' || true)
-            ;;
         *)
             value=""
             ;;
@@ -438,60 +414,6 @@ if [ "$CFG_STARTUP_ENABLED" = "true" ]; then
     ask CFG_STARTUP_ON_ERROR "On-error behavior" "$DEFAULT_ON_ERROR"
 fi
 
-# --- Monitoring ---
-echo ""
-echo -e "${BOLD}--- Monitoring ---${NC}"
-echo "  CloudWatch monitoring, alerts, and budget tracking."
-
-DEFAULT_MON_ENABLED=$(cfg_get monitoring.enabled "false")
-if [ "$DEFAULT_MON_ENABLED" = "true" ]; then
-    MON_YN="y"
-else
-    MON_YN="N"
-fi
-ask_yes_no CFG_MON_ENABLED "Enable monitoring? (y/N)" "$MON_YN"
-
-CFG_MON_EMAIL=""
-CFG_MON_MAX_INSTANCES="10"
-CFG_MON_MAX_TERMINATIONS="20"
-CFG_MON_MAX_UNAUTHORIZED="5"
-CFG_MON_BUDGET_ENABLED="false"
-CFG_MON_BUDGET_USD="500"
-CFG_MON_RETENTION="90"
-
-if [ "$CFG_MON_ENABLED" = "true" ]; then
-    DEFAULT_MON_EMAIL=$(cfg_get monitoring.email "")
-    ask CFG_MON_EMAIL "Notification email" "$DEFAULT_MON_EMAIL"
-
-    echo ""
-    echo "  Alert thresholds:"
-    DEFAULT_MAX_INST=$(cfg_get monitoring.thresholds.max_instances_per_5min "10")
-    ask CFG_MON_MAX_INSTANCES "Max instances per 5min" "$DEFAULT_MAX_INST"
-
-    DEFAULT_MAX_TERM=$(cfg_get monitoring.thresholds.max_terminations_per_5min "20")
-    ask CFG_MON_MAX_TERMINATIONS "Max terminations per 5min" "$DEFAULT_MAX_TERM"
-
-    DEFAULT_MAX_UNAUTH=$(cfg_get monitoring.thresholds.max_unauthorized_calls_per_15min "5")
-    ask CFG_MON_MAX_UNAUTHORIZED "Max unauthorized calls per 15min" "$DEFAULT_MAX_UNAUTH"
-
-    echo ""
-    DEFAULT_BUDGET_ENABLED=$(cfg_get monitoring.budget.enabled "false")
-    if [ "$DEFAULT_BUDGET_ENABLED" = "true" ]; then
-        BUDGET_YN="y"
-    else
-        BUDGET_YN="N"
-    fi
-    ask_yes_no CFG_MON_BUDGET_ENABLED "Enable budget tracking? (y/N)" "$BUDGET_YN"
-
-    if [ "$CFG_MON_BUDGET_ENABLED" = "true" ]; then
-        DEFAULT_BUDGET_USD=$(cfg_get monitoring.budget.monthly_budget_usd "500")
-        ask CFG_MON_BUDGET_USD "Monthly budget (USD)" "$DEFAULT_BUDGET_USD"
-    fi
-
-    DEFAULT_RETENTION=$(cfg_get monitoring.cloudtrail.retention_days "90")
-    ask CFG_MON_RETENTION "CloudTrail retention (days)" "$DEFAULT_RETENTION"
-fi
-
 # ============================================================================
 # Generate config.yaml
 # ============================================================================
@@ -546,19 +468,6 @@ startup_script:
   enabled: ${CFG_STARTUP_ENABLED}
   path: "${CFG_STARTUP_PATH}"
   on_error: "${CFG_STARTUP_ON_ERROR}"
-
-monitoring:
-  enabled: ${CFG_MON_ENABLED}
-  email: "${CFG_MON_EMAIL}"
-  thresholds:
-    max_instances_per_5min: ${CFG_MON_MAX_INSTANCES}
-    max_terminations_per_5min: ${CFG_MON_MAX_TERMINATIONS}
-    max_unauthorized_calls_per_15min: ${CFG_MON_MAX_UNAUTHORIZED}
-  budget:
-    enabled: ${CFG_MON_BUDGET_ENABLED}
-    monthly_budget_usd: ${CFG_MON_BUDGET_USD}
-  cloudtrail:
-    retention_days: ${CFG_MON_RETENTION}
 
 bucket_name: "${EXISTING_BUCKET}"
 CONFIGEOF
