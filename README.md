@@ -29,6 +29,8 @@ There are two supported ways to stand up a LabLink deployment. Both consume the 
 
 The rest of this README documents **Path B**. If you're new and have no preference for GitHub Actions, Path A is the lowest-friction option.
 
+> **Heads-up:** the interactive TUI config wizard (`lablink configure`) is currently Path A-only. Path B users get the typed Hydra schema and the example YAMLs in [`lablink-infrastructure/config/`](lablink-infrastructure/config/) but no interactive wizard inside GitHub Actions. Tracked in [lablink#339](https://github.com/talmolab/lablink/issues/339).
+
 ## Quick Start
 
 ### 1. Use This Template
