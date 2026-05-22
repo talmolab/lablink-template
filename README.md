@@ -605,15 +605,7 @@ lablink-template/
 │   ├── user_data.sh                    # EC2 initialization script (templated by Terraform)
 │   ├── config/
 │   │   ├── config.yaml                 # Your active configuration
-│   │   ├── ip-only.example.yaml        # No DNS, HTTP only
-│   │   ├── cloudflare.example.yaml     # CloudFlare DNS + SSL
-│   │   ├── letsencrypt.example.yaml    # Route53 + Let's Encrypt (Terraform-managed DNS)
-│   │   ├── letsencrypt-manual.example.yaml  # Route53 + Let's Encrypt (manual DNS)
-│   │   ├── acm.example.yaml            # Route53 + ACM via ALB
-│   │   ├── dev.example.yaml            # Local Terraform state
-│   │   ├── test.example.yaml           # S3-backed staging
-│   │   ├── prod.example.yaml           # S3-backed production
-│   │   ├── ci-test.example.yaml        # Template-maintainer CI only
+│   │   ├── *.example.yaml              # Per-flavor templates (ip-only, cloudflare, letsencrypt, acm, dev/test/prod, ci-test)
 │   │   ├── custom-startup.sh           # Optional per-client-VM startup hook
 │   │   └── README.md                   # Detailed config selection guide
 │   └── README.md                       # Infrastructure documentation
