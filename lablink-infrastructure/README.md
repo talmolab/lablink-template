@@ -134,8 +134,6 @@ terraform plan
 terraform apply
 ```
 
-> **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
-
 **Option B: Manual Terraform commands**
 
 ```bash
@@ -149,8 +147,6 @@ terraform init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUC
 terraform plan
 terraform apply
 ```
-
-> **Note**: After running `terraform apply`, check your email and confirm your subscription to receive notifications.
 
 ### 3. Verify Deployment (Optional)
 
@@ -192,13 +188,10 @@ Admin UI:  http://<ec2-public-ip>:5000/admin
 
 - **Allocator EC2 Instance**: Runs LabLink allocator service (Flask app + PostgreSQL in Docker)
 - **Caddy Server**: Automatic HTTPS with Let's Encrypt SSL certificates
-- **Lambda Function**: Processes CloudWatch logs from client VMs
 - **Route 53 DNS**: Automatic DNS record management (if configured)
 - **Security Groups**: Network security rules
 - **IAM Roles**:
   - **Allocator Instance Role**: A role for the allocator EC2 instance with permissions to manage the lifecycle of client VMs (run, terminate, tag, etc.) and their associated resources (IAM roles, instance profiles).
-  - **CloudWatch Agent Role**: A role for client VMs to send logs to CloudWatch.
-- **CloudWatch Log Groups**: Centralized logging for troubleshooting
 
 ## Environments
 
@@ -405,8 +398,10 @@ machine:
 
 This infrastructure can be deployed via GitHub Actions workflows:
 
-- **Deploy**: `.github/workflows/lablink-allocator-terraform.yml`
-- **Destroy**: `.github/workflows/lablink-allocator-destroy.yml`
+- **Deploy**: `.github/workflows/terraform-deploy.yml`
+- **Destroy**: `.github/workflows/terraform-destroy.yml`
+
+Both workflows authenticate to AWS using OIDC (no long-lived AWS keys in GitHub secrets) — see the [main README's OIDC section](../README.md#why-oidc-instead-of-long-lived-aws-keys) for how the role-assume flow works.
 
 See the workflows in the `.github` directory for automated deployment examples.
 
@@ -479,11 +474,11 @@ terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 
 **Common errors:**
 
-| Error | Cause | Fix |
-|---|---|---|
-| `Cannot find config/config.yaml` | Script not run from correct directory | `cd lablink-infrastructure` first, or run from repo root |
-| `Could not read ec2_public_ip from Terraform outputs` | Terraform not initialized or no deployment exists | Run `../scripts/init-terraform.sh <env>` then `terraform apply` |
-| `nslookup: command not found` | Missing DNS tools | Install `dnsutils` (Ubuntu) or `bind` (macOS: `brew install bind`) |
+| Error                                                 | Cause                                             | Fix                                                                |
+| ----------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------ |
+| `Cannot find config/config.yaml`                      | Script not run from correct directory             | `cd lablink-infrastructure` first, or run from repo root           |
+| `Could not read ec2_public_ip from Terraform outputs` | Terraform not initialized or no deployment exists | Run `../scripts/init-terraform.sh <env>` then `terraform apply`    |
+| `nslookup: command not found`                         | Missing DNS tools                                 | Install `dnsutils` (Ubuntu) or `bind` (macOS: `brew install bind`) |
 
 ### Getting Help
 
@@ -504,11 +499,11 @@ terraform destroy
 This removes:
 
 - Allocator EC2 instance
-- Lambda function
+- Elastic IP (if `eip.strategy = "dynamic"` — persistent EIPs are preserved)
+- Application Load Balancer (if `ssl.provider = "acm"`)
 - Security groups
-- Route 53 DNS records (if managed by Terraform)
-- CloudWatch log groups
-- IAM roles and policies
+- Route 53 DNS records (if `dns.terraform_managed = true`)
+- IAM roles, policies, and instance profile for the allocator
 
 **Note:** The S3 bucket for Terraform state is NOT deleted automatically. Delete it manually if no longer needed.
 

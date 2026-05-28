@@ -18,6 +18,19 @@ LabLink automates deployment and management of cloud-based VMs for running resea
 - **Chrome Remote Desktop** access to VM GUI
 - **Flexible configuration** for different research needs
 
+## Two Deployment Paths
+
+There are two supported ways to stand up a LabLink deployment. Both consume the same Hydra-validated `config.yaml`, so you can switch between them later without redoing the AWS setup.
+
+| Path | When to choose it | How it works |
+|------|-------------------|--------------|
+| **Path A — `lablink-cli`** (single terminal) | You want to deploy from your laptop without wiring up GitHub Actions, or you prefer a single-process workflow. | `uv tool install lablink-cli` → `lablink doctor` → `lablink configure` → `lablink setup` → `lablink deploy`. See the [lablink-cli docs](https://talmolab.github.io/lablink/). |
+| **Path B — this template + GitHub Actions** (covered below) | You want fork-and-deploy with deployments triggered/audited from GitHub, OIDC-based AWS auth, and state stored in S3. | Click **Use this template** → run `./scripts/setup.sh` → trigger the `terraform-deploy.yml` workflow. |
+
+The rest of this README documents **Path B**. If you're new and have no preference for GitHub Actions, Path A is the lowest-friction option.
+
+> **Heads-up:** the interactive TUI config wizard (`lablink configure`) is currently Path A-only. Path B users get the typed Hydra schema and the example YAMLs in [`lablink-infrastructure/config/`](lablink-infrastructure/config/) but no interactive wizard inside GitHub Actions. Tracked in [lablink#339](https://github.com/talmolab/lablink/issues/339).
+
 ## Quick Start
 
 ### 1. Use This Template
@@ -108,6 +121,22 @@ Before deploying, you must set up:
 See [AWS Setup Guide](#aws-setup-guide) below for detailed instructions.
 
 ## GitHub Secrets Setup
+
+### Why OIDC instead of long-lived AWS keys?
+
+The deploy and destroy workflows authenticate to AWS using [OpenID Connect (OIDC)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect) rather than static `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets. The flow at deploy time looks like:
+
+1. GitHub Actions issues a short-lived JSON Web Token (JWT) for the running workflow, signed by `token.actions.githubusercontent.com`.
+2. The workflow calls `sts:AssumeRoleWithWebIdentity` against the IAM role you registered (`AWS_ROLE_ARN`).
+3. AWS validates the JWT against the OIDC provider trust policy (which restricts which `repo:ORG/REPO:*` subject can assume the role) and returns temporary credentials.
+4. Terraform uses those temporary credentials for the duration of the job — typically an hour or less — then they expire.
+
+**Why this matters:**
+- No long-lived AWS keys ever live in GitHub secrets, so a compromised repository secret cannot be replayed indefinitely.
+- The trust policy pins the role to your specific repository (and optionally a branch/environment), so other repos in your org can't assume it by accident.
+- Credentials auto-rotate every workflow run — there is no key to rotate manually.
+
+`./scripts/setup.sh` creates the OIDC provider, the IAM role with the correct trust policy, and writes the role ARN to the `AWS_ROLE_ARN` GitHub secret for you. The manual steps below are for users who prefer to wire this up themselves.
 
 ### AWS_ROLE_ARN
 
@@ -266,6 +295,30 @@ If using a custom domain:
 #### 5. Set Up OIDC Provider and IAM Role
 
 See [GitHub Secrets Setup](#github-secrets-setup) above for detailed IAM role configuration.
+
+## Choosing a Config Flavor
+
+The repo ships several example configs under [`lablink-infrastructure/config/`](lablink-infrastructure/config/). Pick the one that matches how you want DNS/SSL set up; `./scripts/setup.sh` copies your selection to `config.yaml`.
+
+| Example | DNS provider | SSL provider | When to use |
+|---------|--------------|--------------|-------------|
+| `ip-only.example.yaml` | None (access via IP) | None (HTTP only) | Fastest path; demos, debugging, throwaway dev. No domain needed. |
+| `cloudflare.example.yaml` | CloudFlare (manual A record) | CloudFlare proxy | Frequent redeploys without Let's Encrypt rate limits; you already manage DNS in CloudFlare. |
+| `letsencrypt.example.yaml` | Route 53 (Terraform-managed) | Let's Encrypt via Caddy | Stable production / staging with a Route 53 hosted zone. **Limit: 5 certs / domain / 7 days.** |
+| `letsencrypt-manual.example.yaml` | Route 53 (manual A record) | Let's Encrypt via Caddy | Same as above but you want to manage the A record yourself (e.g., migrations). |
+| `acm.example.yaml` | Route 53 (Terraform-managed) | AWS ACM via Application Load Balancer | Enterprise production; no Let's Encrypt limits, but ALB adds ~$20/mo. |
+| `dev.example.yaml` | Configurable | Configurable | Local Terraform state (no S3 backend); local prototyping. |
+| `test.example.yaml` | Configurable | Configurable | Staging environment, S3-backed state. |
+| `prod.example.yaml` | Configurable | Configurable | Production environment, S3-backed state. |
+| `ci-test.example.yaml` | Route 53 | Let's Encrypt | Template-maintainer CI only — do not use for application deployments. |
+
+**Decision shortcut:**
+- No domain? → `ip-only.example.yaml`.
+- Domain in CloudFlare? → `cloudflare.example.yaml`.
+- Domain in Route 53, deploy weekly or less? → `letsencrypt.example.yaml`.
+- Domain in Route 53, deploy multiple times per week? → `cloudflare.example.yaml` (avoids Let's Encrypt rate limits) or `acm.example.yaml`.
+
+See [`lablink-infrastructure/config/README.md`](lablink-infrastructure/config/README.md) for the full decision tree, per-flavor pros/cons, and rate-limit recovery procedures.
 
 ## Configuration Reference
 
@@ -539,23 +592,34 @@ terraform force-unlock LOCK_ID
 
 ```
 lablink-template/
-├── .github/workflows/          # GitHub Actions workflows
-│   ├── terraform-deploy.yml    # Deploy infrastructure
-│   └── terraform-destroy.yml   # Destroy infrastructure (includes client VMs)
-├── lablink-infrastructure/     # Terraform infrastructure
+├── .github/workflows/                  # GitHub Actions workflows
+│   ├── terraform-deploy.yml            # Deploy infrastructure (OIDC → AWS)
+│   ├── terraform-destroy.yml           # Destroy infrastructure + client VMs
+│   ├── config-validation.yml           # Validate config.yaml on PR
+│   └── startup-script-validation.yml   # Lint custom-startup.sh on PR
+├── lablink-infrastructure/             # Terraform infrastructure
+│   ├── main.tf                         # Core Terraform config (EC2, EIP, IAM, Route53)
+│   ├── alb.tf                          # ALB resources (only when ssl.provider="acm")
+│   ├── backend.tf                      # Backend configuration
+│   ├── backend-*.hcl                   # Per-environment backend overrides (dev/test/prod/ci-test)
+│   ├── user_data.sh                    # EC2 initialization script (templated by Terraform)
 │   ├── config/
-│   │   ├── config.yaml         # Main configuration
-│   │   └── *.example.yaml      # Configuration examples
-│   ├── main.tf                 # Core Terraform config
-│   ├── backend-*.hcl           # Environment-specific backends
-│   ├── user_data.sh            # EC2 initialization script
-│   └── README.md               # Infrastructure documentation
-├── scripts/                    # Helper scripts
-│   ├── init-terraform.sh       # Terraform init helper
-│   └── verify-deployment.sh    # Deployment verification
-├── MANUAL_CLEANUP_GUIDE.md     # Manual cleanup procedures
-├── README.md                   # This file
-├── DEPLOYMENT_CHECKLIST.md     # Pre-deployment checklist
+│   │   ├── config.yaml                 # Your active configuration
+│   │   ├── *.example.yaml              # Per-flavor templates (ip-only, cloudflare, letsencrypt, acm, dev/test/prod, ci-test)
+│   │   ├── custom-startup.sh           # Optional per-client-VM startup hook
+│   │   └── README.md                   # Detailed config selection guide
+│   └── README.md                       # Infrastructure documentation
+├── scripts/                            # Helper scripts
+│   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets
+│   ├── configure.sh                    # Interactive config.yaml wizard (re-runnable)
+│   ├── init-terraform.sh               # Terraform init helper (reads bucket from config)
+│   ├── verify-deployment.sh            # Post-deploy DNS/HTTP/SSL checks
+│   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
+│   ├── cleanup-orphaned-resources.sh   # Recover from failed `terraform destroy`
+│   └── validate-all-configs.{sh,ps1}   # Validate every *.example.yaml against the schema
+├── MANUAL_CLEANUP_GUIDE.md             # Manual cleanup procedures
+├── DEPLOYMENT_CHECKLIST.md             # Pre-deployment checklist
+├── README.md                           # This file
 └── LICENSE
 ```
 
