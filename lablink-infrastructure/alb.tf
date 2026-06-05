@@ -73,12 +73,7 @@ resource "aws_lb" "allocator_alb" {
   security_groups    = [aws_security_group.alb_sg[0].id]
   subnets            = data.aws_subnets.default[0].ids
 
-  # KasmVNC traffic transits this LB as a WebSocket. The bundled noVNC viewer
-  # does not emit WS-level pings, and KasmVNC only sends framebuffer updates
-  # on pixel change — natural pauses in SLEAP (model loading, inference
-  # batches, frame review without input) produce >60s windows of zero bytes
-  # in both directions, which the ALB default (60s) silently closes. Match
-  # the allocator nginx's proxy_read_timeout intent with a long idle window.
+  # KasmVNC WS has no app-level pings; AWS's 60s default drops idle pauses.
   idle_timeout = 3600
 
   enable_deletion_protection = false
