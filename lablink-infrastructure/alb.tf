@@ -73,6 +73,9 @@ resource "aws_lb" "allocator_alb" {
   security_groups    = [aws_security_group.alb_sg[0].id]
   subnets            = data.aws_subnets.default[0].ids
 
+  # KasmVNC WS has no app-level pings; AWS's 60s default drops idle pauses.
+  idle_timeout = 3600
+
   enable_deletion_protection = false
 
   tags = merge(local.common_tags, {
