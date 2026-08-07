@@ -67,7 +67,7 @@ aws iam get-role \
 ### Prerequisites
 
 - AWS account with credentials configured
-- Terraform installed (v1.6.6+) for local deployments
+- Terraform installed (v1.9.8+) for local deployments
 - Docker images available on GHCR (or use public LabLink images)
 - GitHub repository secret `AWS_ROLE_ARN` configured (for GitHub Actions deployments)
 
