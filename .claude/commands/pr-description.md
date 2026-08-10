@@ -264,31 +264,6 @@ gh pr edit <PR_NUMBER> --body "$CURRENT
 "
 ```
 
-## For OpenSpec Changes
-
-If PR implements an OpenSpec change:
-
-```markdown
-## OpenSpec Change
-
-This PR implements OpenSpec change: `add-claude-dev-commands`
-
-**Proposal**: openspec/changes/add-claude-dev-commands/proposal.md
-**Tasks**: openspec/changes/add-claude-dev-commands/tasks.md
-
-### Implementation Status
-
-- [x] Phase 1: Validation commands
-  - [x] /validate-terraform
-  - [x] /validate-yaml
-  - [x] /validate-bash
-- [ ] Phase 2: Deployment commands (in progress)
-  - [ ] /deploy-test
-  - [ ] /destroy-infrastructure
-
-See proposal for full details.
-```
-
 ## Infrastructure-Specific Sections
 
 ### IAM Policy Changes
