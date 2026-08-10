@@ -88,9 +88,9 @@ Use this checklist to ensure you have completed all required setup steps before 
 
 #### Elastic IP (Optional but Recommended)
 - [ ] Allocated Elastic IP in AWS
-- [ ] Tagged EIP with Name = `{tag_name}-{env}` (e.g., `lablink-eip-prod`)
-- [ ] Set `eip.strategy: "persistent"` and `eip.tag_name: "lablink-eip"` to reuse the EIP
-- [ ] Or set `eip.strategy: "dynamic"` to create new EIP with tag `{tag_name}-{env}` each deployment
+- [ ] Tagged EIP with Name = `{deployment_name}-eip-{environment}` (e.g., `my-lablink-eip-prod`)
+- [ ] Set `eip.strategy: "persistent"` to reuse the EIP with that name
+- [ ] Or set `eip.strategy: "dynamic"` to create a new EIP with that name each deployment
 
 #### DNS Setup (Choose One Approach)
 
@@ -123,7 +123,6 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Updated `repository` URL to your data/code repository
   - Or set to empty string if not needed
 - [ ] Updated `software` name for your application
-- [ ] Updated `extension` for your data file type
 - [ ] Verified `machine_type` is appropriate for your workload
 - [ ] Verified `ami_id` matches your AWS region
 - [ ] (Optional) Updated `image` if using custom Docker image

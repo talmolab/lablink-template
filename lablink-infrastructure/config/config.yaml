@@ -3,6 +3,14 @@
 # Copy to config.yaml and customize for your deployment
 # Note: This config is validated in CI using lablink-validate-config
 
+# Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
+# The deploy workflow overwrites both from its deployment_name/environment inputs.
+# Keep deployment_name in sync with the -var="deployment_name=..." you pass to
+# Terraform: the allocator scopes its client Terraform state to
+# {deployment_name}/{environment}/ in S3, and its IAM policy grants only that prefix.
+deployment_name: "my-lablink"
+environment: "ci-test"
+
 db:
   dbname: "lablink_db"
   user: "lablink"
@@ -10,7 +18,6 @@ db:
   host: "localhost"
   port: 5432
   table_name: "vms"
-  message_channel: "vm_updates"
 
 machine:
   # Client VM instance type (must support your workload)
@@ -27,9 +34,6 @@ machine:
 
   # Software identifier for your application
   software: "sleap"
-
-  # File extension for your data files
-  extension: "slp"
 
 # Allocator service configuration
 allocator:

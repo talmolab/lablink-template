@@ -343,6 +343,9 @@ See [TESTING_BEST_PRACTICES.md](../../docs/TESTING_BEST_PRACTICES.md) for compre
 All configuration files follow this structure:
 
 ```yaml
+deployment_name: "..." # Resource-name prefix; must match -var="deployment_name=..."
+environment: "..."     # dev | test | ci-test | prod; must match -var="environment=..."
+
 db:                    # Database configuration
   dbname: "..."
   user: "..."
@@ -370,7 +373,7 @@ dns:                   # DNS configuration
 
 eip:                   # Elastic IP configuration
   strategy: "persistent" or "dynamic"
-  tag_name: "..."      # EIP tag for lookup/creation
+                       # Name is {deployment_name}-eip-{environment}
 
 ssl:                   # SSL configuration
   provider: "letsencrypt" | "cloudflare" | "acm" | "none"

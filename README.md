@@ -265,13 +265,14 @@ For persistent allocator IP address across deployments:
 # Allocate EIP
 aws ec2 allocate-address --domain vpc --region us-west-2
 
-# Tag it for reuse
+# Tag it for reuse — the Name must be {deployment_name}-eip-{environment}
 aws ec2 create-tags \
   --resources eipalloc-XXXXXXXX \
-  --tags Key=Name,Value=lablink-eip
+  --tags Key=Name,Value=my-lablink-eip-prod
 ```
 
-Update `eip.tag_name` in `config.yaml` if using a different tag name.
+The EIP name is derived from `deployment_name` and `environment` in `config.yaml`;
+there is no separate tag field to set.
 
 #### 4. (Optional) Set Up Route 53 for DNS
 
@@ -344,7 +345,6 @@ machine:
   ami_id: "ami-0601752c11b394251"  # Region-specific AMI
   repository: "https://github.com/YOUR_ORG/YOUR_REPO.git"  # Your code/data repo
   software: "your-software"  # Software identifier
-  extension: "ext"  # Data file extension
 ```
 
 **Instance Types**:
@@ -424,8 +424,9 @@ ssl:
 ```yaml
 eip:
   strategy: "persistent"  # "persistent" or "dynamic"
-  tag_name: "lablink-eip"  # Tag to find reusable EIP
 ```
+
+The EIP is looked up (or created) under the name `{deployment_name}-eip-{environment}`.
 
 ## Deployment Workflows
 
@@ -490,7 +491,6 @@ Common scenarios covered:
    machine:
      repository: "https://github.com/your-org/your-software-data.git"
      software: "your-software-name"
-     extension: "your-file-ext"  # e.g., "h5", "npy", "csv"
    ```
 
 2. (Optional) Use custom Docker image:

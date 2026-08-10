@@ -21,6 +21,14 @@
 #
 # Access URL: http://<ALLOCATOR_IP>:5000 (IP will be output after deployment)
 
+# Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
+# The deploy workflow overwrites both from its deployment_name/environment inputs.
+# Keep deployment_name in sync with the -var="deployment_name=..." you pass to
+# Terraform: the allocator scopes its client Terraform state to
+# {deployment_name}/{environment}/ in S3, and its IAM policy grants only that prefix.
+deployment_name: "my-lablink"
+environment: "prod"
+
 db:
   dbname: "lablink_db"
   user: "lablink"
@@ -28,7 +36,6 @@ db:
   host: "localhost"
   port: 5432
   table_name: "vms"
-  message_channel: "vm_updates"
 
 machine:
   machine_type: "g4dn.xlarge"
@@ -36,7 +43,6 @@ machine:
   ami_id: "ami-0601752c11b394251"  # us-west-2
   repository: "https://github.com/talmolab/sleap-tutorial-data.git"
   software: "sleap"
-  extension: "slp"
 
 allocator:
   image_tag: "linux-amd64-latest-test"

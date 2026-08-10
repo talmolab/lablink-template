@@ -194,7 +194,6 @@ ssl:
 
 eip:
   strategy: enum[persistent, dynamic] (default: dynamic)
-  tag_name: string (default: "lablink-eip")
 
 startup_script:
   enabled: boolean (default: false)

@@ -10,6 +10,14 @@
 #   ../scripts/init-terraform.sh prod
 #   terraform apply -var="deployment_name=your-lablink" -var="environment=prod"
 
+# Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
+# The deploy workflow overwrites both from its deployment_name/environment inputs.
+# Keep deployment_name in sync with the -var="deployment_name=..." you pass to
+# Terraform: the allocator scopes its client Terraform state to
+# {deployment_name}/{environment}/ in S3, and its IAM policy grants only that prefix.
+deployment_name: "my-lablink"
+environment: "prod"
+
 db:
   dbname: "lablink_db"
   user: "lablink"
@@ -17,7 +25,6 @@ db:
   host: "localhost"
   port: 5432
   table_name: "vms"
-  message_channel: "vm_updates"
 
 machine:
   # Client VM instance type (production workloads)
@@ -34,9 +41,6 @@ machine:
 
   # Software identifier
   software: "sleap"
-
-  # File extension
-  extension: "slp"
 
 # Allocator service configuration
 allocator:
