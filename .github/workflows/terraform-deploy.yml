@@ -140,6 +140,22 @@ jobs:
 
           echo "Injecting secrets into $CONFIG_FILE"
 
+          # Every placeholder must be present BEFORE substitution. The check
+          # after it only catches placeholders left un-substituted, and so is
+          # blind to a config that never contained them at all — hand-written,
+          # copied from an older revision, or written by a generator that uses
+          # the allocator's schema defaults instead of this convention. Such a
+          # config substitutes nothing, passes that check, and deploys with
+          # whatever literal credentials it happened to carry.
+          for placeholder in PLACEHOLDER_ADMIN_PASSWORD PLACEHOLDER_DB_PASSWORD; do
+            if ! grep -q "$placeholder" "$CONFIG_FILE"; then
+              echo "ERROR: $CONFIG_FILE contains no $placeholder to substitute."
+              echo "Regenerate it with ./scripts/configure.sh, or with"
+              echo "'lablink configure --template' if you use the CLI."
+              exit 1
+            fi
+          done
+
           # Replace placeholders with actual values
           sed -i "s/PLACEHOLDER_ADMIN_PASSWORD/${ADMIN_PASSWORD}/g" "$CONFIG_FILE"
           sed -i "s/PLACEHOLDER_DB_PASSWORD/${DB_PASSWORD}/g" "$CONFIG_FILE"
@@ -147,6 +163,19 @@ jobs:
           # Verify no placeholders remain
           if grep -q "PLACEHOLDER_" "$CONFIG_FILE"; then
             echo "ERROR: Failed to replace all placeholders in $CONFIG_FILE"
+            exit 1
+          fi
+
+          # No credential may still hold MISSING, the allocator's "unresolved
+          # secret" sentinel. admin_user is never substituted by this step, so
+          # this is the only guard covering it; without it the allocator
+          # refuses to start at runtime after a fully green deploy.
+          MISSING_RE='^[[:space:]]*(admin_user|admin_password|password):[[:space:]]*"?MISSING"?[[:space:]]*$'
+          if grep -qE "$MISSING_RE" "$CONFIG_FILE"; then
+            echo "ERROR: $CONFIG_FILE leaves a credential unresolved:"
+            grep -nE "$MISSING_RE" "$CONFIG_FILE"
+            echo "Regenerate it with ./scripts/configure.sh, or with"
+            echo "'lablink configure --template' if you use the CLI."
             exit 1
           fi
 
