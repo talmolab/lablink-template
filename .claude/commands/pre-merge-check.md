@@ -34,7 +34,6 @@ Where `[mode]` is one of:
 3. Check CI status checks
 4. Fetch all review comments via `gh api`
 5. Identify unaddressed GitHub Copilot comments
-6. Check if OpenSpec changes need validation
 
 ### Final Verdict
 - Display ✅ "READY TO MERGE" or ⛔ "NOT READY TO MERGE"
@@ -200,28 +199,7 @@ Display: `[3/N] PR Analysis...`
    - Total unaddressed Copilot comments
    - Group by severity (SECURITY, CRITICAL, normal)
 
-### Step 5: OpenSpec Validation (Conditional)
-
-Display: `[4/N] OpenSpec Validation...` (if applicable)
-
-1. **Detect OpenSpec changes:**
-   ```bash
-   git diff --name-only origin/main...HEAD | grep "^openspec/"
-   ```
-   - If no OpenSpec files changed: Skip this step
-
-2. **Run OpenSpec validation:**
-   ```bash
-   openspec validate --strict
-   ```
-   - Capture output and exit code
-   - Parse for validation errors
-
-3. **Check for breaking changes:**
-   - Look for "BREAKING" or "breaking changes" in proposals
-   - Verify proposal exists if breaking changes present
-
-### Step 6: Generate Final Report
+### Step 5: Generate Final Report
 
 Display: `[N/N] Generating Report...`
 
@@ -230,7 +208,6 @@ Display: `[N/N] Generating Report...`
 - If any validation failed: NOT READY
 - If CI checks failing: NOT READY
 - If SECURITY or CRITICAL Copilot comments unaddressed: NOT READY
-- If OpenSpec validation failed: NOT READY
 - Otherwise: READY TO MERGE
 
 **Display verdict and details:**
@@ -310,7 +287,7 @@ Do not merge until all issues are resolved.
 Run /pre-merge-check again after fixes.
 ```
 
-### Step 7: Exit with Status Code
+### Step 6: Exit with Status Code
 
 - Exit 0 if READY TO MERGE
 - Exit 1 if NOT READY TO MERGE
@@ -336,10 +313,6 @@ Run /pre-merge-check again after fixes.
 - Display: "⚠️ Network error fetching PR data"
 - Suggest: "Check internet connection and try again"
 - Continue with other checks (not blocking)
-
-**OpenSpec not installed:**
-- Display: "⚠️ openspec not found - skipping OpenSpec validation"
-- Continue with other checks (only blocking if OpenSpec files changed)
 
 ## Notes
 

@@ -130,6 +130,8 @@ jobs:
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD || 'CHANGEME_admin_password' }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD || 'CHANGEME_db_password' }}
+          DEPLOYMENT_NAME: ${{ steps.setenv.outputs.deployment_name }}
+          ENVIRONMENT: ${{ steps.setenv.outputs.env }}
         run: |
           CONFIG_FILE="config/config.yaml"
 
@@ -137,6 +139,23 @@ jobs:
             echo "Error: $CONFIG_FILE not found"
             exit 1
           fi
+
+          # The allocator reads deployment_name/environment from this file (it is
+          # copied verbatim onto the instance), while Terraform takes them from
+          # -var. If the two disagree the allocator writes its client Terraform
+          # state to {deployment_name}/{environment}/ under a prefix its IAM
+          # policy does not grant, and provisioning fails with AccessDenied at
+          # runtime — long after a green deploy. Overwrite rather than trust.
+          for key in deployment_name environment; do
+            if ! grep -qE "^${key}:" "$CONFIG_FILE"; then
+              echo "ERROR: $CONFIG_FILE has no top-level '${key}:' to set."
+              echo "Regenerate it with ./scripts/configure.sh."
+              exit 1
+            fi
+          done
+          sed -i "s|^deployment_name:.*|deployment_name: \"${DEPLOYMENT_NAME}\"|" "$CONFIG_FILE"
+          sed -i "s|^environment:.*|environment: \"${ENVIRONMENT}\"|" "$CONFIG_FILE"
+          echo "Pinned deployment_name=${DEPLOYMENT_NAME} environment=${ENVIRONMENT}"
 
           echo "Injecting secrets into $CONFIG_FILE"
 

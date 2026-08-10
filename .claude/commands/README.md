@@ -256,13 +256,3 @@ To add new Claude commands:
    - Common Issues & Fixes
    - Related Commands
 3. Add entry to this README
-4. Update OpenSpec if adding significant new capabilities
-
-## OpenSpec Integration
-
-These commands were implemented via OpenSpec change proposal:
-- **Proposal**: `openspec/changes/add-claude-dev-commands/proposal.md`
-- **Tasks**: `openspec/changes/add-claude-dev-commands/tasks.md`
-- **Specs**: `openspec/changes/add-claude-dev-commands/specs/`
-
-For major command additions or changes, follow the OpenSpec workflow.

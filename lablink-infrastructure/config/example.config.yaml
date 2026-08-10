@@ -2,6 +2,14 @@
 # This file configures the allocator service and client VM specifications
 # Copy to config.yaml and customize for your deployment
 
+# Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
+# The deploy workflow overwrites both from its deployment_name/environment inputs.
+# Keep deployment_name in sync with the -var="deployment_name=..." you pass to
+# Terraform: the allocator scopes its client Terraform state to
+# {deployment_name}/{environment}/ in S3, and its IAM policy grants only that prefix.
+deployment_name: "my-lablink"
+environment: "prod"
+
 db:
   dbname: "lablink_db"
   user: "lablink"
@@ -9,7 +17,6 @@ db:
   host: "localhost"
   port: 5432
   table_name: "vms"
-  message_channel: "vm_updates"
 
 machine:
   # Client VM instance type (must support your workload)
@@ -26,9 +33,6 @@ machine:
 
   # Software identifier for your application
   software: "your-software"
-
-  # File extension for your data files
-  extension: "ext"
 
 # Allocator service configuration
 allocator:
@@ -49,8 +53,8 @@ dns:
   zone_id: "" # (Optional) Hardcode zone ID to skip lookup - leave empty for auto-lookup
 
 eip:
-  strategy: "dynamic" # "persistent" = reuse EIP with tag {tag_name}-{env}, "dynamic" = create new EIP with tag {tag_name}-{env}
-  tag_name: "lablink-eip" # Tag prefix for EIP name. Both strategies use {tag_name}-{env} format (e.g., lablink-eip-prod).
+  # EIP name is derived from deployment_name: {deployment_name}-eip-{environment}
+  strategy: "dynamic" # "persistent" = reuse the existing EIP with that name, "dynamic" = create a new EIP each deployment
 
 ssl:
   provider: "none" # "letsencrypt" = Caddy auto-SSL, "cloudflare" = CloudFlare proxy, "acm" = AWS ACM, "none" = HTTP only

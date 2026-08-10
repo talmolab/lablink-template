@@ -9,6 +9,14 @@
 #   ../scripts/init-terraform.sh dev
 #   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 
+# Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
+# The deploy workflow overwrites both from its deployment_name/environment inputs.
+# Keep deployment_name in sync with the -var="deployment_name=..." you pass to
+# Terraform: the allocator scopes its client Terraform state to
+# {deployment_name}/{environment}/ in S3, and its IAM policy grants only that prefix.
+deployment_name: "my-lablink"
+environment: "dev"
+
 db:
   dbname: "lablink_db"
   user: "lablink"
@@ -16,7 +24,6 @@ db:
   host: "localhost"
   port: 5432
   table_name: "vms"
-  message_channel: "vm_updates"
 
 machine:
   # Client VM instance type (smaller for dev to save costs)
@@ -33,9 +40,6 @@ machine:
 
   # Software identifier
   software: "sleap"
-
-  # File extension
-  extension: "slp"
 
 # Allocator service configuration
 allocator:
@@ -57,8 +61,6 @@ dns:
 eip:
   # Always use dynamic for dev (don't reuse EIPs)
   strategy: "dynamic"
-  # Use unique tag name to avoid conflicts with other environments
-  tag_name: "lablink-eip-dev-YOURNAME" # Replace YOURNAME with your username
 
 ssl:
   # No SSL for local dev (HTTP only)
