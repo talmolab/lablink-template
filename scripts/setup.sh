@@ -1,13 +1,14 @@
 #!/bin/bash
 # LabLink One-Time Setup Script
 # Handles: Prerequisites, OIDC, IAM, S3, DynamoDB, Route53, GitHub Secrets
-# Then calls configure.sh to generate config.yaml
+# Then seeds config.yaml with the values that must match those resources.
 #
 # Usage: ./scripts/setup.sh
 # Must be run from the repository root directory.
 #
-# For updating configuration later (instance types, image tags, etc.),
-# run ./scripts/configure.sh directly — no need to re-run this script.
+# Configuration itself lives in the LabLink CLI: run
+# `lablink configure --template` to complete or later edit config.yaml —
+# no need to re-run this script.
 
 set -euo pipefail
 
@@ -37,9 +38,9 @@ echo ""
 echo "This script sets up AWS infrastructure and GitHub secrets (run once)."
 echo "  - AWS resources (OIDC, IAM role, S3, DynamoDB, Route53)"
 echo "  - GitHub Actions secrets"
-echo "  - Calls configure.sh to generate config.yaml"
+echo "  - Seeds config.yaml with the values those resources require"
 echo ""
-echo "To update configuration later, run: ./scripts/configure.sh"
+echo "To complete or update configuration, run: lablink configure --template"
 echo ""
 
 header "Phase 1: Prerequisites Check"
@@ -92,11 +93,10 @@ if ! command -v openssl &> /dev/null; then
     warn "openssl not found — password auto-generation will use /dev/urandom fallback"
 fi
 
-# Check: configure.sh exists
-if [ ! -f "scripts/configure.sh" ]; then
-    error "scripts/configure.sh not found. This file is required."
-    exit 1
-fi
+# Note: no configuration tool is required here. This script only seeds the
+# handful of values it creates; `lablink configure --template` completes the
+# config afterwards and is checked for at that point, not now — setup must
+# still work on a machine that has not installed the CLI yet.
 
 # Auto-detect values
 AUTO_REGION=$(aws configure get region 2>/dev/null || echo "")
@@ -305,7 +305,7 @@ if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
     echo "  5. Route53 Hosted Zone for $(echo "$CFG_DOMAIN" | awk -F. '{if (NF>=2) print $(NF-1)"."$NF; else print $0}')"
 fi
 echo "  6. GitHub Secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)"
-echo "  7. Config file via configure.sh"
+echo "  7. Seed config.yaml (completed later with 'lablink configure --template')"
 echo ""
 
 prompt "Proceed with setup? [y/N]: "
@@ -611,49 +611,75 @@ echo -e "  DB password:    ${YELLOW}${CFG_DB_PASSWORD}${NC}"
 echo ""
 
 # ============================================================================
-# Phase 7: Call configure.sh with env var bridge
+# Phase 7: Seed config.yaml
 # ============================================================================
-header "Phase 7: Generating config.yaml"
-echo ""
-info "Calling configure.sh to generate config.yaml..."
-echo "  (You can re-run ./scripts/configure.sh later to update config.)"
+header "Phase 7: Seeding config.yaml"
 echo ""
 
-# Export values so configure.sh can use them as defaults
-export LABLINK_REGION="$CFG_REGION"
-export LABLINK_BUCKET="$CFG_BUCKET"
-export LABLINK_DNS_ENABLED="$CFG_DNS_ENABLED"
-if [ "$CFG_DNS_ENABLED" = "true" ]; then
-    export LABLINK_DOMAIN="$CFG_DOMAIN"
-    export LABLINK_DNS_PROVIDER="$CFG_DNS_PROVIDER"
-    if [ -n "$CFG_ZONE_ID" ]; then
-        export LABLINK_ZONE_ID="$CFG_ZONE_ID"
-    fi
+# Only the values that MUST match the infrastructure created above are written
+# here; `lablink configure --template` fills in the rest and reads this file
+# for its defaults. A re-typed bucket_name or region would point OpenTofu at
+# a different backend, so those two are not left to a prompt.
+SEED_CONFIG="lablink-infrastructure/config/config.yaml"
+
+if [ -f "$SEED_CONFIG" ]; then
+    warn "$SEED_CONFIG already exists — leaving it untouched."
+    echo "  Run 'lablink configure --template' to edit it."
+else
+    mkdir -p "$(dirname "$SEED_CONFIG")"
+    cat > "$SEED_CONFIG" <<CONFIGEOF
+# LabLink configuration — seeded by scripts/setup.sh on $(date -u +"%Y-%m-%dT%H:%M:%SZ").
+#
+# INCOMPLETE: run 'lablink configure --template' from the repository root to
+# fill in deployment_name, instance type, images, and TLS. Deploying before
+# then fails validation in the "Deploy LabLink Infrastructure" workflow.
+#
+# The passwords below are replaced with your ADMIN_PASSWORD and DB_PASSWORD
+# repository secrets at deploy time — leave them exactly as written.
+
+bucket_name: "${CFG_BUCKET}"
+
+db:
+  password: "PLACEHOLDER_DB_PASSWORD"
+
+app:
+  admin_user: "admin"
+  admin_password: "PLACEHOLDER_ADMIN_PASSWORD"
+  region: "${CFG_REGION}"
+
+dns:
+  enabled: ${CFG_DNS_ENABLED}
+  domain: "${CFG_DOMAIN:-}"
+  zone_id: "${CFG_ZONE_ID:-}"
+CONFIGEOF
+    success "Seeded $SEED_CONFIG"
 fi
-
-bash scripts/configure.sh
 
 echo ""
 header "All Done!"
 echo ""
 echo -e "${BOLD}Next steps:${NC}"
 echo ""
-echo "  1. Review the generated config:"
-echo "     lablink-infrastructure/config/config.yaml"
+echo "  1. Install the LabLink CLI (once per machine):"
+echo "     uv tool install lablink-cli"
 echo ""
-echo "  2. Deploy via GitHub Actions:"
+echo "  2. Complete your configuration:"
+echo "     lablink configure --template"
+echo ""
+echo "  3. Commit and deploy via GitHub Actions:"
+echo "     git add lablink-infrastructure/config/config.yaml"
+echo "     git commit -m 'Add deployment configuration' && git push"
 echo "     Go to Actions -> 'Deploy LabLink Infrastructure' -> Run workflow"
-echo "     Select your environment (test or prod)"
 echo ""
 
 if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
-    echo "  3. (DNS) Update your domain registrar's nameservers to point to Route53"
+    echo "  4. (DNS) Update your domain registrar's nameservers to point to Route53"
     echo "     Then wait for DNS propagation (usually minutes, up to 48 hours)"
     echo ""
 fi
 
 echo "  To update configuration later (instance type, image tags, etc.):"
-echo "     ./scripts/configure.sh"
+echo "     lablink configure --template"
 echo ""
 echo "  For help: see README.md or https://talmolab.github.io/lablink/"
 echo ""

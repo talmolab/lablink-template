@@ -40,7 +40,7 @@ CONFIG_FILE="lablink-infrastructure/config/config.yaml"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     error "Config file not found: $CONFIG_FILE"
-    echo "  Run ./scripts/configure.sh first to create your configuration."
+    echo "  Run ./scripts/setup.sh, then 'lablink configure --template'."
     exit 1
 fi
 
@@ -61,7 +61,7 @@ if ! command -v aws &>/dev/null; then
 fi
 
 # ============================================================================
-# Config reader (same pattern as configure.sh)
+# Config reader (same pattern as verify-deployment.sh's cfg_get)
 # ============================================================================
 cfg_get() {
     local key="$1"

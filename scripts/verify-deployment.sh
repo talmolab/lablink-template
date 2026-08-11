@@ -51,7 +51,7 @@ else
 fi
 
 # ============================================================================
-# Config helper (lightweight version of configure.sh's cfg_get)
+# Config helper (minimal YAML reader; only the few keys checked below)
 # ============================================================================
 cfg_get() {
     local key="$1"

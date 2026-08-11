@@ -149,7 +149,7 @@ jobs:
           for key in deployment_name environment; do
             if ! grep -qE "^${key}:" "$CONFIG_FILE"; then
               echo "ERROR: $CONFIG_FILE has no top-level '${key}:' to set."
-              echo "Regenerate it with ./scripts/configure.sh."
+              echo "Regenerate it with 'lablink configure --template'."
               exit 1
             fi
           done
@@ -169,8 +169,7 @@ jobs:
           for placeholder in PLACEHOLDER_ADMIN_PASSWORD PLACEHOLDER_DB_PASSWORD; do
             if ! grep -q "$placeholder" "$CONFIG_FILE"; then
               echo "ERROR: $CONFIG_FILE contains no $placeholder to substitute."
-              echo "Regenerate it with ./scripts/configure.sh, or with"
-              echo "'lablink configure --template' if you use the CLI."
+              echo "Regenerate it with 'lablink configure --template'."
               exit 1
             fi
           done
@@ -193,8 +192,7 @@ jobs:
           if grep -qE "$MISSING_RE" "$CONFIG_FILE"; then
             echo "ERROR: $CONFIG_FILE leaves a credential unresolved:"
             grep -nE "$MISSING_RE" "$CONFIG_FILE"
-            echo "Regenerate it with ./scripts/configure.sh, or with"
-            echo "'lablink configure --template' if you use the CLI."
+            echo "Regenerate it with 'lablink configure --template'."
             exit 1
           fi
 
