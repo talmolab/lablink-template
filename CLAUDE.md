@@ -52,7 +52,8 @@ hard-fails if the placeholders are absent, so keep them in any config you hand-w
 
 ## Conventions
 
-- **OpenTofu**: `>= 1.9.0, < 2.0.0` (CI pins 1.12.5). Run `tofu fmt` before
+- **OpenTofu**: `>= 1.10.0, < 2.0.0` (CI pins 1.12.5). The floor is 1.10, not
+  1.9 — see the rationale in `lablink-infrastructure/backend.tf`. Run `tofu fmt` before
   committing — CI enforces `tofu fmt -check`. The `terraform {}` block label in
   `backend.tf` and the `terraform:` job id in the deploy workflow are OpenTofu
   syntax and a branch-protection check name respectively — neither is a
