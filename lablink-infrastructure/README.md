@@ -306,7 +306,7 @@ Comprehensive deployment verification script for post-deployment testing.
 **Usage:**
 
 ```bash
-# Config-aware mode (recommended): reads config.yaml + terraform outputs automatically
+# Config-aware mode (recommended): reads config.yaml + OpenTofu outputs automatically
 ../scripts/verify-deployment.sh <environment>
 ../scripts/verify-deployment.sh --ci <environment>
 

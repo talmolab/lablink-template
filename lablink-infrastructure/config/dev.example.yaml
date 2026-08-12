@@ -7,7 +7,7 @@
 #   # Edit config.yaml with your values
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh dev
-#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
+#   tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 
 # Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
 # The deploy workflow overwrites both from its deployment_name/environment inputs.
