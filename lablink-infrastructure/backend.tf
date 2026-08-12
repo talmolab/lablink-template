@@ -1,14 +1,14 @@
 terraform {
-  # Below the 1.8.0 line, the S3 backend can silently corrupt state. An
-  # aws-sdk-go-v2 bug leaves the PutObject body non-seekable, so a retried
-  # state upload fails with "failed to rewind transport stream for retry"
-  # *after* the apply or destroy has already run — and terraform may then
-  # continue against stale state, creating or deleting the wrong resources.
-  # See hashicorp/terraform#34528, fixed by #34796.
+  # OpenTofu 1.12.5 is what CI pins and what the `lablink` CLI expects. The
+  # floor stays at 1.9.0 because this repo migrated from Terraform, and any
+  # Terraform binary still pointed at this config must be new enough to avoid
+  # hashicorp/terraform#34528 — an aws-sdk-go-v2 bug below the 1.8.0 line that
+  # leaves the PutObject body non-seekable, so a retried state upload fails
+  # *after* the apply already ran and the tool continues against stale state.
+  # OpenTofu forked before that bug was introduced and has no reports of it.
   #
-  # This matters most for operators running terraform from their own machine
-  # (the `lablink` CLI does), where the binary is whatever they happen to have
-  # installed. Refuse rather than risk the state file.
+  # The block is still named `terraform` because that is the label OpenTofu
+  # reads; it is not a reference to the Terraform binary.
   required_version = ">= 1.9.0, < 2.0.0"
 
   backend "s3" {}
