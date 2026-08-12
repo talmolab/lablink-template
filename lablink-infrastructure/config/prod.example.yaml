@@ -8,7 +8,7 @@
 #   ./scripts/setup-aws-infrastructure.sh  # Creates S3, DynamoDB, Route53
 #   cd lablink-infrastructure
 #   ../scripts/init-terraform.sh prod
-#   terraform apply -var="deployment_name=your-lablink" -var="environment=prod"
+#   tofu apply -var="deployment_name=your-lablink" -var="environment=prod"
 
 # Deployment identity (resource naming: {deployment_name}-{resource}-{environment})
 # The deploy workflow overwrites both from its deployment_name/environment inputs.
@@ -44,8 +44,9 @@ machine:
 
 # Allocator service configuration
 allocator:
-  # IMPORTANT: Use specific version tag for production (not latest!)
-  image_tag: "linux-amd64-v1.0.0" # PINNED VERSION - update deliberately
+  # IMPORTANT: Pin a specific released version tag for production.
+  # No versioned tags are published yet; replace this once one exists.
+  image_tag: "linux-amd64-latest" # Replace with a released version tag
 
 app:
   admin_user: "admin"

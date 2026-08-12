@@ -86,8 +86,8 @@ Claude will generate something like:
 
 ## Testing
 
-- [ ] Terraform validation passes (`terraform validate`)
-- [ ] Terraform plan reviewed (no unexpected changes)
+- [ ] OpenTofu validation passes (`tofu validate`)
+- [ ] OpenTofu plan reviewed (no unexpected changes)
 - [ ] Configuration validation passes (`lablink-validate-config`)
 - [ ] Shellcheck validation passes
 - [ ] Deployed to ci-test environment successfully
@@ -104,7 +104,7 @@ Claude will generate something like:
 ## Rollback Plan
 
 If issues occur:
-1. Run `terraform apply` with previous state
+1. Run `tofu apply` with previous state
 2. Revert configuration changes
 3. Restart services if needed
 
@@ -115,22 +115,22 @@ Related to #[issue-number] (if applicable)
 
 ## Checklist
 
-- [ ] Terraform code properly formatted (`terraform fmt`)
+- [ ] OpenTofu code properly formatted (`tofu fmt`)
 - [ ] Configuration validated against schema
 - [ ] Backend configuration correct for environment
 - [ ] Documentation updated (README, CHANGELOG)
 - [ ] No hardcoded secrets or credentials
 - [ ] Resource tagging consistent
-- [ ] Terraform plan output reviewed
+- [ ] OpenTofu plan output reviewed
 - [ ] No breaking changes (or breaking changes documented)
 
-## Terraform Plan Output
+## OpenTofu Plan Output
 
 <details>
-<summary>Click to expand terraform plan</summary>
+<summary>Click to expand tofu plan</summary>
 
 ```hcl
-# Paste terraform plan output here
+# Paste tofu plan output here
 ```
 
 </details>
@@ -226,7 +226,7 @@ Related to #35
 ```
 
 ### Show Evidence
-- Terraform plan output
+- OpenTofu plan output
 - Before/after resource counts
 - Cost estimates
 - Test deployment results
@@ -245,7 +245,7 @@ Ensure description includes:
 - [ ] Breaking changes (if any)
 - [ ] Related issues/PRs
 - [ ] Testing checklist
-- [ ] Terraform plan output
+- [ ] OpenTofu plan output
 
 ## Updating PR Description
 
@@ -278,7 +278,7 @@ gh pr edit <PR_NUMBER> --body "$CURRENT
 **Constraints:**
 - Limited to t3.* instance types
 - Regional restriction: us-west-2
-- Requires "ManagedBy=Terraform" tag
+- Requires "ManagedBy=OpenTofu" tag
 
 **Security Review:**
 - Follows least privilege principle

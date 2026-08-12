@@ -43,11 +43,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-west-2' }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
         with:
-          terraform_version: 1.9.8
-          terraform_wrapper: false
+          tofu_version: 1.12.5
+          tofu_wrapper: false
 
       - name: Determine Environment
         id: setenv
@@ -205,30 +205,30 @@ jobs:
 
           echo "Passwords injected successfully"
 
-      - name: Terraform Init
+      - name: OpenTofu Init
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: ../scripts/init-terraform.sh ${{ steps.setenv.outputs.env }}
 
-      - name: Terraform Format
+      - name: OpenTofu Format
         working-directory: ${{ steps.setenv.outputs.workdir }}
-        run: terraform fmt -check
+        run: tofu fmt -check
 
-      - name: Terraform Validate
+      - name: OpenTofu Validate
         working-directory: ${{ steps.setenv.outputs.workdir }}
-        run: terraform validate
+        run: tofu validate
 
-      - name: Terraform Plan
+      - name: OpenTofu Plan
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
-          terraform plan \
+          tofu plan \
             -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
             -var="environment=${{ steps.setenv.outputs.env }}"
 
-      - name: Terraform Apply
+      - name: OpenTofu Apply
         id: apply
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
-          terraform apply -auto-approve \
+          tofu apply -auto-approve \
             -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
             -var="environment=${{ steps.setenv.outputs.env }}"
         continue-on-error: true
@@ -237,7 +237,7 @@ jobs:
         if: steps.apply.outcome == 'success'
         working-directory: ${{ steps.setenv.outputs.workdir }}
         run: |
-          terraform output -raw private_key_pem > lablink-key.pem
+          tofu output -raw private_key_pem > lablink-key.pem
           chmod 600 lablink-key.pem
           mkdir -p artifact-output
           mv lablink-key.pem artifact-output/
@@ -265,17 +265,17 @@ jobs:
 
           echo ""
           echo "Allocator FQDN:"
-          terraform output -raw allocator_fqdn
+          tofu output -raw allocator_fqdn
 
           echo ""
           echo "EC2 Key Name:"
-          terraform output -raw ec2_key_name
+          tofu output -raw ec2_key_name
 
           echo ""
           echo "EC2 Public IP:"
-          terraform output -raw ec2_public_ip
+          tofu output -raw ec2_public_ip
 
-      - name: Terraform Destroy on Failure
+      - name: OpenTofu Destroy on Failure
         working-directory: ${{ steps.setenv.outputs.workdir }}
         if: steps.apply.outcome == 'failure'
-        run: terraform destroy -auto-approve -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" -var="environment=${{ steps.setenv.outputs.env }}"
+        run: tofu destroy -auto-approve -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" -var="environment=${{ steps.setenv.outputs.env }}"

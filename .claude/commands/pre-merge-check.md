@@ -121,12 +121,12 @@ Display: `[2/N] Code Quality Validation...`
 
 **For local mode:** Only run fast format check:
 ```bash
-cd lablink-infrastructure && terraform fmt -check -recursive
+cd lablink-infrastructure && tofu fmt -check -recursive
 ```
 
 **For pre-pr and pre-merge modes:** Run all validations:
 
-1. **Terraform Validation:**
+1. **OpenTofu Validation:**
    - Execute the `/validate-terraform` command
    - Capture output and parse for errors
    - Store results (pass/fail, error details)
@@ -220,7 +220,7 @@ Display: `[N/N] Generating Report...`
 All checks passed:
   ✅ No merge conflicts
   ✅ Working tree clean
-  ✅ Terraform validation passed
+  ✅ OpenTofu validation passed
   ✅ YAML validation passed
   ✅ Bash validation passed
   ✅ PR approved by 2 reviewers
@@ -252,11 +252,11 @@ Blocking issues found:
      git commit
 
 2. VALIDATION FAILURES (1)
-   ❌ Terraform:
+   ❌ OpenTofu:
      • main.tf:299 - Syntax error (missing closing brace)
 
    Action Required:
-     Fix syntax error and run terraform validate
+     Fix syntax error and run tofu validate
 
 3. UNADDRESSED REVIEW COMMENTS (10)
 
@@ -276,7 +276,7 @@ Blocking issues found:
      Address all Copilot comments or reply with rationale
 
 4. CI CHECKS FAILING (1 of 2)
-   ❌ Terraform Format - FAILED
+   ❌ OpenTofu Format - FAILED
    ✅ Config Validation - PASSED
 
    Action Required:

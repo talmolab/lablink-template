@@ -1,5 +1,5 @@
 #!/bin/bash
-# Helper script to initialize Terraform with bucket from config.yaml
+# Helper script to initialize OpenTofu with bucket from config.yaml
 
 set -e
 
@@ -7,8 +7,8 @@ ENVIRONMENT=${1:-dev}
 
 
 if [ "$ENVIRONMENT" = "dev" ]; then
-    echo "Initializing Terraform for dev environment (local state)"
-    terraform init -backend-config=backend-dev.hcl
+    echo "Initializing OpenTofu for dev environment (local state)"
+    tofu init -backend-config=backend-dev.hcl
 else
     # Extract bucket name from config.yaml
     if [ ! -f "config/config.yaml" ]; then
@@ -30,14 +30,14 @@ else
         exit 1
     fi
 
-    echo "Initializing Terraform for $ENVIRONMENT environment"
+    echo "Initializing OpenTofu for $ENVIRONMENT environment"
     echo "Using S3 bucket: $BUCKET_NAME"
     echo "Using region: $REGION"
 
-    terraform init \
+    tofu init \
         -backend-config=backend-${ENVIRONMENT}.hcl \
         -backend-config="bucket=$BUCKET_NAME" \
         -backend-config="region=$REGION"
 fi
 
-echo "Terraform initialized successfully!"
+echo "OpenTofu initialized successfully!"

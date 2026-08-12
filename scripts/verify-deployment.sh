@@ -9,14 +9,14 @@
 #   - curl, nslookup (for DNS verification)
 #
 # Usage:
-#   verify-deployment.sh [--ci] <environment>       # Config-aware (reads config.yaml + terraform outputs)
+#   verify-deployment.sh [--ci] <environment>       # Config-aware (reads config.yaml + tofu outputs)
 #   verify-deployment.sh [--ci] <domain> <ip>        # Backwards-compatible (explicit values)
 #
 # Options:
 #   --ci    Disable ANSI colors for clean CI logs
 #
 # Examples:
-#   # Config-aware: auto-detect domain and IP from config + terraform
+#   # Config-aware: auto-detect domain and IP from config + tofu
 #   verify-deployment.sh prod
 #   verify-deployment.sh --ci ci-test
 #
@@ -138,7 +138,7 @@ else
 fi
 
 # ============================================================================
-# Config-aware mode: resolve values from config.yaml + terraform outputs
+# Config-aware mode: resolve values from config.yaml + tofu outputs
 # ============================================================================
 if [ "$MODE" = "config-aware" ]; then
     # Locate lablink-infrastructure directory
@@ -160,21 +160,21 @@ if [ "$MODE" = "config-aware" ]; then
     SSL_PROVIDER=$(cfg_get "ssl.provider" "letsencrypt")
     REGION=$(cfg_get "app.region" "us-west-2")
 
-    # Read IP from terraform output
-    EXPECTED_IP=$(terraform output -raw ec2_public_ip 2>/dev/null || echo "")
+    # Read IP from tofu output
+    EXPECTED_IP=$(tofu output -raw ec2_public_ip 2>/dev/null || echo "")
     if [ -z "$EXPECTED_IP" ]; then
-        echo -e "${RED}Error: Could not read ec2_public_ip from Terraform outputs${NC}"
-        echo "  Terraform may not be initialized for the '$ENVIRONMENT' environment."
+        echo -e "${RED}Error: Could not read ec2_public_ip from OpenTofu outputs${NC}"
+        echo "  OpenTofu may not be initialized for the '$ENVIRONMENT' environment."
         echo "  Run: ./scripts/init-terraform.sh $ENVIRONMENT"
-        echo "  Then: terraform apply -var=\"resource_suffix=$ENVIRONMENT\""
+        echo "  Then: tofu apply -var=\"deployment_name=YOUR-DEPLOYMENT\" -var=\"environment=$ENVIRONMENT\""
         exit 1
     fi
 
     # Resolve domain: only if DNS is enabled
     DOMAIN_NAME=""
     if [ "$DNS_ENABLED" = "true" ]; then
-        # Try FQDN from terraform output first, fallback to config domain
-        FQDN_RAW=$(terraform output -raw allocator_fqdn 2>/dev/null || echo "")
+        # Try FQDN from tofu output first, fallback to config domain
+        FQDN_RAW=$(tofu output -raw allocator_fqdn 2>/dev/null || echo "")
         if [ -n "$FQDN_RAW" ]; then
             # Strip protocol prefix if present
             DOMAIN_NAME=$(echo "$FQDN_RAW" | sed 's|^https\?://||')

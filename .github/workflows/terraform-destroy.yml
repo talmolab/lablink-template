@@ -42,23 +42,23 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-west-2' }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
         with:
-          terraform_version: 1.9.8
-          terraform_wrapper: false
+          tofu_version: 1.12.5
+          tofu_wrapper: false
 
-      # Initialize terraform to access outputs (IP and SSH key)
-      - name: Terraform Init Infrastructure
+      # Initialize OpenTofu to access outputs (IP and SSH key)
+      - name: OpenTofu Init Infrastructure
         working-directory: lablink-infrastructure
         run: |
           # Extract bucket name from config.yaml for S3 backend
           BUCKET_NAME=$(grep "^bucket_name:" config/config.yaml | awk '{print $2}' | tr -d '"')
-          terraform init \
+          tofu init \
             -backend-config=backend-${{ github.event.inputs.environment }}.hcl \
             -backend-config="bucket=$BUCKET_NAME"
 
-      # Destroy Client VMs using S3 backend (state-only, no terraform files needed)
+      # Destroy Client VMs using S3 backend (state-only, no OpenTofu files needed)
       - name: Destroy Client VMs via S3 Backend
         continue-on-error: true
         run: |
@@ -90,27 +90,27 @@ jobs:
           encrypt        = true
           BACKEND_HCL
 
-          # Initialize terraform with the S3 backend
-          terraform init \
+          # Initialize OpenTofu with the S3 backend
+          tofu init \
             -backend-config=backend.hcl \
             -backend-config="bucket=$BUCKET_NAME"
 
           # Check if there are any resources in state
-          if ! terraform show 2>/dev/null | grep -q "resource"; then
-            echo "✓ No client VMs in terraform state"
+          if ! tofu show 2>/dev/null | grep -q "resource"; then
+            echo "✓ No client VMs in OpenTofu state"
           else
             # Destroy all client VMs using state only (no configuration files needed)
             echo "Destroying client VMs..."
-            if terraform destroy -auto-approve; then
+            if tofu destroy -auto-approve; then
               echo "✓ Client VMs destroyed successfully"
             else
               echo "⚠ Client VM destruction failed (non-fatal)"
             fi
           fi
 
-      - name: Terraform Destroy Infrastructure
+      - name: OpenTofu Destroy Infrastructure
         working-directory: lablink-infrastructure
         run: |
-          terraform destroy -auto-approve \
+          tofu destroy -auto-approve \
             -var="deployment_name=${{ github.event.inputs.deployment_name }}" \
             -var="environment=${{ github.event.inputs.environment }}"

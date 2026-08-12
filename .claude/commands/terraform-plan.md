@@ -1,4 +1,4 @@
-# Terraform Plan
+# OpenTofu Plan
 
 Preview infrastructure changes for a specific environment before applying.
 
@@ -7,23 +7,23 @@ Preview infrastructure changes for a specific environment before applying.
 ```bash
 # Plan for ci-test environment
 cd lablink-infrastructure
-terraform init -backend-config=backend-ci-test.hcl
-terraform plan
+tofu init -backend-config=backend-ci-test.hcl
+tofu plan
 
 # Plan for test environment
-terraform init -backend-config=backend-test.hcl -reconfigure
-terraform plan
+tofu init -backend-config=backend-test.hcl -reconfigure
+tofu plan
 
 # Plan for production environment
-terraform init -backend-config=backend-prod.hcl -reconfigure
-terraform plan
+tofu init -backend-config=backend-prod.hcl -reconfigure
+tofu plan
 ```
 
 ## Usage
 
 Ask Claude to preview changes:
 ```
-Run terraform plan for ci-test environment
+Run tofu plan for ci-test environment
 ```
 
 Or compare specific changes:
@@ -34,8 +34,8 @@ Show me what resources will be modified in test environment
 ## What This Command Does
 
 Claude will:
-1. Initialize Terraform with correct backend config for environment
-2. Run `terraform plan` to preview changes
+1. Initialize OpenTofu with correct backend config for environment
+2. Run `tofu plan` to preview changes
 3. Summarize resource changes (additions, modifications, deletions)
 4. Highlight cost implications (new EC2 instances, EBS volumes)
 5. Flag security concerns (IAM policy changes, security group modifications)
@@ -45,7 +45,7 @@ Claude will:
 
 ### Success with Changes
 ```
-Terraform will perform the following actions:
+OpenTofu will perform the following actions:
 
   # aws_instance.lablink_allocator_server will be updated in-place
   ~ resource "aws_instance" "lablink_allocator_server" {
@@ -76,7 +76,7 @@ Plan: 0 to add, 2 to change, 0 to destroy.
 ```
 No changes. Your infrastructure matches the configuration.
 
-Terraform has compared your real infrastructure with your configuration
+OpenTofu has compared your real infrastructure with your configuration
 and found no differences, so no changes are needed.
 ```
 
@@ -173,7 +173,7 @@ Error: Could not load plugin
 **Fix:**
 Reinitialize with plugin upgrade:
 ```bash
-terraform init -upgrade -backend-config=backend-ci-test.hcl
+tofu init -upgrade -backend-config=backend-ci-test.hcl
 ```
 
 ### Issue: Variable not defined
@@ -216,7 +216,7 @@ Indicates attribute change requires destroying and recreating the resource.
 
 ## Cost Estimation
 
-**Note:** Running `terraform plan` is FREE. It only reads your infrastructure state (minimal S3 API costs, ~$0.0004 per 1000 requests). The costs shown below are estimates for what resources **WOULD** cost if you run `terraform apply`.
+**Note:** Running `tofu plan` is FREE. It only reads your infrastructure state (minimal S3 API costs, ~$0.0004 per 1000 requests). The costs shown below are estimates for what resources **WOULD** cost if you run `tofu apply`.
 
 Claude will estimate cost impact:
 
