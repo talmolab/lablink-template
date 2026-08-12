@@ -11,7 +11,7 @@ This directory contains example configuration files for different deployment sce
 
 2. **Edit** `config.yaml` with your specific values (domain, region, etc.)
 
-3. **Deploy** using the GitHub Actions workflow or manually with Terraform
+3. **Deploy** using the GitHub Actions workflow or manually with OpenTofu
 
 ## Configuration Selection Decision Tree
 
@@ -24,7 +24,7 @@ Do you need HTTPS/SSL?
     │
     └─ YES → Where is your DNS managed?
         ├─ CloudFlare      → Use cloudflare.example.yaml
-        ├─ Route53 (AWS)   → Do you want Terraform to manage DNS records?
+        ├─ Route53 (AWS)   → Do you want OpenTofu to manage DNS records?
         │   ├─ YES → Use letsencrypt.example.yaml
         │   └─ NO  → Use letsencrypt-manual.example.yaml
         └─ Other DNS       → Use cloudflare.example.yaml or manual Route53 setup
@@ -32,7 +32,7 @@ Do you need HTTPS/SSL?
 
 ## Configuration Comparison Table
 
-| Config File | DNS Provider | SSL Provider | Terraform Manages DNS | Rate Limits | Use Case | Setup Complexity |
+| Config File | DNS Provider | SSL Provider | OpenTofu Manages DNS | Rate Limits | Use Case | Setup Complexity |
 |-------------|--------------|--------------|----------------------|-------------|----------|------------------|
 | **ip-only.example.yaml** | None (IP only) | None (HTTP) | N/A | None | Quick testing, development | ⭐ Low |
 | **cloudflare.example.yaml** | CloudFlare | CloudFlare | No | None | Frequent testing, production with CloudFlare | ⭐⭐ Medium |
@@ -76,7 +76,7 @@ These configs are organized by **how you want to set up DNS and SSL**:
 #### cloudflare.example.yaml
 **Best for:** Frequent testing, production deployments with CloudFlare
 
-- **DNS:** CloudFlare (managed outside Terraform)
+- **DNS:** CloudFlare (managed outside OpenTofu)
 - **SSL:** CloudFlare (automatic via proxy)
 - **EIP:** Persistent (stable IP)
 - **Prerequisites:** CloudFlare account, domain managed in CloudFlare
@@ -118,7 +118,7 @@ These configs are organized by **how you want to set up DNS and SSL**:
 
 **What triggers a certificate:**
 - First deployment
-- Redeploy after `terraform destroy`
+- Redeploy after `tofu destroy`
 - DNS changes
 - Caddy container restart with lost cache
 
@@ -126,7 +126,7 @@ These configs are organized by **how you want to set up DNS and SSL**:
 - Fully automated DNS + SSL
 - Free certificates
 - Production-ready HTTPS
-- Terraform manages everything
+- OpenTofu manages everything
 
 **Cons:**
 - Rate limits prevent frequent testing
@@ -162,7 +162,7 @@ These configs are organized by **how you want to set up DNS and SSL**:
 **Cons:**
 - Extra manual step (create A record)
 - Same rate limits as automated Let's Encrypt
-- DNS not tracked in Terraform state
+- DNS not tracked in OpenTofu state
 
 **Setup:**
 1. Deploy infrastructure (note EIP from output)
@@ -212,19 +212,19 @@ These configs are organized by **how you want to set up DNS and SSL**:
 These configs are organized by **where/how you're deploying** (dev vs test vs prod):
 
 #### dev.example.yaml
-**Best for:** Local development with local Terraform state
+**Best for:** Local development with local OpenTofu state
 
 - **State Storage:** Local file (no S3)
 - **DNS/SSL:** Configurable (usually IP-only for dev)
 - **Usage:** Local development and testing
 
 **Key Differences:**
-- Local Terraform state (no S3 backend)
+- Local OpenTofu state (no S3 backend)
 - Usually deployed from local machine
 - Not intended for CI/CD workflows
 
 **When to use:**
-- Developing Terraform changes
+- Developing OpenTofu changes
 - Testing infrastructure modifications locally
 - Quick prototyping
 
@@ -288,7 +288,7 @@ These configs are organized by **where/how you're deploying** (dev vs test vs pr
 
 **When to use:**
 - Testing template infrastructure changes
-- Validating PRs that modify Terraform
+- Validating PRs that modify OpenTofu
 - Template maintainers only
 
 **Important:**
@@ -309,7 +309,7 @@ These configs are organized by **where/how you're deploying** (dev vs test vs pr
 - **NO override available** for the 5/week limit
 
 **What counts as a new certificate:**
-- Each `terraform apply` (first time or after destroy)
+- Each `tofu apply` (first time or after destroy)
 - DNS changes
 - Domain name changes
 - Caddy container restart with lost certificate cache
@@ -385,7 +385,7 @@ startup_script:        # Custom startup script (optional)
   path: "..."
   on_error: "continue" or "fail"
 
-bucket_name: "..."     # S3 bucket for Terraform state
+bucket_name: "..."     # S3 bucket for OpenTofu state
 ```
 
 ## Common Configuration Tasks
@@ -397,7 +397,7 @@ bucket_name: "..."     # S3 bucket for Terraform state
 sed -i 's/domain: "old.example.com"/domain: "new.example.com"/' \
   lablink-infrastructure/config/config.yaml
 
-# If using terraform_managed: true, Terraform will update DNS automatically
+# If using terraform_managed: true, OpenTofu will update DNS automatically
 # If using terraform_managed: false, manually update A record in DNS provider
 ```
 
@@ -483,4 +483,4 @@ docker run --rm \
 - [Deployment Checklist](../../DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment guide
 - [Testing Best Practices](../../docs/TESTING_BEST_PRACTICES.md) - Rate limit strategies
 - [Manual Cleanup Guide](../../MANUAL_CLEANUP_GUIDE.md) - Troubleshooting and cleanup
-- [Infrastructure README](../README.md) - Terraform documentation
+- [Infrastructure README](../README.md) - OpenTofu documentation

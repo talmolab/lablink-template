@@ -45,7 +45,7 @@ Use this checklist to ensure you have completed all required setup steps before 
 
 **What setup.sh does NOT create:**
 - Domain registration (you must register domain separately - costs ~$12-15/year)
-- DNS records (created by Terraform if `dns.terraform_managed: true`, or manually)
+- DNS records (created by OpenTofu if `dns.terraform_managed: true`, or manually)
 
 **Or if you prefer partial automation:**
 
@@ -64,7 +64,7 @@ Use this checklist to ensure you have completed all required setup steps before 
 **Or if you prefer fully manual setup:**
 
 #### Option C: Manual S3 Bucket Setup
-- [ ] Created S3 bucket for Terraform state
+- [ ] Created S3 bucket for OpenTofu state
   - Bucket name format: `tf-state-YOUR-ORG-lablink`
   - Bucket is globally unique across ALL of AWS
   - Bucket in same region as deployment
@@ -99,7 +99,7 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Created or verified Route53 hosted zone exists (setup script does this)
 - [ ] Updated domain nameservers to Route53 NS records
 - [ ] Choose DNS record management:
-  - `dns.terraform_managed: true` - Terraform creates/destroys records automatically
+  - `dns.terraform_managed: true` - OpenTofu creates/destroys records automatically
   - `dns.terraform_managed: false` - You create A records manually in Route53 console
 - [ ] Set `ssl.provider: "letsencrypt"` in config
 
@@ -137,7 +137,7 @@ Use this checklist to ensure you have completed all required setup steps before 
 - [ ] Chose `pattern`: "auto" or "custom"
 - [ ] Set `zone_id` (or left empty for auto-lookup)
 - [ ] Set `terraform_managed` based on preference
-  - `true` = Terraform creates/destroys DNS records
+  - `true` = OpenTofu creates/destroys DNS records
   - `false` = You manually create DNS records in Route 53
 
 **SSL Settings** (if using SSL):
@@ -211,8 +211,8 @@ Replace `YOUR-BUCKET-NAME`, `YOUR-REGION`, `YOUR-ZONE-ID`, and `your-domain.com`
 ### Monitor Deployment
 - [ ] Workflow started successfully
 - [ ] No errors in "Configure AWS credentials" step
-- [ ] No errors in "Terraform Init" step
-- [ ] No errors in "Terraform Apply" step
+- [ ] No errors in "OpenTofu Init" step
+- [ ] No errors in "OpenTofu Apply" step
 - [ ] Deployment completed successfully
 
 ## Post-Deployment Verification
@@ -324,12 +324,12 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 2. Check IAM role trust policy includes your repository
 3. Verify OIDC provider exists in IAM
 
-### If Terraform init fails:
+### If OpenTofu init fails:
 1. Verify S3 bucket exists and is accessible
 2. Check bucket name in `config.yaml` matches actual bucket
 3. Verify AWS region in secret matches bucket region
 
-### If Terraform apply fails:
+### If OpenTofu apply fails:
 1. Check error message for specific resource failing
 2. Verify IAM role has necessary permissions for that resource
 3. For AMI errors: Update `ami_id` for your region
@@ -359,7 +359,7 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 - [ ] Stored SSH key securely
 - [ ] Set up monitoring/alerts (if needed)
 - [ ] Created test users/VMs to verify functionality
-- [ ] (Optional) Set up automatic backups of Terraform state
+- [ ] (Optional) Set up automatic backups of OpenTofu state
 - [ ] (Optional) Set up CloudWatch alarms for EC2 instance
 
 ## Ongoing Maintenance
@@ -369,7 +369,7 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 - [ ] Review security group rules periodically
 - [ ] Update AMI when new versions available
 - [ ] Renew SSL certificates (automatic with Let's Encrypt)
-- [ ] Back up Terraform state regularly
+- [ ] Back up OpenTofu state regularly
 
 ## Need Help?
 

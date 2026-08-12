@@ -3,9 +3,9 @@
 > **GitHub Template Repository** for deploying LabLink infrastructure to AWS
 
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-purple.svg)](https://www.terraform.io/)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.12.5-purple.svg)](https://opentofu.org/)
 
-Deploy your own LabLink infrastructure for cloud-based VM allocation and management. This template uses Terraform and GitHub Actions to automate deployment of the LabLink allocator service to AWS.
+Deploy your own LabLink infrastructure for cloud-based VM allocation and management. This template uses OpenTofu and GitHub Actions to automate deployment of the LabLink allocator service to AWS.
 
 📖 **Main Documentation**: https://talmolab.github.io/lablink/
 
@@ -76,17 +76,17 @@ See [Configuration Reference](#configuration-reference) for all options, or [Man
 3. Select environment (`test`, `prod`, or `ci-test`)
 4. Click "Run workflow"
 
-**Via Local Terraform:**
+**Via Local OpenTofu:**
 ```bash
 cd lablink-infrastructure
 ../scripts/init-terraform.sh test
-terraform apply -var="resource_suffix=test"
+tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=test"
 ```
 
 ### 4. Access Your Infrastructure
 
 After deployment completes:
-- **Allocator URL**: Check workflow output or Terraform output for the URL/IP
+- **Allocator URL**: Check workflow output or OpenTofu output for the URL/IP
 - **SSH Access**: Download the PEM key from workflow artifacts
 - **Web Interface**: Navigate to allocator URL in your browser
 
@@ -106,14 +106,14 @@ After deployment completes:
   - Run GitHub Actions workflows
 
 - **Basic Knowledge** of:
-  - Terraform (helpful but not required)
+  - OpenTofu (helpful but not required)
   - AWS services
 
 ### AWS Setup Required
 
 Before deploying, you must set up:
 
-1. **S3 Bucket** for Terraform state storage
+1. **S3 Bucket** for OpenTofu state storage
 2. **IAM Role** for GitHub Actions OIDC authentication
 3. **(Optional) Elastic IP** for persistent allocator address
 4. **(Optional) Route 53 Hosted Zone** for custom domain
@@ -129,7 +129,7 @@ The deploy and destroy workflows authenticate to AWS using [OpenID Connect (OIDC
 1. GitHub Actions issues a short-lived JSON Web Token (JWT) for the running workflow, signed by `token.actions.githubusercontent.com`.
 2. The workflow calls `sts:AssumeRoleWithWebIdentity` against the IAM role you registered (`AWS_ROLE_ARN`).
 3. AWS validates the JWT against the OIDC provider trust policy (which restricts which `repo:ORG/REPO:*` subject can assume the role) and returns temporary credentials.
-4. Terraform uses those temporary credentials for the duration of the job — typically an hour or less — then they expire.
+4. OpenTofu uses those temporary credentials for the duration of the job — typically an hour or less — then they expire.
 
 **Why this matters:**
 - No long-lived AWS keys ever live in GitHub secrets, so a compromised repository secret cannot be replayed indefinitely.
@@ -218,7 +218,7 @@ To update configuration later (instance types, image tags, DNS/SSL options, etc.
 
 **What the script does NOT do:**
 - Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)
-- Does NOT create DNS records (Terraform handles these, or you create manually)
+- Does NOT create DNS records (OpenTofu handles these, or you create manually)
 
 **After setup, your DNS/SSL approach is configured based on your wizard choices:**
 
@@ -232,7 +232,7 @@ To update configuration later (instance types, image tags, DNS/SSL options, etc.
 
 If you prefer to create resources manually:
 
-#### 1. Create S3 Bucket for Terraform State
+#### 1. Create S3 Bucket for OpenTofu State
 
 ```bash
 # Create bucket (must be globally unique across ALL of AWS)
@@ -308,7 +308,7 @@ The repo ships several example configs under [`lablink-infrastructure/config/`](
 | `letsencrypt.example.yaml` | Route 53 (Terraform-managed) | Let's Encrypt via Caddy | Stable production / staging with a Route 53 hosted zone. **Limit: 5 certs / domain / 7 days.** |
 | `letsencrypt-manual.example.yaml` | Route 53 (manual A record) | Let's Encrypt via Caddy | Same as above but you want to manage the A record yourself (e.g., migrations). |
 | `acm.example.yaml` | Route 53 (Terraform-managed) | AWS ACM via Application Load Balancer | Enterprise production; no Let's Encrypt limits, but ALB adds ~$20/mo. |
-| `dev.example.yaml` | Configurable | Configurable | Local Terraform state (no S3 backend); local prototyping. |
+| `dev.example.yaml` | Configurable | Configurable | Local OpenTofu state (no S3 backend); local prototyping. |
 | `test.example.yaml` | Configurable | Configurable | Staging environment, S3-backed state. |
 | `prod.example.yaml` | Configurable | Configurable | Production environment, S3-backed state. |
 | `ci-test.example.yaml` | Route 53 | Let's Encrypt | Template-maintainer CI only — do not use for application deployments. |
@@ -370,7 +370,7 @@ app:
 ```yaml
 dns:
   enabled: false  # true to use DNS, false for IP-only
-  terraform_managed: false  # true = Terraform creates records
+  terraform_managed: false  # true = OpenTofu creates records
   domain: "lablink.example.com"  # Full domain name (e.g., test.lablink.example.com)
   zone_id: ""  # Leave empty for auto-lookup
 ```
@@ -444,7 +444,7 @@ Deploys or updates your LabLink infrastructure.
 **What it does**:
 1. Configures AWS credentials via OIDC
 2. Injects passwords from GitHub secrets into config
-3. Runs Terraform to create/update infrastructure
+3. Runs OpenTofu to create/update infrastructure
 4. Verifies deployment and DNS
 5. Uploads SSH key as artifact
 
@@ -461,11 +461,11 @@ Deploys or updates your LabLink infrastructure.
 
 **What it does**:
 1. Creates a minimal terraform backend configuration
-2. Initializes Terraform with S3 backend to access client VM state
+2. Initializes OpenTofu with S3 backend to access client VM state
 3. Destroys client VMs directly from the S3 state (for test/prod/ci-test)
 4. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
 
-**Note**: Client VM state is stored in S3 (same bucket as infrastructure state). Terraform can destroy resources using only the state file - no terraform configuration files needed!
+**Note**: Client VM state is stored in S3 (same bucket as infrastructure state). OpenTofu can destroy resources using only the state file - no terraform configuration files needed!
 
 ### Manual Cleanup and Troubleshooting
 
@@ -473,7 +473,7 @@ If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cl
 
 - Remove orphaned IAM roles, policies, and instance profiles
 - Clean up leftover EC2 instances, security groups, and key pairs
-- Fix Terraform state file issues (checksum mismatches, corrupted state)
+- Fix OpenTofu state file issues (checksum mismatches, corrupted state)
 - Verify complete resource removal
 
 Common scenarios covered:
@@ -533,7 +533,7 @@ The client VMs can be configured with a custom startup script. See the [LabLink 
 
 ### Orphaned Resources After Failed Destroy
 
-**Cause**: Destroy workflow failed or Terraform state is out of sync with AWS resources
+**Cause**: Destroy workflow failed or OpenTofu state is out of sync with AWS resources
 
 **Solution**: Use the automated cleanup script:
 ```bash
@@ -544,7 +544,7 @@ The client VMs can be configured with a custom startup script. See the [LabLink 
 ./scripts/cleanup-orphaned-resources.sh <environment>
 ```
 
-The script automatically reads configuration from `config.yaml`, backs up Terraform state files, and deletes resources in the correct dependency order. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md).
+The script automatically reads configuration from `config.yaml`, backs up OpenTofu state files, and deletes resources in the correct dependency order. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md).
 
 ### Deployment Fails with "InvalidAMI"
 
@@ -561,7 +561,7 @@ The script automatically reads configuration from `config.yaml`, backs up Terraf
 2. If using DNS, verify DNS records propagated
 3. Try accessing via public IP first
 
-### Terraform State Lock Error
+### OpenTofu State Lock Error
 
 **Cause**: Previous deployment didn't complete or cleanup
 
@@ -597,12 +597,12 @@ lablink-template/
 │   ├── terraform-destroy.yml           # Destroy infrastructure + client VMs
 │   ├── config-validation.yml           # Validate config.yaml on PR
 │   └── startup-script-validation.yml   # Lint custom-startup.sh on PR
-├── lablink-infrastructure/             # Terraform infrastructure
-│   ├── main.tf                         # Core Terraform config (EC2, EIP, IAM, Route53)
+├── lablink-infrastructure/             # OpenTofu infrastructure
+│   ├── main.tf                         # Core OpenTofu config (EC2, EIP, IAM, Route53)
 │   ├── alb.tf                          # ALB resources (only when ssl.provider="acm")
 │   ├── backend.tf                      # Backend configuration
 │   ├── backend-*.hcl                   # Per-environment backend overrides (dev/test/prod/ci-test)
-│   ├── user_data.sh                    # EC2 initialization script (templated by Terraform)
+│   ├── user_data.sh                    # EC2 initialization script (templated by OpenTofu)
 │   ├── config/
 │   │   ├── config.yaml                 # Your active configuration
 │   │   ├── *.example.yaml              # Per-flavor templates (ip-only, cloudflare, letsencrypt, acm, dev/test/prod, ci-test)
@@ -612,10 +612,10 @@ lablink-template/
 ├── scripts/                            # Helper scripts
 │   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets
 │   ├── configure.sh                    # Interactive config.yaml wizard (re-runnable)
-│   ├── init-terraform.sh               # Terraform init helper (reads bucket from config)
+│   ├── init-terraform.sh               # OpenTofu init helper (reads bucket from config)
 │   ├── verify-deployment.sh            # Post-deploy DNS/HTTP/SSL checks
 │   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
-│   ├── cleanup-orphaned-resources.sh   # Recover from failed `terraform destroy`
+│   ├── cleanup-orphaned-resources.sh   # Recover from failed `tofu destroy`
 │   └── validate-all-configs.{sh,ps1}   # Validate every *.example.yaml against the schema
 ├── MANUAL_CLEANUP_GUIDE.md             # Manual cleanup procedures
 ├── DEPLOYMENT_CHECKLIST.md             # Pre-deployment checklist

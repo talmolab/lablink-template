@@ -57,7 +57,7 @@ The review uses:
 Review categories:
 - **Correctness**: Logic errors, bugs, edge cases
 - **Security**: IAM policies, security groups, public access, credentials handling
-- **Infrastructure best practices**: Terraform structure, state management, resource tagging
+- **Infrastructure best practices**: OpenTofu structure, state management, resource tagging
 - **Cost implications**: Instance types, storage, data transfer
 - **Reliability**: High availability, backup/recovery, monitoring
 - **Configuration**: YAML schema compliance, proper placeholders
@@ -74,7 +74,7 @@ gh pr review <PR_NUMBER> --comment --body "$(cat <<'EOF'
 [High-level overview of changes and assessment]
 
 ### Strengths
-- Well-structured Terraform code
+- Well-structured OpenTofu code
 - Comprehensive validation
 - Clear documentation
 
@@ -148,7 +148,7 @@ Claude will:
    - Structure feedback categories
 
 3. **Deep analysis** (ultrathink):
-   - Trace Terraform resource dependencies
+   - Trace OpenTofu resource dependencies
    - Identify security implications
    - Check against AWS best practices
    - Verify configuration schema compliance
@@ -173,9 +173,9 @@ The command ensures these are checked:
 - [ ] Public access justified and documented
 - [ ] Instance metadata service v2 enabled
 
-### Terraform Best Practices
-- [ ] Proper formatting (`terraform fmt`)
-- [ ] Valid syntax (`terraform validate`)
+### OpenTofu Best Practices
+- [ ] Proper formatting (`tofu fmt`)
+- [ ] Valid syntax (`tofu validate`)
 - [ ] Resources properly tagged
 - [ ] Environment-specific naming
 - [ ] Backend configuration correct
@@ -212,7 +212,7 @@ The command ensures these are checked:
 
 ### Testing & Validation
 - [ ] CI validation passes
-- [ ] `terraform plan` reviewed
+- [ ] `tofu plan` reviewed
 - [ ] Tested in ci-test environment
 - [ ] Rollback plan documented
 
@@ -239,7 +239,7 @@ gh pr comment <PR_NUMBER> --body "Addressed all feedback:
 - Restricted IAM policy to specific instance types
 - Added regional constraint to us-west-2
 - Updated security group to specific IP ranges
-- Added terraform plan output to PR description
+- Added tofu plan output to PR description
 "
 ```
 
@@ -262,7 +262,7 @@ gh pr review <PR_NUMBER> --approve --body "All feedback addressed. Security conc
 
 Tell Claude:
 ```
-Review PR #25, focusing only on Terraform changes in lablink-infrastructure/
+Review PR #25, focusing only on OpenTofu changes in lablink-infrastructure/
 ```
 
 ### Review for Specific Concerns
@@ -320,7 +320,7 @@ Check for:
 - Documentation for why ports are open
 ```
 
-### Terraform State Review
+### OpenTofu State Review
 ```
 Check for:
 - Backend configuration matches environment
@@ -334,5 +334,5 @@ Check for:
 - `/pr-description` - Generate PR description
 - `/update-changelog` - Update CHANGELOG based on PR
 - `/terraform-plan` - Preview infrastructure changes
-- `/validate-terraform` - Validate Terraform before review
+- `/validate-terraform` - Validate OpenTofu before review
 - `/validate-yaml` - Validate configuration before review

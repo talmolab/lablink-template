@@ -1,15 +1,15 @@
 # LabLink Infrastructure Template
 
 A GitHub template repository for deploying [LabLink](https://github.com/talmolab/lablink)
-to AWS with Terraform. Fork it, edit one config file, deploy via GitHub Actions.
+to AWS with OpenTofu. Fork it, edit one config file, deploy via GitHub Actions.
 
 ## Repository Layout
 
-- `lablink-infrastructure/` — Terraform for the allocator: `main.tf`, `alb.tf`,
+- `lablink-infrastructure/` — OpenTofu config for the allocator: `main.tf`, `alb.tf`,
   `backend.tf`, `backend-{dev,test,ci-test,prod}.hcl`, `user_data.sh`.
 - `lablink-infrastructure/config/` — `config.yaml` plus `*.example.yaml` variants
   covering the DNS/SSL use cases.
-- `scripts/` — setup, Terraform init, cost estimation, cleanup, and the
+- `scripts/` — setup, OpenTofu init, cost estimation, cleanup, and the
   `configure.sh` wizard that generates `config.yaml`.
 - `.github/workflows/` — deploy, destroy, config validation, startup-script validation.
 - `.claude/commands/` — repo-specific slash commands.
@@ -32,11 +32,11 @@ docker run --rm -v "$(pwd)/lablink-infrastructure/config/config.yaml:/config/con
 `scripts/validate-all-configs.sh` runs this over every example config.
 
 **`deployment_name` and `environment` must agree between `config.yaml` and the
-Terraform `-var` values.** The allocator reads them from the config file (it is copied
-verbatim onto the instance by `user_data.sh`) and scopes its client Terraform state to
+OpenTofu `-var` values.** The allocator reads them from the config file (it is copied
+verbatim onto the instance by `user_data.sh`) and scopes its client state to
 `s3://{bucket}/{deployment_name}/{environment}/`. The instance profile grants exactly
 that prefix and nothing else, so a mismatch produces AccessDenied when the allocator
-provisions client VMs — long after a green `terraform apply`. The deploy workflow pins
+provisions client VMs — long after a green `tofu apply`. The deploy workflow pins
 both fields from the same inputs it passes to `-var`; keep it that way.
 
 **Editing `config.yaml` replaces the allocator EC2 instance.** Its contents feed
@@ -52,8 +52,11 @@ hard-fails if the placeholders are absent, so keep them in any config you hand-w
 
 ## Conventions
 
-- **Terraform**: `>= 1.9.0, < 2.0.0` (CI pins 1.9.8). Run `terraform fmt` before
-  committing — CI enforces `terraform fmt -check`.
+- **OpenTofu**: `>= 1.9.0, < 2.0.0` (CI pins 1.12.5). Run `tofu fmt` before
+  committing — CI enforces `tofu fmt -check`. The `terraform {}` block label in
+  `backend.tf` and the `terraform:` job id in the deploy workflow are OpenTofu
+  syntax and a branch-protection check name respectively — neither is a
+  reference to the Terraform binary, and neither should be renamed.
 - **Resource naming**: `{deployment_name}-{resource-type}-{environment}`, kebab-case
   throughout. Environments: `dev`, `test`, `ci-test`, `prod`.
 - **Bash**: `set -e`, validate prerequisites up front, idempotent where practical.

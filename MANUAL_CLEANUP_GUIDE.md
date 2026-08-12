@@ -7,7 +7,7 @@ This guide provides step-by-step procedures for manually cleaning up AWS resourc
 ### When to Use This Guide
 
 - Destroy workflow fails with errors
-- Terraform state becomes corrupted or out of sync
+- OpenTofu state becomes corrupted or out of sync
 - Resources remain after running destroy
 - Need to clean up a test environment manually
 - Troubleshooting partial deployment failures
@@ -21,7 +21,7 @@ This guide provides step-by-step procedures for manually cleaning up AWS resourc
 
 ### Safety Warnings
 
-⚠️ **IMPORTANT**: Manual cleanup bypasses Terraform state tracking. Only use these procedures when automated destroy fails.
+⚠️ **IMPORTANT**: Manual cleanup bypasses OpenTofu state tracking. Only use these procedures when automated destroy fails.
 
 ⚠️ **DATA LOSS**: These procedures permanently delete resources and data. Verify you're targeting the correct environment.
 
@@ -453,7 +453,7 @@ echo "✓ State files deleted"
 
 #### D. Clean DynamoDB Lock Entries
 
-**⚠️ CRITICAL**: Only delete lock entries if you're certain no Terraform operations are running.
+**⚠️ CRITICAL**: Only delete lock entries if you're certain no OpenTofu operations are running.
 
 ```bash
 ENV="ci-test"
@@ -489,7 +489,7 @@ Error refreshing state: state data in S3 does not have the expected content.
 The checksum calculated for the state stored in S3 does not match the checksum stored in DynamoDB.
 ```
 
-**Cause:** DynamoDB has a digest entry for a state file that doesn't exist, is empty, or was modified outside of Terraform.
+**Cause:** DynamoDB has a digest entry for a state file that doesn't exist, is empty, or was modified outside of OpenTofu.
 
 **Fix:**
 
@@ -624,7 +624,7 @@ too many certificates already issued for exact set of domains
 - Rate limit violations result in **7-day lockout with NO override available**
 
 **What Triggers a New Certificate:**
-- Deploying with `terraform apply` (first time or after destroy)
+- Deploying with `tofu apply` (first time or after destroy)
 - Re-deploying after DNS changes
 - Re-deploying after changing the domain name
 - Caddy container restart with lost certificate cache
@@ -717,7 +717,7 @@ An automated cleanup script is available at [scripts/cleanup-orphaned-resources.
 
 - **Automatic Configuration**: Reads `bucket_name` and `region` from `lablink-infrastructure/config/config.yaml`
 - **Dry-Run Mode**: Test the cleanup process without making changes
-- **State Backup**: Automatically backs up Terraform state files before deletion
+- **State Backup**: Automatically backs up OpenTofu state files before deletion
 - **Color-Coded Output**: Visual feedback with green (success), yellow (warnings), and red (errors)
 - **Dependency-Aware**: Deletes resources in correct order to avoid dependency conflicts
 
@@ -742,8 +742,8 @@ An automated cleanup script is available at [scripts/cleanup-orphaned-resources.
 ### When to Use This Script
 
 Use the automated script when:
-- Terraform state is out of sync with actual AWS resources
-- `terraform destroy` fails with "No changes" but resources still exist
+- OpenTofu state is out of sync with actual AWS resources
+- `tofu destroy` fails with "No changes" but resources still exist
 - You need to clean up an environment that was partially deployed
 - You want to remove all resources for a specific environment
 

@@ -6,7 +6,7 @@ Claude commands for streamlined LabLink infrastructure development, validation, 
 
 | Command | Purpose | Cost |
 |---------|---------|------|
-| `/validate-terraform` | Check Terraform formatting and syntax | Free |
+| `/validate-terraform` | Check OpenTofu formatting and syntax | Free |
 | `/validate-yaml` | Validate config files against schema | Free |
 | `/validate-bash` | Check shell scripts with shellcheck | Free |
 | `/terraform-plan` | Preview infrastructure changes | Free* |
@@ -14,7 +14,7 @@ Claude commands for streamlined LabLink infrastructure development, validation, 
 | `/pr-description` | Generate PR description from git history | Free |
 | `/update-changelog` | Update CHANGELOG.md | Free |
 
-*Terraform plan incurs minimal S3 read costs (~$0.0004 per 1000 requests)
+*OpenTofu plan incurs minimal S3 read costs (~$0.0004 per 1000 requests)
 
 ## Command Categories
 
@@ -22,9 +22,9 @@ Claude commands for streamlined LabLink infrastructure development, validation, 
 
 **Use these before committing changes:**
 
-- **[/validate-terraform](validate-terraform.md)** - Validate Terraform code
-  - Checks formatting with `terraform fmt -check`
-  - Validates syntax with `terraform validate`
+- **[/validate-terraform](validate-terraform.md)** - Validate OpenTofu code
+  - Checks formatting with `tofu fmt -check`
+  - Validates syntax with `tofu validate`
   - Reports errors with file:line references
   - Provides fix suggestions
 
@@ -45,17 +45,17 @@ Claude commands for streamlined LabLink infrastructure development, validation, 
 **Use these for infrastructure changes:**
 
 - **[/terraform-plan](terraform-plan.md)** - Preview infrastructure changes
-  - Initializes Terraform with correct backend
+  - Initializes OpenTofu with correct backend
   - Shows resource additions, modifications, deletions
   - Estimates cost impact
   - Flags security concerns
-  - **Note:** Running plan is free; costs shown are for `terraform apply`
+  - **Note:** Running plan is free; costs shown are for `tofu apply`
 
 - **[/review-pr](review-pr.md)** - Comprehensive PR review
   - Fetches PR details and all comments
   - Analyzes infrastructure best practices
   - Checks security (IAM, security groups, credentials)
-  - Validates Terraform formatting and structure
+  - Validates OpenTofu formatting and structure
   - Posts categorized feedback via gh CLI
 
 - **[/pr-description](pr-description.md)** - Generate PR descriptions
@@ -176,16 +176,16 @@ jobs:
             /workspace/lablink-infrastructure/config/config.yaml
 ```
 
-### Terraform Validation
+### OpenTofu Validation
 ```yaml
-- name: Terraform Format Check
-  run: terraform fmt -check -recursive lablink-infrastructure/
+- name: OpenTofu Format Check
+  run: tofu fmt -check -recursive lablink-infrastructure/
 
-- name: Terraform Validate
+- name: OpenTofu Validate
   run: |
     cd lablink-infrastructure
-    terraform init -backend=false
-    terraform validate
+    tofu init -backend=false
+    tofu validate
 ```
 
 See `.github/workflows/` for full CI configuration.
@@ -213,7 +213,7 @@ Run validation commands frequently during development:
 /validate-terraform && /validate-yaml && /validate-bash
 ```
 
-### Review Terraform Plans
+### Review OpenTofu Plans
 Always review plans before applying:
 ```bash
 # Generate plan for review

@@ -30,7 +30,7 @@ Let's Encrypt production environment has strict rate limits:
 ### What Triggers a New Certificate?
 
 Each of these actions triggers a new certificate issuance:
-- Deploying with `terraform apply` (first time or after destroy)
+- Deploying with `tofu apply` (first time or after destroy)
 - Re-deploying after DNS changes
 - Re-deploying after changing the domain name
 - Caddy container restart with lost certificate cache
@@ -64,7 +64,7 @@ eip:
 
 **When to use**:
 - Testing infrastructure changes
-- Debugging Terraform configurations
+- Debugging OpenTofu configurations
 - Validating basic functionality
 
 ---
@@ -145,7 +145,7 @@ eip:
 ### Phase 1: Local Development
 1. Use `dev` environment with IP-only deployment
 2. Test basic infrastructure provisioning
-3. Validate Terraform configurations
+3. Validate OpenTofu configurations
 4. No SSL or DNS
 
 ### Phase 2: Staging Testing
@@ -236,7 +236,7 @@ machine:
 
 **Enable Auto-Destroy:**
 - Set up scheduled workflow to destroy test environments nightly
-- Use `terraform destroy` after validation tests pass
+- Use `tofu destroy` after validation tests pass
 
 **Use Dynamic EIP:**
 ```yaml

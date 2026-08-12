@@ -62,12 +62,12 @@ aws iam get-role \
   --output text
 ```
 
-**Note:** If deploying locally with Terraform (not via GitHub Actions), you don't need this secret. Just configure AWS CLI credentials instead.
+**Note:** If deploying locally with OpenTofu (not via GitHub Actions), you don't need this secret. Just configure AWS CLI credentials instead.
 
 ### Prerequisites
 
 - AWS account with credentials configured
-- Terraform installed (v1.9.8+) for local deployments
+- OpenTofu installed (v1.12.5 pinned in CI) for local deployments
 - Docker images available on GHCR (or use public LabLink images)
 - GitHub repository secret `AWS_ROLE_ARN` configured (for GitHub Actions deployments)
 
@@ -119,33 +119,42 @@ ssl:
 
 ### 2. Deploy Infrastructure
 
+> **Upgrading from Terraform?** If you have run `terraform init` in this
+> directory before, a `.terraform.lock.hcl` is left behind pinning providers to
+> `registry.terraform.io`. OpenTofu honours that file silently and keeps pulling
+> HashiCorp-hosted providers. Run `tofu init -upgrade`, or delete
+> `.terraform.lock.hcl` and re-init, to move to `registry.opentofu.org`.
+>
+> This affects local working directories and the `lablink` CLI's
+> `~/.lablink/cache/terraform/` only. CI is unaffected — runners start clean.
+
 **Option A: Using helper script (recommended for first-time setup)**
 
 ```bash
-# Initialize Terraform with automatic bucket configuration
+# Initialize OpenTofu with automatic bucket configuration
 ../scripts/init-terraform.sh dev   # Local state, no S3
 ../scripts/init-terraform.sh test  # S3 backend, reads bucket from config.yaml
 ../scripts/init-terraform.sh prod  # S3 backend, reads bucket from config.yaml
 
 # Review changes
-terraform plan
+tofu plan
 
 # Deploy
-terraform apply
+tofu apply
 ```
 
-**Option B: Manual Terraform commands**
+**Option B: Manual OpenTofu commands**
 
 ```bash
 # For dev (local state)
-terraform init -backend-config=backend-dev.hcl
+tofu init -backend-config=backend-dev.hcl
 
 # For test/prod (S3 state)
-terraform init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUCKET-NAME"
+tofu init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUCKET-NAME"
 
 # Review and apply
-terraform plan
-terraform apply
+tofu plan
+tofu apply
 ```
 
 ### 3. Verify Deployment (Optional)
@@ -153,12 +162,12 @@ terraform apply
 After deployment completes, you can verify everything is working:
 
 ```bash
-# Config-aware mode (recommended) — auto-reads config.yaml + terraform outputs
+# Config-aware mode (recommended) — auto-reads config.yaml + tofu outputs
 ../scripts/verify-deployment.sh dev
 
 # Or with explicit domain and IP (backwards-compatible)
-DOMAIN=$(terraform output -raw allocator_fqdn)
-IP=$(terraform output -raw ec2_public_ip)
+DOMAIN=$(tofu output -raw allocator_fqdn)
+IP=$(tofu output -raw ec2_public_ip)
 ../scripts/verify-deployment.sh "$DOMAIN" "$IP"
 ```
 
@@ -203,7 +212,7 @@ LabLink supports three deployment environments:
 | `test`      | S3            | Staging, pre-production testing | Yes                 |
 | `prod`      | S3            | Production deployments          | Yes                 |
 
-Each environment maintains separate Terraform state to avoid conflicts.
+Each environment maintains separate OpenTofu state to avoid conflicts.
 
 ## Configuration Reference
 
@@ -230,7 +239,7 @@ Each environment maintains separate Terraform state to avoid conflicts.
 ### DNS Configuration (`dns`)
 
 - `enabled`: Enable DNS management (true/false)
-- `terraform_managed`: Let Terraform manage Route 53 records (true/false)
+- `terraform_managed`: Let OpenTofu manage Route 53 records (true/false)
 - `domain`: Your domain name (e.g., `lablink.example.com`)
 - `zone_id`: Route 53 hosted zone ID (required if `terraform_managed: true`)
 
@@ -249,9 +258,9 @@ Each environment maintains separate Terraform state to avoid conflicts.
 
 **Note:** Let's Encrypt always uses production certificates (no staging mode). Rate limit is 50 certificates per registered domain per week.
 
-### Terraform State (`bucket_name`)
+### OpenTofu State (`bucket_name`)
 
-- S3 bucket name for Terraform state storage (test/prod only)
+- S3 bucket name for OpenTofu state storage (test/prod only)
 - Must be globally unique
 
 ### Startup Script (`startup_script`)
@@ -270,7 +279,7 @@ Each environment maintains separate Terraform state to avoid conflicts.
 
 ### `init-terraform.sh` (Optional Helper)
 
-Simplifies Terraform initialization by automatically reading the S3 bucket name from your config file.
+Simplifies OpenTofu initialization by automatically reading the S3 bucket name from your config file.
 
 **Usage:**
 
@@ -281,13 +290,13 @@ Simplifies Terraform initialization by automatically reading the S3 bucket name 
 **What it does:**
 
 - Reads `bucket_name` from `config/config.yaml`
-- Runs `terraform init` with appropriate backend configuration
+- Runs `tofu init` with appropriate backend configuration
 - Validates configuration before initializing
 
 **Equivalent manual command:**
 
 ```bash
-terraform init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUCKET"
+tofu init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUCKET"
 ```
 
 ### `verify-deployment.sh` (Optional Manual Verification)
@@ -340,7 +349,7 @@ Any changes made to this script will be reflected in the client VMs upon their n
 
 ### `user_data.sh` (Automatic - DO NOT RUN MANUALLY)
 
-EC2 instance initialization script embedded in Terraform configuration.
+EC2 instance initialization script embedded in OpenTofu configuration.
 
 **What it does:**
 
@@ -438,7 +447,7 @@ See the workflows in the `.github` directory for automated deployment examples.
 - View container logs: `ssh ubuntu@<ip> sudo docker logs $(sudo docker ps -q)`
 - Verify security group allows inbound traffic on port 5000
 
-**Terraform state locked:**
+**OpenTofu state locked:**
 
 - Check DynamoDB lock table in AWS console
 - Manually remove lock if workflow was interrupted
@@ -457,12 +466,12 @@ cd lablink-infrastructure
 # 2. Ensure config/config.yaml exists
 cp config/example.config.yaml config/config.yaml  # if not already created
 
-# 3. Initialize Terraform for your environment
+# 3. Initialize OpenTofu for your environment
 ../scripts/init-terraform.sh dev    # local state
 ../scripts/init-terraform.sh test   # S3 backend
 
 # 4. Deploy (or have an existing deployment)
-terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
+tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 ```
 
 **Running verification:**
@@ -477,7 +486,7 @@ terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 | Error                                                 | Cause                                             | Fix                                                                |
 | ----------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------ |
 | `Cannot find config/config.yaml`                      | Script not run from correct directory             | `cd lablink-infrastructure` first, or run from repo root           |
-| `Could not read ec2_public_ip from Terraform outputs` | Terraform not initialized or no deployment exists | Run `../scripts/init-terraform.sh <env>` then `terraform apply`    |
+| `Could not read ec2_public_ip from OpenTofu outputs` | OpenTofu not initialized or no deployment exists | Run `../scripts/init-terraform.sh <env>` then `tofu apply`    |
 | `nslookup: command not found`                         | Missing DNS tools                                 | Install `dnsutils` (Ubuntu) or `bind` (macOS: `brew install bind`) |
 
 ### Getting Help
@@ -493,7 +502,7 @@ terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 To destroy all infrastructure:
 
 ```bash
-terraform destroy
+tofu destroy
 ```
 
 This removes:
@@ -505,11 +514,11 @@ This removes:
 - Route 53 DNS records (if `dns.terraform_managed = true`)
 - IAM roles, policies, and instance profile for the allocator
 
-**Note:** The S3 bucket for Terraform state is NOT deleted automatically. Delete it manually if no longer needed.
+**Note:** The S3 bucket for OpenTofu state is NOT deleted automatically. Delete it manually if no longer needed.
 
 ### Cleanup Orphaned Resources
 
-If `terraform destroy` fails or leaves orphaned resources, use the automated cleanup script:
+If `tofu destroy` fails or leaves orphaned resources, use the automated cleanup script:
 
 ```bash
 # From repository root
@@ -522,7 +531,7 @@ If `terraform destroy` fails or leaves orphaned resources, use the automated cle
 The script automatically handles:
 
 - Reading configuration from `config/config.yaml`
-- Backing up Terraform state files before deletion
+- Backing up OpenTofu state files before deletion
 - Deleting resources in correct dependency order
 - Dry-run mode for safe testing: `./scripts/cleanup-orphaned-resources.sh test --dry-run`
 
