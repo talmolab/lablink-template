@@ -16,6 +16,18 @@ to AWS with OpenTofu. Fork it, edit one config file, deploy via GitHub Actions.
 
 ## Things That Will Bite You
 
+**Both deployment paths are permanent, and this repo must never require the
+LabLink CLI.** Path A is `lablink-cli` end to end; Path B is this template plus
+GitHub Actions, and Path B's whole appeal is that a lab admin needs only a
+browser and AWS credentials. `configure.sh` is what keeps that true, so it stays
+— `lablink configure --template` (lablink#442) is an *optional* alternative for
+Path B users who already have the CLI, never a prerequisite. Retiring
+`configure.sh` in favour of it was proposed and rejected in #59; read that PR's
+closing comment before proposing it again. Note also that the dependency already
+runs the other way: lablink-cli pins a `TEMPLATE_VERSION` plus a SHA-256 and
+downloads this repo's release tarball for its `.tf` files, so depending on the
+CLI here would close a cycle between two independently released repos.
+
 **`config.yaml` is validated against the allocator's schema, and the schema is
 strict.** It lives upstream in
 `packages/allocator/src/lablink_allocator_service/conf/structured_config.py`. Any key

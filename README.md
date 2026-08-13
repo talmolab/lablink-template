@@ -29,7 +29,7 @@ There are two supported ways to stand up a LabLink deployment. Both consume the 
 
 The rest of this README documents **Path B**. If you're new and have no preference for GitHub Actions, Path A is the lowest-friction option.
 
-> **Heads-up:** the interactive TUI config wizard (`lablink configure`) is currently Path A-only. Path B users get the typed Hydra schema and the example YAMLs in [`lablink-infrastructure/config/`](lablink-infrastructure/config/) but no interactive wizard inside GitHub Actions. Tracked in [lablink#339](https://github.com/talmolab/lablink/issues/339).
+> **Heads-up:** Path B's config generator is [`./scripts/configure.sh`](scripts/configure.sh), which needs nothing installed beyond what `setup.sh` already requires — Path B never depends on `lablink-cli`. If you happen to have the CLI, `lablink configure --template` is an optional alternative: it writes the same file with the same `PLACEHOLDER_*` conventions, but it rewrites `config.yaml` through a YAML dump, so the inline comments shipped here are not preserved, and it has no field for `allocator.image_tag` or the client `machine.image`. There is still no interactive wizard *inside* GitHub Actions — both tools run on your machine.
 
 ## Quick Start
 
