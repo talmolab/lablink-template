@@ -69,7 +69,7 @@ If the CLI isn't installed, or you decline the prompt, finish the config yoursel
 lablink configure --template
 ```
 
-It edits the same `lablink-infrastructure/config/config.yaml`, reads your existing values as defaults, and is re-runnable as often as you like. Two caveats worth knowing: it rewrites the file through a YAML dump, so the inline comments shipped with the template are not preserved, and it has no field for `allocator.image_tag` or the client `machine.image` — edit those by hand.
+It edits the same `lablink-infrastructure/config/config.yaml`, reads your existing values as defaults, and is re-runnable as often as you like. Three caveats worth knowing: it rewrites the file through a YAML dump, so the inline comments shipped with the template are not preserved; it has no field for `allocator.image_tag` or the client `machine.image`, so edit those by hand; and its region screen pre-selects nothing, so leave it alone unless you mean to move regions. `setup.sh` compares the region afterwards and tells you if the two ended up disagreeing.
 
 Until the wizard has run, `config.yaml` fails the "Deploy LabLink Infrastructure" workflow's validation step — deliberately, so a half-configured deployment cannot reach AWS.
 

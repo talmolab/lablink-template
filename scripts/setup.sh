@@ -151,6 +151,46 @@ ask_yes_no() {
     fi
 }
 
+# Reads a value out of config.yaml so the prompts below can default to what the
+# deployment already uses, rather than asking blind for something the file (and
+# the wizard) already knows. Same minimal-reader pattern as
+# verify-deployment.sh's cfg_get, with paths relative to the repo root.
+cfg_get() {
+    local key="$1"
+    local fallback="${2:-}"
+    local file="lablink-infrastructure/config/config.yaml"
+
+    if [ ! -f "$file" ]; then
+        echo "$fallback"
+        return
+    fi
+
+    local value=""
+    case "$key" in
+        app.region)
+            value=$(awk '/^app:/{found=1} found && /region:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        dns.enabled)
+            value=$(awk '/^dns:/{found=1} found && /enabled:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        dns.domain)
+            value=$(awk '/^dns:/{found=1} found && /domain:/{print $2; exit}' "$file" 2>/dev/null | tr -d '"' || true)
+            ;;
+        bucket_name)
+            value=$(grep -E '^bucket_name:' "$file" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+            ;;
+    esac
+
+    # Strip inline comments and whitespace
+    value=$(echo "$value" | sed 's/ *#.*//' | xargs 2>/dev/null || true)
+
+    if [ -n "$value" ]; then
+        echo "$value"
+    else
+        echo "$fallback"
+    fi
+}
+
 generate_password() {
     if command -v openssl &> /dev/null; then
         openssl rand -base64 16 | tr -d '/+=' | head -c 20
@@ -169,8 +209,12 @@ echo "Press Enter to accept the default value shown in brackets."
 echo ""
 
 # --- AWS Region ---
+# Precedence: what config.yaml already says > the AWS CLI's configured region >
+# us-west-2. The config comes first so a re-run proposes the region this
+# deployment is actually in, instead of whatever the local CLI happens to
+# default to.
 echo -e "${BOLD}--- AWS Region ---${NC}"
-ask CFG_REGION "AWS Region" "${AUTO_REGION:-us-west-2}"
+ask CFG_REGION "AWS Region" "$(cfg_get app.region "${AUTO_REGION:-us-west-2}")"
 
 # Validate region
 if ! aws ec2 describe-regions --region-names "$CFG_REGION" &> /dev/null 2>&1; then
@@ -245,13 +289,17 @@ fi
 echo ""
 echo -e "${BOLD}--- DNS Settings ---${NC}"
 
-ask_yes_no CFG_DNS_ENABLED "Enable custom domain? (y/N)" "N"
+if [ "$(cfg_get dns.enabled false)" = "true" ]; then
+    ask_yes_no CFG_DNS_ENABLED "Enable custom domain? (Y/n)" "y"
+else
+    ask_yes_no CFG_DNS_ENABLED "Enable custom domain? (y/N)" "N"
+fi
 
 CFG_DOMAIN=""
 CFG_DNS_PROVIDER="route53"
 
 if [ "$CFG_DNS_ENABLED" = "true" ]; then
-    ask CFG_DOMAIN "Domain name (e.g., lablink.example.com)" ""
+    ask CFG_DOMAIN "Domain name (e.g., lablink.example.com)" "$(cfg_get dns.domain "")"
     if [ -z "$CFG_DOMAIN" ]; then
         error "Domain name is required when DNS is enabled."
         exit 1
@@ -696,6 +744,10 @@ else
     echo "reading the values above as its defaults. Until it runs, config.yaml"
     echo "is rejected by the 'Deploy LabLink Infrastructure' workflow."
     echo ""
+    echo -e "${BOLD}It asks for the region again on its own screen, with nothing"
+    echo -e "pre-selected. Leave that screen alone unless you mean to move"
+    echo -e "regions — ${CFG_REGION} is where the resources above now live.${NC}"
+    echo ""
     ask_yes_no RUN_WIZARD "Run 'lablink configure --template' now? (Y/n)" "y"
 
     if [ "$RUN_WIZARD" = "true" ]; then
@@ -708,6 +760,27 @@ else
         fi
     else
         echo "  Run 'lablink configure --template' when you're ready."
+    fi
+fi
+
+# The wizard's region screen pre-selects nothing and its answer wins, so a
+# stray keystroke there moves app.region away from the region holding the S3
+# bucket and DynamoDB table this run just created. It also remaps
+# machine.ami_id, and AMI IDs are region-scoped — so re-pinning the region
+# here would leave an AMI that does not exist in it. Report the split and let
+# the operator say which region they meant.
+if [ "$WIZARD_RAN" = "true" ]; then
+    FINAL_REGION=$(cfg_get app.region "$CFG_REGION")
+    if [ "$FINAL_REGION" != "$CFG_REGION" ]; then
+        echo ""
+        warn "Region mismatch — config.yaml and your AWS resources disagree."
+        echo "  config.yaml app.region:  ${FINAL_REGION}  (machine.ami_id now matches this)"
+        echo "  Resources created above: ${CFG_REGION}  (S3 bucket, DynamoDB table)"
+        echo ""
+        echo "  Deploying like this fails when OpenTofu looks for the state bucket."
+        echo "  Fix whichever is wrong:"
+        printf '    keep %-16s re-run '\''lablink configure --template'\'' and select it\n' "$CFG_REGION"
+        printf '    keep %-16s re-run ./scripts/setup.sh for that region\n' "$FINAL_REGION"
     fi
 fi
 
