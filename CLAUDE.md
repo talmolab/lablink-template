@@ -9,9 +9,10 @@ to AWS with OpenTofu. Fork it, edit one config file, deploy via GitHub Actions.
   `backend.tf`, `backend-{dev,test,ci-test,prod}.hcl`, `user_data.sh`.
 - `lablink-infrastructure/config/` — `config.yaml` plus `*.example.yaml` variants
   covering the DNS/SSL use cases.
-- `scripts/` — setup (which also seeds `config.yaml`), OpenTofu init, cost
-  estimation, and cleanup. Configuration itself lives in the LabLink CLI:
-  `lablink configure --template` writes and edits `config.yaml`.
+- `scripts/` — setup (which also pins `config.yaml`'s `bucket_name`/`app.region`
+  and hands off to the wizard), OpenTofu init, cost estimation, and cleanup.
+  Configuration itself lives in the LabLink CLI: `lablink configure --template`
+  writes and edits `config.yaml`.
 - `.github/workflows/` — deploy, destroy, config validation, startup-script validation.
 - `.claude/commands/` — repo-specific slash commands.
 

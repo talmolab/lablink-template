@@ -39,9 +39,9 @@ Use this checklist to ensure you have completed all required setup steps before 
   - ✓ DynamoDB lock-table
   - ✓ Route53 hosted zone (if DNS enabled)
   - ✓ GitHub secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)
-  - ✓ Seeded config.yaml with the bucket, region, and DNS values it created
+  - ✓ Set config.yaml's bucket_name and app.region to match what it created
 - [ ] Saved the displayed passwords securely
-- [ ] Completed the config: `lablink configure --template` (required — the seed alone fails deploy validation)
+- [ ] Completed the config: `lablink configure --template` (setup.sh offers this at the end; required either way — an unfinished config fails deploy validation)
 - [ ] (Optional) To update config later without re-creating infrastructure, re-run: `lablink configure --template`
 
 **What setup.sh does NOT create:**

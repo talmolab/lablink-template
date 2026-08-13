@@ -1,14 +1,14 @@
 #!/bin/bash
 # LabLink One-Time Setup Script
 # Handles: Prerequisites, OIDC, IAM, S3, DynamoDB, Route53, GitHub Secrets
-# Then seeds config.yaml with the values that must match those resources.
+# Then writes the config.yaml values that must match those resources, and
+# offers to run the LabLink CLI's wizard to finish the rest.
 #
 # Usage: ./scripts/setup.sh
 # Must be run from the repository root directory.
 #
-# Configuration itself lives in the LabLink CLI: run
-# `lablink configure --template` to complete or later edit config.yaml —
-# no need to re-run this script.
+# Configuration itself lives in the LabLink CLI: `lablink configure --template`
+# completes or later edits config.yaml — no need to re-run this script.
 
 set -euo pipefail
 
@@ -38,9 +38,8 @@ echo ""
 echo "This script sets up AWS infrastructure and GitHub secrets (run once)."
 echo "  - AWS resources (OIDC, IAM role, S3, DynamoDB, Route53)"
 echo "  - GitHub Actions secrets"
-echo "  - Seeds config.yaml with the values those resources require"
-echo ""
-echo "To complete or update configuration, run: lablink configure --template"
+echo "  - Sets the config.yaml values those resources require"
+echo "  - Offers to run 'lablink configure --template' to finish the config"
 echo ""
 
 header "Phase 1: Prerequisites Check"
@@ -93,10 +92,10 @@ if ! command -v openssl &> /dev/null; then
     warn "openssl not found — password auto-generation will use /dev/urandom fallback"
 fi
 
-# Note: no configuration tool is required here. This script only seeds the
-# handful of values it creates; `lablink configure --template` completes the
-# config afterwards and is checked for at that point, not now — setup must
-# still work on a machine that has not installed the CLI yet.
+# Note: the LabLink CLI is deliberately not required here. This script only
+# writes the handful of values it creates; Phase 8 checks for `lablink` at the
+# point it wants to hand off, and prints install instructions instead of
+# failing — setup must still work on a machine that has not installed it yet.
 
 # Auto-detect values
 AUTO_REGION=$(aws configure get region 2>/dev/null || echo "")
@@ -305,7 +304,7 @@ if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
     echo "  5. Route53 Hosted Zone for $(echo "$CFG_DOMAIN" | awk -F. '{if (NF>=2) print $(NF-1)"."$NF; else print $0}')"
 fi
 echo "  6. GitHub Secrets (AWS_ROLE_ARN, AWS_REGION, ADMIN_PASSWORD, DB_PASSWORD)"
-echo "  7. Seed config.yaml (completed later with 'lablink configure --template')"
+echo "  7. config.yaml bucket_name/region, then the 'lablink configure' wizard"
 echo ""
 
 prompt "Proceed with setup? [y/N]: "
@@ -623,8 +622,30 @@ echo ""
 SEED_CONFIG="lablink-infrastructure/config/config.yaml"
 
 if [ -f "$SEED_CONFIG" ]; then
-    warn "$SEED_CONFIG already exists — leaving it untouched."
-    echo "  Run 'lablink configure --template' to edit it."
+    # This template commits config.yaml, so on a real fork the seed below never
+    # runs — which is why the two backend-critical values are reconciled in place
+    # instead. Neither is a wizard field (`lablink configure --template` has no
+    # bucket_name screen), so a stale bucket_name would survive every later step
+    # and point OpenTofu at a bucket this deployment does not own. That surfaces
+    # as an opaque AccessDenied from `tofu init`, not as a wrong-bucket error.
+    info "$SEED_CONFIG exists — reconciling it with the resources above."
+
+    if grep -qE '^bucket_name:' "$SEED_CONFIG"; then
+        sed -i.bak -E "s|^bucket_name:.*|bucket_name: \"${CFG_BUCKET}\"|" "$SEED_CONFIG"
+    else
+        printf '\nbucket_name: "%s"\n' "$CFG_BUCKET" >> "$SEED_CONFIG"
+    fi
+    success "Set bucket_name=${CFG_BUCKET}"
+
+    # region lives at app.region, the only 'region' key in the allocator schema.
+    if grep -qE '^[[:space:]]+region:' "$SEED_CONFIG"; then
+        sed -i.bak -E "s|^([[:space:]]+)region:.*|\1region: \"${CFG_REGION}\"|" "$SEED_CONFIG"
+        success "Set app.region=${CFG_REGION}"
+    else
+        warn "No app.region in $SEED_CONFIG — set it to ${CFG_REGION} in the wizard."
+    fi
+
+    rm -f "$SEED_CONFIG.bak"
 else
     mkdir -p "$(dirname "$SEED_CONFIG")"
     cat > "$SEED_CONFIG" <<CONFIGEOF
@@ -655,25 +676,65 @@ CONFIGEOF
     success "Seeded $SEED_CONFIG"
 fi
 
+# ============================================================================
+# Phase 8: Hand off to the configuration wizard
+# ============================================================================
+header "Phase 8: Completing config.yaml"
+echo ""
+
+WIZARD_RAN=false
+
+if ! command -v lablink &> /dev/null; then
+    warn "LabLink CLI not found — your config is not deployable yet."
+    echo "  uv tool install lablink-cli && lablink configure --template"
+elif [ ! -t 0 ]; then
+    # The wizard is a full-screen Textual app and needs a real terminal.
+    warn "Not an interactive terminal — skipping the wizard."
+    echo "  Run 'lablink configure --template' from the repository root."
+else
+    echo "The wizard fills in deployment_name, instance type, images, and TLS,"
+    echo "reading the values above as its defaults. Until it runs, config.yaml"
+    echo "is rejected by the 'Deploy LabLink Infrastructure' workflow."
+    echo ""
+    ask_yes_no RUN_WIZARD "Run 'lablink configure --template' now? (Y/n)" "y"
+
+    if [ "$RUN_WIZARD" = "true" ]; then
+        # Never abort setup for a quit wizard — the passwords above are the one
+        # thing this script cannot reproduce on a re-run.
+        if lablink configure --template; then
+            WIZARD_RAN=true
+        else
+            warn "Wizard exited without saving — re-run 'lablink configure --template'."
+        fi
+    else
+        echo "  Run 'lablink configure --template' when you're ready."
+    fi
+fi
+
 echo ""
 header "All Done!"
 echo ""
 echo -e "${BOLD}Next steps:${NC}"
 echo ""
-echo "  1. Install the LabLink CLI (once per machine):"
-echo "     uv tool install lablink-cli"
-echo ""
-echo "  2. Complete your configuration:"
-echo "     lablink configure --template"
-echo ""
-echo "  3. Commit and deploy via GitHub Actions:"
+
+if [ "$WIZARD_RAN" != "true" ]; then
+    echo "  1. Install the LabLink CLI (once per machine):"
+    echo "     uv tool install lablink-cli"
+    echo ""
+    echo "  2. Complete your configuration:"
+    echo "     lablink configure --template"
+    echo ""
+fi
+
+echo "  Review, commit, and deploy via GitHub Actions:"
+echo "     git diff lablink-infrastructure/config/config.yaml"
 echo "     git add lablink-infrastructure/config/config.yaml"
 echo "     git commit -m 'Add deployment configuration' && git push"
 echo "     Go to Actions -> 'Deploy LabLink Infrastructure' -> Run workflow"
 echo ""
 
 if [ "$CFG_DNS_ENABLED" = "true" ] && [ "$CFG_DNS_PROVIDER" = "route53" ]; then
-    echo "  4. (DNS) Update your domain registrar's nameservers to point to Route53"
+    echo "  (DNS) Update your domain registrar's nameservers to point to Route53"
     echo "     Then wait for DNS propagation (usually minutes, up to 48 hours)"
     echo ""
 fi

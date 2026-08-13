@@ -51,19 +51,25 @@ The setup script creates AWS infrastructure and GitHub secrets:
 - Creates S3 bucket (with versioning) and DynamoDB table
 - Creates Route53 hosted zone (if using custom domain)
 - Sets GitHub secrets (`AWS_ROLE_ARN`, `AWS_REGION`, `ADMIN_PASSWORD`, `DB_PASSWORD`)
-- Seeds `lablink-infrastructure/config/config.yaml` with the bucket, region, and DNS values it just created
+- Writes `bucket_name` and `app.region` into `lablink-infrastructure/config/config.yaml` (creating it if absent), so the config cannot disagree with the backend it just created
+- Offers to run `lablink configure --template` to finish the rest
 - Verifies all resources were created successfully
 
 The script is idempotent — safe to re-run if interrupted.
 
-**Completing your configuration:** the seed is deliberately incomplete — it carries only the values that must match the infrastructure created above. Finish it (and change settings like instance type, image tags, or DNS options later) with the LabLink CLI:
+**Completing your configuration:** install the CLI first and `setup.sh` hands off to its wizard at the end:
 
 ```bash
-uv tool install lablink-cli   # once per machine
+uv tool install lablink-cli   # once per machine, before running setup.sh
+```
+
+If the CLI isn't installed, or you decline the prompt, finish the config yourself — from the repository root, any time:
+
+```bash
 lablink configure --template
 ```
 
-Run it from the repository root. It writes the same `lablink-infrastructure/config/config.yaml`, reads your existing values as defaults, and is re-runnable as often as you like.
+It edits the same `lablink-infrastructure/config/config.yaml`, reads your existing values as defaults, and is re-runnable as often as you like. Two caveats worth knowing: it rewrites the file through a YAML dump, so the inline comments shipped with the template are not preserved, and it has no field for `allocator.image_tag` or the client `machine.image` — edit those by hand.
 
 Until the wizard has run, `config.yaml` fails the "Deploy LabLink Infrastructure" workflow's validation step — deliberately, so a half-configured deployment cannot reach AWS.
 
@@ -211,9 +217,9 @@ The setup script creates all infrastructure and secrets in one go:
 ./scripts/setup.sh
 ```
 
-This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, and seeds `config.yaml` with the values those resources require. It is idempotent and safe to re-run.
+This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, writes the `bucket_name`/`app.region` those resources require into `config.yaml`, and offers to run the wizard for the rest. It is idempotent and safe to re-run.
 
-To complete that config — and to update it later (instance types, image tags, DNS/SSL options, etc.) — use the LabLink CLI:
+To complete that config — and to update it later (instance types, DNS/SSL options, etc.) — use the LabLink CLI:
 
 ```bash
 lablink configure --template
@@ -613,7 +619,7 @@ lablink-template/
 │   │   └── README.md                   # Detailed config selection guide
 │   └── README.md                       # Infrastructure documentation
 ├── scripts/                            # Helper scripts
-│   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets, seed config
+│   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets, config bucket/region
 │   ├── init-terraform.sh               # OpenTofu init helper (reads bucket from config)
 │   ├── verify-deployment.sh            # Post-deploy DNS/HTTP/SSL checks
 │   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
