@@ -206,7 +206,7 @@ LabLink supports three deployment environments:
 
 | Environment | Backend State | Use Case                        | S3 Bucket Required? |
 | ----------- | ------------- | ------------------------------- | ------------------- |
-| `dev`       | Local file    | Local testing, experimentation  | No                  |
+| `dev`       | S3            | Local testing, experimentation  | Yes                 |
 | `test`      | S3            | Staging, pre-production testing | Yes                 |
 | `prod`      | S3            | Production deployments          | Yes                 |
 

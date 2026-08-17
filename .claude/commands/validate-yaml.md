@@ -232,7 +232,7 @@ jobs:
 
 Use example configs as templates:
 
-- `dev.example.yaml` - Local development (no S3 backend)
+- `dev.example.yaml` - Local development (S3 state under `dev/`)
 - `ci-test.example.yaml` - CI testing environment
 - `test.example.yaml` - Staging environment
 - `prod.example.yaml` - Production environment

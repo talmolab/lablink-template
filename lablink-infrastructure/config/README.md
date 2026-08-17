@@ -212,14 +212,14 @@ These configs are organized by **how you want to set up DNS and SSL**:
 These configs are organized by **where/how you're deploying** (dev vs test vs prod):
 
 #### dev.example.yaml
-**Best for:** Local development with local OpenTofu state
+**Best for:** Local development against its own S3 state key
 
-- **State Storage:** Local file (no S3)
+- **State Storage:** S3, `dev/terraform.tfstate`
 - **DNS/SSL:** Configurable (usually IP-only for dev)
 - **Usage:** Local development and testing
 
 **Key Differences:**
-- Local OpenTofu state (no S3 backend)
+- Separate state key keeps local experiments off `test`/`prod` state
 - Usually deployed from local machine
 - Not intended for CI/CD workflows
 
