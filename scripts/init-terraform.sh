@@ -5,39 +5,41 @@ set -e
 
 ENVIRONMENT=${1:-dev}
 
-
-if [ "$ENVIRONMENT" = "dev" ]; then
-    echo "Initializing OpenTofu for dev environment (local state)"
-    tofu init -backend-config=backend-dev.hcl
-else
-    # Extract bucket name from config.yaml
-    if [ ! -f "config/config.yaml" ]; then
-        echo "Error: config/config.yaml not found!"
-        echo "Please copy config/example.config.yaml to config/config.yaml and customize it."
+case "$ENVIRONMENT" in
+    dev | test | ci-test | prod) ;;
+    *)
+        echo "Error: unknown environment '$ENVIRONMENT' (expected dev, test, ci-test, or prod)"
         exit 1
-    fi
+        ;;
+esac
 
-    BUCKET_NAME=$(grep "^bucket_name:" config/config.yaml | awk '{print $2}' | tr -d '"' | head -n 1)
-    REGION=$(grep -A 5 "^app:" config/config.yaml | grep "^  region:" | awk '{print $2}' | tr -d '"' | head -n 1)
-
-    if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "YOUR-UNIQUE-SUFFIX" ]; then
-        echo "Error: Please set a valid bucket_name in config/config.yaml"
-        exit 1
-    fi
-
-    if [ -z "$REGION" ]; then
-        echo "Error: Please set a valid region in config/config.yaml"
-        exit 1
-    fi
-
-    echo "Initializing OpenTofu for $ENVIRONMENT environment"
-    echo "Using S3 bucket: $BUCKET_NAME"
-    echo "Using region: $REGION"
-
-    tofu init \
-        -backend-config=backend-${ENVIRONMENT}.hcl \
-        -backend-config="bucket=$BUCKET_NAME" \
-        -backend-config="region=$REGION"
+# Extract bucket name from config.yaml
+if [ ! -f "config/config.yaml" ]; then
+    echo "Error: config/config.yaml not found!"
+    echo "Please copy config/example.config.yaml to config/config.yaml and customize it."
+    exit 1
 fi
+
+BUCKET_NAME=$(grep "^bucket_name:" config/config.yaml | awk '{print $2}' | tr -d '"' | head -n 1)
+REGION=$(grep -A 5 "^app:" config/config.yaml | grep "^  region:" | awk '{print $2}' | tr -d '"' | head -n 1)
+
+if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "YOUR-UNIQUE-SUFFIX" ]; then
+    echo "Error: Please set a valid bucket_name in config/config.yaml"
+    exit 1
+fi
+
+if [ -z "$REGION" ]; then
+    echo "Error: Please set a valid region in config/config.yaml"
+    exit 1
+fi
+
+echo "Initializing OpenTofu for $ENVIRONMENT environment"
+echo "Using S3 bucket: $BUCKET_NAME"
+echo "Using region: $REGION"
+
+tofu init \
+    -backend-config="backend-${ENVIRONMENT}.hcl" \
+    -backend-config="bucket=$BUCKET_NAME" \
+    -backend-config="region=$REGION"
 
 echo "OpenTofu initialized successfully!"

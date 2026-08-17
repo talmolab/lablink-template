@@ -100,9 +100,14 @@ Recommendation: Schedule this change during maintenance window.
 ## Environment-Specific Backend Configs
 
 **dev** - `backend-dev.hcl`:
-- Local state file (no S3)
-- No state locking
-- Use for local testing only
+```hcl
+bucket         = "<from config.yaml bucket_name>"
+key            = "dev/terraform.tfstate"
+region         = "<from config.yaml app.region>"
+dynamodb_table = "lock-table"
+encrypt        = true
+```
+- Not exposed in the deploy/destroy workflows; local iteration only
 
 **ci-test** - `backend-ci-test.hcl`:
 ```hcl

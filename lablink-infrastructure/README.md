@@ -132,7 +132,7 @@ ssl:
 
 ```bash
 # Initialize OpenTofu with automatic bucket configuration
-../scripts/init-terraform.sh dev   # Local state, no S3
+../scripts/init-terraform.sh dev   # S3 backend, reads bucket from config.yaml
 ../scripts/init-terraform.sh test  # S3 backend, reads bucket from config.yaml
 ../scripts/init-terraform.sh prod  # S3 backend, reads bucket from config.yaml
 
@@ -146,10 +146,8 @@ tofu apply
 **Option B: Manual OpenTofu commands**
 
 ```bash
-# For dev (local state)
-tofu init -backend-config=backend-dev.hcl
-
-# For test/prod (S3 state)
+# Every environment uses the S3 backend; the .hcl only sets the state key
+tofu init -backend-config=backend-dev.hcl -backend-config="bucket=YOUR-BUCKET-NAME"
 tofu init -backend-config=backend-test.hcl -backend-config="bucket=YOUR-BUCKET-NAME"
 
 # Review and apply
@@ -468,8 +466,8 @@ cd lablink-infrastructure
 cp config/example.config.yaml config/config.yaml  # if not already created
 
 # 3. Initialize OpenTofu for your environment
-../scripts/init-terraform.sh dev    # local state
-../scripts/init-terraform.sh test   # S3 backend
+../scripts/init-terraform.sh dev    # state at s3://<bucket>/dev/terraform.tfstate
+../scripts/init-terraform.sh test   # state at s3://<bucket>/test/terraform.tfstate
 
 # 4. Deploy (or have an existing deployment)
 tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"

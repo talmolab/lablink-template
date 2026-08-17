@@ -14,7 +14,7 @@ on:
         default: "my-lablink"
         type: string
       environment:
-        description: "Environment to destroy (test, prod, or ci-test) - dev uses local state and should only be used locally"
+        description: "Environment to destroy (test, prod, or ci-test) - dev is local-only and is not exposed here"
         required: true
         default: "test"
         type: choice

@@ -39,7 +39,7 @@ Do you need HTTPS/SSL?
 | **letsencrypt.example.yaml** | Route53 | Let's Encrypt | Yes | **5/week per domain** | Infrequent staging, stable production | ⭐⭐ Medium |
 | **letsencrypt-manual.example.yaml** | Route53 | Let's Encrypt | No | **5/week per domain** | Manual DNS control, migrations | ⭐⭐⭐ Medium-High |
 | **acm.example.yaml** | Route53 | AWS ACM (+ ALB) | Yes | None | Enterprise production (+$20/mo) | ⭐⭐⭐⭐ High |
-| **dev.example.yaml** | Configurable | Configurable | Configurable | Varies | Local development (local state) | ⭐⭐ Medium |
+| **dev.example.yaml** | Configurable | Configurable | Configurable | Varies | Local development (S3 state) | ⭐⭐ Medium |
 | **test.example.yaml** | Configurable | Configurable | Configurable | Varies | Staging environment (S3 state) | ⭐⭐ Medium |
 | **prod.example.yaml** | Configurable | Configurable | Configurable | Varies | Production deployment (S3 state) | ⭐⭐ Medium |
 | **ci-test.example.yaml** | Route53 | Let's Encrypt | Yes | **5/week per domain** | Template maintainers only | ⭐⭐ Medium |
