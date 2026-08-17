@@ -332,10 +332,9 @@ db:
   password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret
 ```
 
-`password` is the only database setting worth setting here. Postgres runs inside
-the allocator container, so the rest of `db` (`dbname`, `user`, `host`, `port`,
-`table_name`) is left at the allocator's own defaults — the schema still accepts
-those keys, but there is nothing useful to point them at.
+The password is the only configurable database setting. Postgres runs inside the
+allocator container with a fixed identity (`lablink_db`/`lablink` on
+`localhost:5432`), so an external database is not supported.
 
 ### Client VM Settings
 
