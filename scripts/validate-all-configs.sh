@@ -14,6 +14,9 @@ NC='\033[0m' # No Color
 CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lablink-infrastructure/config" && pwd)"
 DOCKER_IMAGE="ghcr.io/talmolab/lablink-allocator-image:linux-amd64-latest-test"
 
+SCRATCH="$(mktemp -t lablink-validate-XXXXXX.yaml)"
+trap 'rm -f "$SCRATCH"' EXIT
+
 echo -e "${CYAN}=== Validating All Example Configs ===${NC}"
 echo ""
 
@@ -28,26 +31,26 @@ for example in "${examples[@]}"; do
     example_name=$(basename "$example")
     echo -e "${YELLOW}Validating: $example_name${NC}"
 
-    # Copy to config.yaml for validation
-    cp "$example" "$CONFIG_DIR/config.yaml"
+    # Copy to a scratch file, never to config.yaml — the container mount is
+    # always /config/config.yaml, so the host filename is irrelevant, and
+    # writing to config.yaml here would clobber the caller's real one.
+    cp "$example" "$SCRATCH"
 
     # Run validation and capture output
     if docker run --rm \
-        -v "$CONFIG_DIR/config.yaml:/config/config.yaml:ro" \
+        -v "$SCRATCH:/config/config.yaml:ro" \
         "$DOCKER_IMAGE" \
         uv run lablink-validate-config /config/config.yaml 2>&1 | tee /tmp/validate-output.txt | grep -q "\[PASS\]"; then
         echo -e "  ${GREEN}[PASS]${NC}"
-        ((passed++))
+        passed=$((passed + 1))
     else
         echo -e "  ${RED}[FAIL]${NC}"
         # Show error details
         grep -v "UserWarning" /tmp/validate-output.txt | tail -5 | sed 's/^/  /' || true
-        ((failed++))
+        failed=$((failed + 1))
         failed_files+=("$example_name")
     fi
 
-    # Clean up
-    rm -f "$CONFIG_DIR/config.yaml"
     echo ""
 done
 

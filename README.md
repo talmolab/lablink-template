@@ -329,12 +329,13 @@ All configuration is in `lablink-infrastructure/config/config.yaml`.
 
 ```yaml
 db:
-  dbname: "lablink_db"
-  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret
-  host: "localhost"
-  port: 5432
 ```
+
+`password` is the only database setting worth setting here. Postgres runs inside
+the allocator container, so the rest of `db` (`dbname`, `user`, `host`, `port`,
+`table_name`) is left at the allocator's own defaults — the schema still accepts
+those keys, but there is nothing useful to point them at.
 
 ### Client VM Settings
 

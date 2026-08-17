@@ -166,9 +166,8 @@ The validator checks against this schema:
 ```yaml
 # Required fields
 db:
-  password: string (required)
-  dbname: string (required)
-  user: string (required)
+  password: string (required)  # dbname/user/host/port/table_name also exist,
+                               # all defaulted; these configs omit them
 
 machine:
   machine_type: string (required) # EC2 instance type

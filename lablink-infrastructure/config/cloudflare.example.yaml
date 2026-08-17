@@ -27,17 +27,12 @@ deployment_name: "my-lablink"
 environment: "prod"
 
 db:
-  dbname: "lablink_db"
-  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD"
-  host: "localhost"
-  port: 5432
-  table_name: "vms"
 
 machine:
   machine_type: "g4dn.xlarge"
   image: "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-latest-test"
-  ami_id: "ami-0601752c11b394251"  # us-west-2
+  ami_id: "ami-0601752c11b394251" # us-west-2
   repository: "https://github.com/talmolab/sleap-tutorial-data.git"
   software: "sleap"
 
@@ -50,16 +45,16 @@ app:
   region: "us-west-2"
 
 dns:
-  enabled: true  # DNS required for SSL (managed in CloudFlare, not Route53)
-  terraform_managed: false  # DNS records created manually in CloudFlare
-  domain: "lablink.example.com"  # Used for Caddyfile configuration
-  zone_id: ""  # Not used (CloudFlare manages DNS)
+  enabled: true # DNS required for SSL (managed in CloudFlare, not Route53)
+  terraform_managed: false # DNS records created manually in CloudFlare
+  domain: "lablink.example.com" # Used for Caddyfile configuration
+  zone_id: "" # Not used (CloudFlare manages DNS)
 
 eip:
   strategy: "persistent"
 
 ssl:
-  provider: "cloudflare"  # CloudFlare handles SSL termination
+  provider: "cloudflare" # CloudFlare handles SSL termination
   email: ""
   certificate_arn: ""
 

@@ -218,9 +218,10 @@ Each environment maintains separate OpenTofu state to avoid conflicts.
 
 ### Database (`db`)
 
-- `password`: PostgreSQL password (**CHANGE THIS!**)
-- `dbname`: Database name (default: `lablink_db`)
-- `user`: Database username (default: `lablink`)
+- `password`: PostgreSQL password (**CHANGE THIS!**) — the only `db` key these
+  configs set. Postgres runs inside the allocator container, so `dbname`, `user`,
+  `host`, `port`, and `table_name` are left at the allocator's defaults. They are
+  still accepted by the schema if you have a reason to override them.
 
 ### Machine Settings (`machine`)
 
