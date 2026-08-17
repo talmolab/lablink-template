@@ -18,7 +18,12 @@ deployment_name: "my-lablink"
 environment: "dev"
 
 db:
+  dbname: "lablink_db"
+  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD" # Injected from GitHub secret at deploy time
+  host: "localhost"
+  port: 5432
+  table_name: "vms"
 
 machine:
   # Client VM instance type (smaller for dev to save costs)
