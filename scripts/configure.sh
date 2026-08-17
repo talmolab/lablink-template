@@ -441,12 +441,7 @@ deployment_name: "${CFG_DEPLOYMENT_NAME}"
 environment: "${CFG_ENVIRONMENT}"
 
 db:
-  dbname: "lablink_db"
-  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret at deploy time
-  host: "localhost"
-  port: 5432
-  table_name: "vms"
 
 machine:
   machine_type: "${CFG_INSTANCE_TYPE}"

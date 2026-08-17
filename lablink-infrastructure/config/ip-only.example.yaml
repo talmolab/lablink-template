@@ -30,12 +30,7 @@ deployment_name: "my-lablink"
 environment: "prod"
 
 db:
-  dbname: "lablink_db"
-  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD"
-  host: "localhost"
-  port: 5432
-  table_name: "vms"
 
 machine:
   machine_type: "g4dn.xlarge"

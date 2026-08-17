@@ -28,17 +28,12 @@ deployment_name: "my-lablink"
 environment: "prod"
 
 db:
-  dbname: "lablink_db"
-  user: "lablink"
   password: "PLACEHOLDER_DB_PASSWORD"
-  host: "localhost"
-  port: 5432
-  table_name: "vms"
 
 machine:
   machine_type: "g4dn.xlarge"
   image: "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-latest-test"
-  ami_id: "ami-0601752c11b394251"  # us-west-2
+  ami_id: "ami-0601752c11b394251" # us-west-2
   repository: "https://github.com/talmolab/sleap-tutorial-data.git"
   software: "sleap"
 
@@ -51,18 +46,18 @@ app:
   region: "us-west-2"
 
 dns:
-  enabled: true  # Route53 DNS enabled
-  terraform_managed: true  # Terraform creates/destroys A record (alias to ALB)
-  domain: "lablink.example.com"  # Full domain
-  zone_id: ""  # Auto-lookup hosted zone
+  enabled: true # Route53 DNS enabled
+  terraform_managed: true # Terraform creates/destroys A record (alias to ALB)
+  domain: "lablink.example.com" # Full domain
+  zone_id: "" # Auto-lookup hosted zone
 
 eip:
   strategy: "persistent"
 
 ssl:
-  provider: "acm"  # AWS Certificate Manager via ALB
-  email: ""  # Not needed for ACM
-  certificate_arn: "arn:aws:acm:us-west-2:123456789012:certificate/abcd1234-5678-90ab-cdef-EXAMPLE11111"  # REPLACE with your ACM cert ARN
+  provider: "acm" # AWS Certificate Manager via ALB
+  email: "" # Not needed for ACM
+  certificate_arn: "arn:aws:acm:us-west-2:123456789012:certificate/abcd1234-5678-90ab-cdef-EXAMPLE11111" # REPLACE with your ACM cert ARN
 
 startup_script:
   enabled: false
