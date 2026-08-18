@@ -39,7 +39,7 @@ Do you need HTTPS/SSL?
 | **letsencrypt.example.yaml** | Route53 | Let's Encrypt | Yes | **5/week per domain** | Infrequent staging, stable production | ⭐⭐ Medium |
 | **letsencrypt-manual.example.yaml** | Route53 | Let's Encrypt | No | **5/week per domain** | Manual DNS control, migrations | ⭐⭐⭐ Medium-High |
 | **acm.example.yaml** | Route53 | AWS ACM (+ ALB) | Yes | None | Enterprise production (+$20/mo) | ⭐⭐⭐⭐ High |
-| **dev.example.yaml** | Configurable | Configurable | Configurable | Varies | Local development (local state) | ⭐⭐ Medium |
+| **dev.example.yaml** | Configurable | Configurable | Configurable | Varies | Local development (S3 state) | ⭐⭐ Medium |
 | **test.example.yaml** | Configurable | Configurable | Configurable | Varies | Staging environment (S3 state) | ⭐⭐ Medium |
 | **prod.example.yaml** | Configurable | Configurable | Configurable | Varies | Production deployment (S3 state) | ⭐⭐ Medium |
 | **ci-test.example.yaml** | Route53 | Let's Encrypt | Yes | **5/week per domain** | Template maintainers only | ⭐⭐ Medium |
@@ -212,14 +212,14 @@ These configs are organized by **how you want to set up DNS and SSL**:
 These configs are organized by **where/how you're deploying** (dev vs test vs prod):
 
 #### dev.example.yaml
-**Best for:** Local development with local OpenTofu state
+**Best for:** Local development against its own S3 state key
 
-- **State Storage:** Local file (no S3)
+- **State Storage:** S3, `dev/terraform.tfstate`
 - **DNS/SSL:** Configurable (usually IP-only for dev)
 - **Usage:** Local development and testing
 
 **Key Differences:**
-- Local OpenTofu state (no S3 backend)
+- Separate state key keeps local experiments off `test`/`prod` state
 - Usually deployed from local machine
 - Not intended for CI/CD workflows
 

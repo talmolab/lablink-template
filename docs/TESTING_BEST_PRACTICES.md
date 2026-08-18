@@ -8,7 +8,7 @@ LabLink supports multiple deployment environments:
 
 | Environment | State Storage | Use Case | SSL Recommendation |
 |-------------|---------------|----------|-------------------|
-| `dev` | Local file | Local development | IP-only (no SSL) |
+| `dev` | S3 | Local development | IP-only (no SSL) |
 | `test` | S3 | Staging/pre-production | CloudFlare or rotated subdomains |
 | `prod` | S3 | Production | Let's Encrypt (stable domain) |
 | `ci-test` | S3 | Template maintainers only | Use sparingly with Let's Encrypt |

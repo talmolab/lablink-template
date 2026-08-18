@@ -1,5 +1,5 @@
 # LabLink Development Configuration
-# For local development and testing with local Terraform state
+# For local iteration, kept off the shared test/prod state by its own S3 key
 # Copy to config.yaml when doing local development
 #
 # Usage:
@@ -68,7 +68,7 @@ startup_script:
   path: ""
   on_error: "continue"
 
-# S3 bucket NOT USED for dev environment (uses local state)
-# Dev uses backend-dev.hcl which stores state in ./terraform.tfstate
-# Leave this as-is - the value doesn't matter for dev
-bucket_name: "not-used-for-dev-environment"
+# S3 bucket for OpenTofu state (dev/terraform.tfstate) and for the client VM
+# state the allocator writes under {deployment_name}/{environment}/.
+# Must be a real bucket you own - `scripts/setup.sh` creates one.
+bucket_name: "tf-state-lablink-YOURORG" # Replace YOURORG with something unique

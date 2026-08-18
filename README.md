@@ -308,7 +308,7 @@ The repo ships several example configs under [`lablink-infrastructure/config/`](
 | `letsencrypt.example.yaml` | Route 53 (Terraform-managed) | Let's Encrypt via Caddy | Stable production / staging with a Route 53 hosted zone. **Limit: 5 certs / domain / 7 days.** |
 | `letsencrypt-manual.example.yaml` | Route 53 (manual A record) | Let's Encrypt via Caddy | Same as above but you want to manage the A record yourself (e.g., migrations). |
 | `acm.example.yaml` | Route 53 (Terraform-managed) | AWS ACM via Application Load Balancer | Enterprise production; no Let's Encrypt limits, but ALB adds ~$20/mo. |
-| `dev.example.yaml` | Configurable | Configurable | Local OpenTofu state (no S3 backend); local prototyping. |
+| `dev.example.yaml` | Configurable | Configurable | Local prototyping; S3-backed state under its own `dev/` key. |
 | `test.example.yaml` | Configurable | Configurable | Staging environment, S3-backed state. |
 | `prod.example.yaml` | Configurable | Configurable | Production environment, S3-backed state. |
 | `ci-test.example.yaml` | Route 53 | Let's Encrypt | Template-maintainer CI only — do not use for application deployments. |
