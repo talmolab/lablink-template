@@ -404,7 +404,6 @@ POLICIES=(
     "arn:aws:iam::aws:policy/AmazonS3FullAccess"
     "arn:aws:iam::aws:policy/IAMFullAccess"
     "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
     "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess"
     "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
     "arn:aws:iam::aws:policy/AmazonSNSFullAccess"

@@ -374,13 +374,10 @@ EBS_DAILY=$(calc "$EBS_PER_GB * $EBS_SIZE_GB / 30")
 EIP_DAILY=$(calc "$EIP_HOURLY * $HOURS_PER_DAY")
 ALB_DAILY=$(calc "$ALB_HOURLY * $HOURS_PER_DAY")
 
-# Usage-based line items (hardcoded estimates, daily = monthly / 30)
-CLOUDWATCH_DAILY=$(calc "2.00 / 30")
-
 # ============================================================================
 # Compute base infrastructure total
 # ============================================================================
-BASE_TOTAL="$ALLOCATOR_DAILY + $EBS_DAILY + $EIP_DAILY + $CLOUDWATCH_DAILY"
+BASE_TOTAL="$ALLOCATOR_DAILY + $EBS_DAILY + $EIP_DAILY"
 
 if [ "$DNS_ENABLED" = "true" ]; then
     BASE_TOTAL="$BASE_TOTAL + $ROUTE53_DAILY"
@@ -426,9 +423,6 @@ printf "  %-37s ${GREEN}%11s${NC}\n" "Elastic IP" "\$${EIP_DAILY}"
 if [ "$DNS_ENABLED" = "true" ]; then
     printf "  %-37s ${GREEN}%11s${NC}\n" "Route53 hosted zone" "\$${ROUTE53_DAILY}"
 fi
-
-# CloudWatch
-printf "  %-37s ${GREEN}%11s${NC}\n" "CloudWatch Logs" "\$${CLOUDWATCH_DAILY}"
 
 # ALB (if ACM SSL)
 if [ "$SSL_PROVIDER" = "acm" ]; then

@@ -199,7 +199,7 @@ The command ensures these are checked:
 
 ### Reliability & Monitoring
 - [ ] Health checks configured
-- [ ] Logging enabled (CloudWatch)
+- [ ] Logging enabled (allocator ships its own logs; see the admin log view)
 - [ ] Backup strategy in place
 - [ ] Disaster recovery considered
 - [ ] Alerting configured

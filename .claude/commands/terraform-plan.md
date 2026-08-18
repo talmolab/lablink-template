@@ -252,7 +252,6 @@ Claude will flag:
 **Medium Priority:**
 - Instance profile changes
 - Security group egress restrictions removed
-- CloudWatch logging disabled
 
 **Best Practices:**
 - Tag all resources

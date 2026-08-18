@@ -114,7 +114,7 @@ Determine category for each change:
 
 ### Added
 - IAM instance role for EC2 allocator with scoped permissions (#19)
-- CloudWatch monitoring with alarms and metric filters (#20)
+- Application Load Balancer support for ACM certificates (#20)
 - Claude development commands for streamlined workflows (#25)
 - Docker validation for config files via `lablink-validate-config`
 
@@ -145,7 +145,7 @@ Determine category for each change:
 ```markdown
 ### Added
 - IAM instance role with scoped EC2 launch permissions
-- CloudWatch log groups with 30-day retention
+- Custom client startup script hook (`config/custom-startup.sh`)
 - Elastic IP allocation for stable public addressing
 - Let's Encrypt SSL certificate automation
 ```
@@ -164,7 +164,7 @@ Determine category for each change:
 ### Fixed
 - Fixed Terraform state lock timeout on concurrent deployments
 - Corrected security group rule priority ordering
-- Resolved CloudWatch agent installation failures on Ubuntu 24.04
+- Resolved Caddy failing to obtain certificates behind CloudFlare Full mode
 - Fixed config validation rejecting valid domain names with hyphens
 ```
 
@@ -268,7 +268,7 @@ Bad:  "Deprecated IP access"
 ```markdown
 ### Added
 - IAM instance role for secure credential management (#19)
-- CloudWatch monitoring with cost and error alarms (#20)
+- Application Load Balancer for ACM-issued certificates (#20)
 
 ### Fixed
 - Corrected security group ingress rules for HTTPS traffic (fixes #18)
@@ -291,8 +291,8 @@ Bad:  "Deprecated IP access"
 ```markdown
 ### Changed
 - Upgraded default instance type from t3.medium to t3.large (+$30/month)
-- Added CloudWatch Logs with 30-day retention (~$5/month per environment)
-  **Cost Impact:** +$35/month per environment
+- Added Application Load Balancer for ACM SSL (~$20/month per environment)
+  **Cost Impact:** +$50/month per environment
 ```
 
 ## Quick Commands
@@ -323,7 +323,7 @@ gh pr view 19 --json title,body,labels
 ### Added
 - `aws_iam_role.allocator_instance_role` - Instance role for EC2 allocator
 - `aws_iam_role_policy_attachment.allocator_ec2_policy` - Scoped EC2 permissions
-- `aws_cloudwatch_log_group.allocator_logs` - Centralized logging
+- `aws_lb.allocator_alb` - Load balancer fronting the allocator when `ssl.provider="acm"`
 ```
 
 ### For Configuration Schema Changes

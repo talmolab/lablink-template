@@ -89,33 +89,7 @@ echo "=== Instance Profiles ==="
 aws iam list-instance-profiles --query "InstanceProfiles[?contains(InstanceProfileName, '${ENV}')].[InstanceProfileName,Roles[0].RoleName]" --output table
 ```
 
-#### B. Delete CloudWatch Agent Role (Client VMs)
-
-```bash
-ENV="ci-test"
-ROLE_NAME="lablink_cloud_watch_agent_role_${ENV}"
-PROFILE_NAME="lablink_client_instance_profile_${ENV}"
-
-# Detach managed policy
-aws iam detach-role-policy \
-  --role-name "${ROLE_NAME}" \
-  --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-
-# Remove role from instance profile
-aws iam remove-role-from-instance-profile \
-  --instance-profile-name "${PROFILE_NAME}" \
-  --role-name "${ROLE_NAME}"
-
-# Delete instance profile
-aws iam delete-instance-profile --instance-profile-name "${PROFILE_NAME}"
-
-# Delete role
-aws iam delete-role --role-name "${ROLE_NAME}"
-
-echo "✓ Deleted CloudWatch agent role"
-```
-
-#### C. Delete Allocator Instance Role
+#### B. Delete Allocator Instance Role
 
 ```bash
 ENV="ci-test"
@@ -148,7 +122,7 @@ aws iam delete-policy --policy-arn "${POLICY_ARN}"
 echo "✓ Deleted allocator instance role and policy"
 ```
 
-#### D. Delete Lambda Execution Role
+#### C. Delete Lambda Execution Role
 
 ```bash
 ENV="ci-test"
@@ -359,38 +333,7 @@ EOF
 
 ---
 
-### 5. CloudWatch Resources
-
-CloudWatch log groups may contain valuable historical logs. Consider archiving before deletion.
-
-```bash
-ENV="ci-test"
-
-# List log groups
-echo "=== CloudWatch Log Groups ==="
-aws logs describe-log-groups --region us-west-2 \
-  --log-group-name-prefix lablink \
-  --query "logGroups[?contains(logGroupName, '${ENV}')].logGroupName" \
-  --output table
-
-# Delete client VM log group
-LOG_GROUP="lablink-cloud-init-${ENV}"
-if aws logs describe-log-groups --region us-west-2 --log-group-name-prefix "${LOG_GROUP}" --query "logGroups[0]" 2>/dev/null; then
-  aws logs delete-log-group --region us-west-2 --log-group-name "${LOG_GROUP}"
-  echo "✓ Deleted ${LOG_GROUP}"
-fi
-
-# Delete Lambda log group
-LOG_GROUP="/aws/lambda/lablink_log_processor_${ENV}"
-if aws logs describe-log-groups --region us-west-2 --log-group-name-prefix "${LOG_GROUP}" --query "logGroups[0]" 2>/dev/null; then
-  aws logs delete-log-group --region us-west-2 --log-group-name "${LOG_GROUP}"
-  echo "✓ Deleted ${LOG_GROUP}"
-fi
-```
-
----
-
-### 6. Lambda Functions
+### 5. Lambda Functions
 
 ```bash
 ENV="ci-test"
@@ -407,7 +350,7 @@ fi
 
 ---
 
-### 7. S3 and DynamoDB State Management
+### 6. S3 and DynamoDB State Management
 
 #### A. List State Files
 
@@ -810,10 +753,6 @@ echo "Elastic IPs:"
 aws ec2 describe-addresses --region us-west-2 \
   --filters "Name=tag:Name,Values=*${ENV}*" --query 'Addresses[*].[AllocationId,PublicIp]' --output table
 
-echo "CloudWatch Log Groups:"
-aws logs describe-log-groups --region us-west-2 --log-group-name-prefix lablink \
-  --query "logGroups[?contains(logGroupName, '${ENV}')].logGroupName" --output table
-
 echo "S3 State Files:"
 aws s3 ls s3://${BUCKET}/${ENV}/ --recursive
 
@@ -987,9 +926,6 @@ aws iam list-policies --scope Local --query "Policies[?contains(PolicyName, '${E
 # Check Lambda functions
 aws lambda list-functions --region ${REGION} --query "Functions[?contains(FunctionName, '${ENV}')].FunctionName" --output table
 
-# Check CloudWatch log groups
-aws logs describe-log-groups --region ${REGION} --query "logGroups[?contains(logGroupName, '${ENV}')].logGroupName" --output table
-
 # Check S3 and DynamoDB
 aws s3 ls s3://${BUCKET}/${ENV}/ 2>/dev/null || echo "No S3 state files found"
 aws dynamodb scan --table-name lock-table --region ${REGION} --filter-expression "contains(LockID, :env)" --expression-attribute-values "{\":env\": {\"S\": \"${ENV}\"}}" --query 'Items[*].LockID.S' --output table
@@ -1027,7 +963,7 @@ If you encounter issues not covered in this guide:
 
 1. Check the [README.md](README.md) for general troubleshooting
 2. Review the [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for deployment verification steps
-3. Check AWS CloudWatch logs for error messages
+3. Check the allocator's own logs: `ssh ubuntu@<ip> sudo docker logs $(sudo docker ps -q)`
 4. Open an issue in the GitHub repository with:
    - The error message
    - What resources remain (from verification commands)

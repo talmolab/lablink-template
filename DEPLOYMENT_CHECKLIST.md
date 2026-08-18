@@ -292,10 +292,6 @@ After running destroy workflow or manual cleanup:
   ```
 
 ### Other Resources
-- [ ] CloudWatch log groups cleaned up (optional - may keep for historical logs)
-  ```bash
-  aws logs describe-log-groups --region us-west-2 --log-group-name-prefix lablink --query "logGroups[?contains(logGroupName, '{env}')].logGroupName"
-  ```
 - [ ] S3 state files archived or deleted (if environment no longer needed)
   ```bash
   aws s3 ls s3://{bucket}/{env}/ --recursive
@@ -360,7 +356,6 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 - [ ] Set up monitoring/alerts (if needed)
 - [ ] Created test users/VMs to verify functionality
 - [ ] (Optional) Set up automatic backups of OpenTofu state
-- [ ] (Optional) Set up CloudWatch alarms for EC2 instance
 
 ## Ongoing Maintenance
 

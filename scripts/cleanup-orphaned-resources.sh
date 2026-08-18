@@ -351,52 +351,24 @@ else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete Lambda role: lablink_lambda_exec_${ENV}"
 fi
 
-# Legacy CloudWatch agent role (may exist from older deployments)
-echo "  Deleting legacy CloudWatch agent role (if exists)..."
-if [ "$DRY_RUN" = false ]; then
-  aws iam detach-role-policy --role-name "lablink_cloud_watch_agent_role_${ENV}" \
-    --policy-arn "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" 2>/dev/null || true
-  aws iam remove-role-from-instance-profile \
-    --instance-profile-name "lablink_client_instance_profile_${ENV}" \
-    --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null || true
-  aws iam delete-instance-profile --instance-profile-name "lablink_client_instance_profile_${ENV}" 2>/dev/null || true
-  aws iam delete-role --role-name "lablink_cloud_watch_agent_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted legacy CloudWatch agent role" || echo -e "    ${GREEN}[OK]${NC} Legacy CloudWatch agent role not found"
-else
-  echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete legacy CloudWatch agent role and instance profile"
-fi
-
 # Instance role
 echo "  Deleting allocator instance role..."
 if [ "$DRY_RUN" = false ]; then
   aws iam detach-role-policy --role-name "lablink_instance_role_${ENV}" \
     --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null || true
-  aws iam detach-role-policy --role-name "lablink_instance_role_${ENV}" \
-    --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_cloudwatch_${ENV}" 2>/dev/null || true
   aws iam remove-role-from-instance-profile \
     --instance-profile-name "lablink_instance_profile_${ENV}" \
     --role-name "lablink_instance_role_${ENV}" 2>/dev/null || true
   aws iam delete-instance-profile --instance-profile-name "lablink_instance_profile_${ENV}" 2>/dev/null || true
   aws iam delete-role --role-name "lablink_instance_role_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted instance role" || echo -e "    ${GREEN}[OK]${NC} Instance role not found"
   aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted S3 backend policy" || echo -e "    ${GREEN}[OK]${NC} S3 backend policy not found"
-  aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/lablink_cloudwatch_${ENV}" 2>/dev/null && echo -e "    ${GREEN}[OK]${NC} Deleted CloudWatch policy" || echo -e "    ${GREEN}[OK]${NC} CloudWatch policy not found"
 else
   echo -e "  ${YELLOW}[DRY RUN]${NC} Would delete instance role, instance profile, and policies"
 fi
 
-# Step 8: Delete CloudWatch Log Groups
+# Step 8: Clean S3 State Files
 echo ""
-echo -e "${BLUE}8. Deleting CloudWatch log groups...${NC}"
-
-if [ "$DRY_RUN" = false ]; then
-  aws logs delete-log-group --region ${REGION} --log-group-name "lablink-cloud-init-${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted client log group" || echo -e "  ${GREEN}[OK]${NC} Client log group not found"
-  aws logs delete-log-group --region ${REGION} --log-group-name "/aws/lambda/lablink_log_processor_${ENV}" 2>/dev/null && echo -e "  ${GREEN}[OK]${NC} Deleted Lambda log group" || echo -e "  ${GREEN}[OK]${NC} Lambda log group not found"
-else
-  echo -e "${YELLOW}[DRY RUN]${NC} Would delete CloudWatch log groups"
-fi
-
-# Step 9: Clean S3 State Files
-echo ""
-echo -e "${BLUE}9. Cleaning S3 state files...${NC}"
+echo -e "${BLUE}8. Cleaning S3 state files...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
   # Backup state files first
@@ -412,9 +384,9 @@ else
   echo -e "${YELLOW}[DRY RUN]${NC} Would backup and delete S3 state files"
 fi
 
-# Step 10: Clean DynamoDB Lock Entries
+# Step 9: Clean DynamoDB Lock Entries
 echo ""
-echo -e "${BLUE}10. Cleaning DynamoDB lock entries...${NC}"
+echo -e "${BLUE}9. Cleaning DynamoDB lock entries...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
   aws dynamodb delete-item --table-name lock-table --region ${REGION} \
