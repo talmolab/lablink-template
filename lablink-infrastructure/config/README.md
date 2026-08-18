@@ -346,7 +346,7 @@ All configuration files follow this structure:
 deployment_name: "..." # Resource-name prefix; must match -var="deployment_name=..."
 environment: "..."     # dev | test | ci-test | prod; must match -var="environment=..."
 
-db:                    # Only key set here; rest defaults in the allocator
+db:                    # Database configuration (password is the only key)
   password: "PLACEHOLDER_DB_PASSWORD"  # Replaced by GitHub secret
 
 machine:               # Client VM configuration
