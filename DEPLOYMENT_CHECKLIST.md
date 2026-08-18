@@ -292,10 +292,6 @@ After running destroy workflow or manual cleanup:
   ```
 
 ### Other Resources
-- [ ] CloudWatch log groups cleaned up (optional - may keep for historical logs)
-  ```bash
-  aws logs describe-log-groups --region us-west-2 --log-group-name-prefix lablink --query "logGroups[?contains(logGroupName, '{env}')].logGroupName"
-  ```
 - [ ] S3 state files archived or deleted (if environment no longer needed)
   ```bash
   aws s3 ls s3://{bucket}/{env}/ --recursive
@@ -307,10 +303,6 @@ After running destroy workflow or manual cleanup:
 - [ ] DNS records removed (if terraform_managed=true)
   ```bash
   aws route53 list-resource-record-sets --hosted-zone-id {zone_id} --query "ResourceRecordSets[?starts_with(Name, '{env}')]"
-  ```
-- [ ] Lambda functions removed
-  ```bash
-  aws lambda list-functions --region us-west-2 --query "Functions[?contains(FunctionName, '{env}')].FunctionName"
   ```
 
 **Note**: Replace `{env}` with your environment name (e.g., `ci-test`, `test`, `prod`) and `{bucket}`, `{zone_id}` with your actual values from config.yaml.
@@ -360,7 +352,6 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 - [ ] Set up monitoring/alerts (if needed)
 - [ ] Created test users/VMs to verify functionality
 - [ ] (Optional) Set up automatic backups of OpenTofu state
-- [ ] (Optional) Set up CloudWatch alarms for EC2 instance
 
 ## Ongoing Maintenance
 

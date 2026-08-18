@@ -4,14 +4,14 @@
 # State stored in: s3://<bucket_name>/ci-test/terraform.tfstate
 #
 # Usage (Local):
-#   ../scripts/init-terraform.sh ci-test  # Reads bucket from config/config.yaml (once supported)
-#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
-#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
+#   ../scripts/init-terraform.sh ci-test  # Reads bucket from config/config.yaml
+#   tofu plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
+#   tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
 #
 # Usage (Manual):
-#   terraform init -backend-config=backend-ci-test.hcl -backend-config="bucket=YOUR-BUCKET"
-#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
-#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
+#   tofu init -backend-config=backend-ci-test.hcl -backend-config="bucket=YOUR-BUCKET"
+#   tofu plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
+#   tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=ci-test"
 #
 # Usage (GitHub Actions):
 #   Deploy LabLink Infrastructure -> Choose environment: ci-test

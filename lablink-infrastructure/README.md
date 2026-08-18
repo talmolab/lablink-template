@@ -2,8 +2,6 @@
 
 Deploy your own LabLink VM allocation system for computational research workflows.
 
-> **Note**: This directory will be moved to a separate template repository ([lablink-template](https://github.com/talmolab/lablink-template)) in the future. See [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) for details.
-
 ## Quick Start
 
 ### Step 0: GitHub Secrets Setup (Required for GitHub Actions)
@@ -269,9 +267,9 @@ Each environment maintains separate OpenTofu state to avoid conflicts.
 
 **Additional Resources:**
 
-- [Configuration Guide](../docs/configuration.md#ssltls-options-ssl) - Detailed SSL configuration reference
-- [Troubleshooting](../docs/troubleshooting.md#browser-cannot-access-http-staging-mode) - Browser HSTS cache issues
-- [Security](../docs/security.md#staging-mode-security) - Security implications of staging mode
+- [Configuration guide](config/README.md) - Every config field, the config flavors, validation
+- [Troubleshooting](../docs/TROUBLESHOOTING.md) - Failed deploys, DNS, SSL, state locks
+- [LabLink documentation](https://talmolab.github.io/lablink/) - Allocator and client internals
 
 ## Included Scripts
 
@@ -408,7 +406,7 @@ This infrastructure can be deployed via GitHub Actions workflows:
 - **Deploy**: `.github/workflows/terraform-deploy.yml`
 - **Destroy**: `.github/workflows/terraform-destroy.yml`
 
-Both workflows authenticate to AWS using OIDC (no long-lived AWS keys in GitHub secrets) — see the [main README's OIDC section](../README.md#why-oidc-instead-of-long-lived-aws-keys) for how the role-assume flow works.
+Both workflows authenticate to AWS using OIDC (no long-lived AWS keys in GitHub secrets) — see the [setup reference's OIDC section](../docs/SETUP.md#why-oidc-instead-of-long-lived-aws-keys) for how the role-assume flow works.
 
 See the workflows in the `.github` directory for automated deployment examples.
 
@@ -449,7 +447,7 @@ See the workflows in the `.github` directory for automated deployment examples.
 
 - Check DynamoDB lock table in AWS console
 - Manually remove lock if workflow was interrupted
-- Use `terraform force-unlock <lock-id>` as last resort
+- Use `tofu force-unlock <lock-id>` as last resort
 
 ### Running Scripts Locally
 
@@ -550,7 +548,7 @@ Full documentation available at: https://talmolab.github.io/lablink/
 
 Issues and contributions welcome at [talmolab/lablink](https://github.com/talmolab/lablink)
 
-See [CONTRIBUTING.md](../docs/contributing.md) for development guidelines.
+See [CONTRIBUTING.md](https://github.com/talmolab/lablink/blob/main/docs/contributing.md) for development guidelines.
 
 ## License
 
