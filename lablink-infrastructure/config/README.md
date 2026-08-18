@@ -386,6 +386,38 @@ startup_script:        # Custom startup script (optional)
 bucket_name: "..."     # S3 bucket for OpenTofu state
 ```
 
+### Deployment Identity
+
+`deployment_name` and `environment` must match the `-var` values passed to OpenTofu. The
+deploy workflow overwrites both from its own inputs, so they always agree there; running
+OpenTofu locally, you keep them in sync yourself. The allocator reads them from this file
+(it is copied verbatim onto the instance) and scopes client VM state to
+`s3://{bucket_name}/{deployment_name}/{environment}/`. Its IAM policy grants exactly that
+prefix and nothing else, so a mismatch surfaces as AccessDenied when the allocator
+provisions client VMs — long after a green `tofu apply`.
+
+### Instance Types and AMIs
+
+| `machine.machine_type` | Notes |
+|------------------------|-------|
+| `g4dn.xlarge` | NVIDIA T4 GPU — the usual choice for SLEAP/ML workloads |
+| `g5.2xlarge` | NVIDIA A10G, more VRAM |
+| `t3.large` | CPU-only, cheapest for testing |
+| `p3.2xlarge` | NVIDIA V100, heavier training |
+
+`machine.ami_id` is **region-specific**: `ami-0601752c11b394251` is the Ubuntu 24.04 +
+Docker + NVIDIA driver AMI in `us-west-2`. If you change `app.region`, you must also
+change the AMI and the `AWS_REGION` GitHub secret.
+
+`allocator.image_tag` selects the allocator container image. `linux-amd64-latest-test`
+tracks the latest test build; pin a version such as `linux-amd64-v1.2.3` for production.
+
+### Domain Naming
+
+`dns.domain` is the **full** domain name for the allocator — `lablink.example.com` or
+`test.lablink.example.com`. Nothing is constructed for you: no environment prefix is
+prepended, so whatever you write is exactly what gets served and certified.
+
 ## Common Configuration Tasks
 
 ### Change Domain Name
@@ -398,6 +430,18 @@ sed -i 's/domain: "old.example.com"/domain: "new.example.com"/' \
 # If using terraform_managed: true, OpenTofu will update DNS automatically
 # If using terraform_managed: false, manually update A record in DNS provider
 ```
+
+### Change AWS Region
+
+```yaml
+app:
+  region: "eu-west-1"      # your new region
+machine:
+  ami_id: "ami-XXXXXXXX"   # AMIs are region-specific — find an Ubuntu 24.04 + Docker AMI
+```
+
+Also update the `AWS_REGION` GitHub secret so the workflows authenticate in the same
+region.
 
 ### Switch from Let's Encrypt to CloudFlare
 

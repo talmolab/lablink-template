@@ -4,13 +4,13 @@
 #
 # Usage (Local):
 #   ../scripts/init-terraform.sh prod  # Reads bucket from config/config.yaml
-#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
-#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
+#   tofu plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
+#   tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
 #
 # Usage (Manual):
-#   terraform init -backend-config=backend-prod.hcl -backend-config="bucket=YOUR-BUCKET"
-#   terraform plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
-#   terraform apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
+#   tofu init -backend-config=backend-prod.hcl -backend-config="bucket=YOUR-BUCKET"
+#   tofu plan -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
+#   tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=prod"
 #
 # Usage (GitHub Actions):
 #   Workflow: Deploy LabLink Infrastructure

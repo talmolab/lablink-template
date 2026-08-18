@@ -166,7 +166,7 @@ Lock Info:
 **Fix:**
 Wait for other operation to complete, or force unlock (use with caution):
 ```bash
-terraform force-unlock abc123
+tofu force-unlock abc123
 ```
 
 ### Issue: Provider plugin errors

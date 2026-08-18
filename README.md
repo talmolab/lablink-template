@@ -31,597 +31,164 @@ The rest of this README documents **Path B**. If you're new and have no preferen
 
 > **Heads-up:** Path B's config generator is [`./scripts/configure.sh`](scripts/configure.sh), which needs nothing installed beyond what `setup.sh` already requires — Path B never depends on `lablink-cli`. If you happen to have the CLI, `lablink configure --template` is an optional alternative: it writes the same file with the same `PLACEHOLDER_*` conventions, but it rewrites `config.yaml` through a YAML dump, so the inline comments shipped here are not preserved, and it has no field for `allocator.image_tag` or the client `machine.image`. There is still no interactive wizard *inside* GitHub Actions — both tools run on your machine.
 
-## Quick Start
+## Deploy in 5 Minutes
 
-### 1. Use This Template
+### 1. Use this template
 
-Click the **"Use this template"** button at the top of this repository to create your own deployment repository.
+Click **"Use this template"** at the top of this repository to create your own
+deployment repository, then clone it.
 
-### 2. Run the Setup Script (One-Time)
-
-The setup script creates AWS infrastructure and GitHub secrets:
+### 2. Run the setup script (one-time)
 
 ```bash
 ./scripts/setup.sh
 ```
 
-**What the script does:**
-- Checks prerequisites (AWS CLI, GitHub CLI, credentials)
-- Creates OIDC provider and IAM role for GitHub Actions
-- Creates S3 bucket (with versioning) and DynamoDB table
-- Creates Route53 hosted zone (if using custom domain)
-- Sets GitHub secrets (`AWS_ROLE_ARN`, `AWS_REGION`, `ADMIN_PASSWORD`, `DB_PASSWORD`)
-- Calls `configure.sh` to generate `lablink-infrastructure/config/config.yaml`
-- Verifies all resources were created successfully
+It creates the AWS side (OIDC provider, IAM role, S3 state bucket, DynamoDB lock
+table, optional Route 53 hosted zone), sets the four GitHub secrets, and calls
+`configure.sh` to write `lablink-infrastructure/config/config.yaml`. It is idempotent —
+safe to re-run if interrupted.
 
-The script is idempotent — safe to re-run if interrupted.
-
-**Updating configuration later:** To change settings like instance type, image tags, or DNS options without re-creating infrastructure, run the configuration wizard directly:
+To change settings later (instance type, image tags, DNS/SSL) without recreating
+infrastructure, run the wizard on its own. It reads your existing `config.yaml` as
+defaults:
 
 ```bash
 ./scripts/configure.sh
 ```
 
-This can be run as many times as needed. It reads your existing `config.yaml` values as defaults.
-
-**Important:** The config file path (`lablink-infrastructure/config/config.yaml`) is hardcoded in the infrastructure. Do not move or rename this file.
-
-See [Configuration Reference](#configuration-reference) for all options, or [Manual Setup](#manual-setup-alternative) if you prefer to create resources individually.
+**Do not move or rename `lablink-infrastructure/config/config.yaml`** — the path is
+hardcoded in the infrastructure.
 
 ### 3. Deploy
 
-**Via GitHub Actions (Recommended):**
-1. Go to Actions → "Deploy LabLink Infrastructure"
-2. Click "Run workflow"
-3. Select environment (`test`, `prod`, or `ci-test`)
-4. Click "Run workflow"
+1. Actions → **"Deploy LabLink Infrastructure"** → **Run workflow**
+2. Enter `deployment_name` — the prefix for every AWS resource (e.g. `sleap-lablink`)
+3. Select `environment`: `test`, `prod`, or `ci-test`
+4. **Run workflow**
 
-**Via Local OpenTofu:**
+Or locally, with OpenTofu ≥ 1.10:
+
 ```bash
 cd lablink-infrastructure
 ../scripts/init-terraform.sh test
 tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=test"
 ```
 
-### 4. Access Your Infrastructure
+### 4. Access your allocator
 
-After deployment completes:
-- **Allocator URL**: Check workflow output or OpenTofu output for the URL/IP
-- **SSH Access**: Download the PEM key from workflow artifacts
-- **Web Interface**: Navigate to allocator URL in your browser
+The workflow's final step logs `allocator_fqdn` and `ec2_public_ip` — that is your
+allocator address. Log in with `admin` and your `ADMIN_PASSWORD` secret, then create
+client VMs from the dashboard. The SSH key is uploaded as a workflow artifact.
 
-## Prerequisites
+Check it from your machine any time with `./scripts/verify-deployment.sh test` (pass the
+environment you deployed).
 
-### Required
+## How a Deploy Flows
 
-- **AWS Account** with permissions to create:
-  - EC2 instances
-  - Security Groups
-  - Elastic IPs
-  - (Optional) Route 53 records for DNS
-
-- **GitHub Account** with ability to:
-  - Create repositories from templates
-  - Configure GitHub Actions secrets
-  - Run GitHub Actions workflows
-
-- **Basic Knowledge** of:
-  - OpenTofu (helpful but not required)
-  - AWS services
-
-### AWS Setup Required
-
-Before deploying, you must set up:
-
-1. **S3 Bucket** for OpenTofu state storage
-2. **IAM Role** for GitHub Actions OIDC authentication
-3. **(Optional) Elastic IP** for persistent allocator address
-4. **(Optional) Route 53 Hosted Zone** for custom domain
-
-See [AWS Setup Guide](#aws-setup-guide) below for detailed instructions.
-
-## GitHub Secrets Setup
-
-### Why OIDC instead of long-lived AWS keys?
-
-The deploy and destroy workflows authenticate to AWS using [OpenID Connect (OIDC)](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect) rather than static `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets. The flow at deploy time looks like:
-
-1. GitHub Actions issues a short-lived JSON Web Token (JWT) for the running workflow, signed by `token.actions.githubusercontent.com`.
-2. The workflow calls `sts:AssumeRoleWithWebIdentity` against the IAM role you registered (`AWS_ROLE_ARN`).
-3. AWS validates the JWT against the OIDC provider trust policy (which restricts which `repo:ORG/REPO:*` subject can assume the role) and returns temporary credentials.
-4. OpenTofu uses those temporary credentials for the duration of the job — typically an hour or less — then they expire.
-
-**Why this matters:**
-- No long-lived AWS keys ever live in GitHub secrets, so a compromised repository secret cannot be replayed indefinitely.
-- The trust policy pins the role to your specific repository (and optionally a branch/environment), so other repos in your org can't assume it by accident.
-- Credentials auto-rotate every workflow run — there is no key to rotate manually.
-
-`./scripts/setup.sh` creates the OIDC provider, the IAM role with the correct trust policy, and writes the role ARN to the `AWS_ROLE_ARN` GitHub secret for you. The manual steps below are for users who prefer to wire this up themselves.
-
-### AWS_ROLE_ARN
-
-Create an IAM role with OIDC provider for GitHub Actions:
-
-1. Create OIDC provider in IAM (if not exists):
-   - Provider URL: `https://token.actions.githubusercontent.com`
-   - Audience: `sts.amazonaws.com`
-
-2. Create IAM role with trust policy:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": {
-           "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-         },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
-           }
-         }
-       }
-     ]
-   }
-   ```
-
-3. Attach permissions:
-   - `PowerUserAccess` (or custom policy with EC2, VPC, S3, Route53, IAM permissions)
-
-4. Copy the Role ARN and add to GitHub secrets
-
-### AWS_REGION
-
-The AWS region where your infrastructure will be deployed. Must match the region in your `config.yaml`.
-
-Common regions:
-- `us-west-2` (Oregon)
-- `us-east-1` (N. Virginia)
-- `eu-west-1` (Ireland)
-
-**Important**: AMI IDs are region-specific. If you change regions, update the `ami_id` in `config.yaml`.
-
-### ADMIN_PASSWORD
-
-Password for accessing the allocator web interface. Choose a strong password (12+ characters, mixed case, numbers, symbols).
-
-This password is used to log in to the admin dashboard where you can:
-- Create and destroy client VMs
-- View VM status
-- Assign VMs to users
-
-### DB_PASSWORD
-
-Password for the PostgreSQL database used by the allocator service. Choose a different strong password than `ADMIN_PASSWORD`.
-
-This is stored securely and injected into the configuration at deployment time.
-
-## AWS Setup Guide
-
-### Automated Setup (Recommended)
-
-The setup script creates all infrastructure and secrets in one go:
-
-```bash
-./scripts/setup.sh
+```mermaid
+flowchart TD
+    A["Click: Use this template"] --> B["./scripts/setup.sh<br/>one-time, idempotent"]
+    B --> C["OIDC provider<br/>+ IAM role"]
+    B --> D["S3 state bucket<br/>+ DynamoDB lock table"]
+    B --> E["GitHub secrets<br/>AWS_ROLE_ARN · AWS_REGION<br/>ADMIN_PASSWORD · DB_PASSWORD"]
+    B --> F["configure.sh<br/>config/config.yaml"]
+    C --> G["Actions ▸ Deploy LabLink Infrastructure<br/>deployment_name + environment"]
+    D --> G
+    E --> G
+    F --> G
+    G --> H["Assume role via OIDC<br/>inject passwords · tofu apply"]
+    H --> I["Allocator EC2 · EIP · security group<br/>Route 53 record or ALB when configured"]
+    I --> J["Allocator web UI<br/>create + assign client VMs"]
 ```
 
-This creates all required AWS resources (OIDC provider, IAM role, S3 bucket, DynamoDB table, Route53 hosted zone), sets GitHub secrets, and calls `configure.sh` to generate `config.yaml`. It is idempotent and safe to re-run.
+Only step 3 repeats. Re-running the deploy workflow applies your current `config.yaml`
+— and because that file is baked into the instance's user data, **editing it replaces
+the allocator EC2 instance**, so expect brief downtime. A `persistent` EIP keeps the
+address stable across the replacement.
 
-To update configuration later (instance types, image tags, DNS/SSL options, etc.), run the config wizard directly:
+## Cookbook
 
-```bash
-./scripts/configure.sh
-```
+### A workshop for ~25 people running SLEAP
 
-**What the script does NOT do:**
-- Does NOT register domain names (you must register via Route53 registrar, CloudFlare, or other registrar)
-- Does NOT create DNS records (OpenTofu handles these, or you create manually)
-
-**After setup, your DNS/SSL approach is configured based on your wizard choices:**
-
-1. **Route53 + Let's Encrypt**: Register domain, update nameservers to Route53
-2. **CloudFlare DNS + SSL**: Manage domain/DNS in CloudFlare, create A record pointing to allocator IP
-3. **IP-only** (no DNS/SSL): Access via IP address directly
-
----
-
-### Manual Setup (Alternative)
-
-If you prefer to create resources manually:
-
-#### 1. Create S3 Bucket for OpenTofu State
-
-```bash
-# Create bucket (must be globally unique across ALL of AWS)
-aws s3 mb s3://tf-state-YOUR-ORG-lablink --region us-west-2
-
-# Enable versioning (recommended)
-aws s3api put-bucket-versioning \
-  --bucket tf-state-YOUR-ORG-lablink \
-  --versioning-configuration Status=Enabled
-```
-
-Update `bucket_name` in `lablink-infrastructure/config/config.yaml` to match.
-
-#### 2. Create DynamoDB Table for State Locking
-
-```bash
-aws dynamodb create-table \
-  --table-name lock-table \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region us-west-2
-```
-
-#### 3. (Optional) Allocate Elastic IP
-
-For persistent allocator IP address across deployments:
-
-```bash
-# Allocate EIP
-aws ec2 allocate-address --domain vpc --region us-west-2
-
-# Tag it for reuse — the Name must be {deployment_name}-eip-{environment}
-aws ec2 create-tags \
-  --resources eipalloc-XXXXXXXX \
-  --tags Key=Name,Value=my-lablink-eip-prod
-```
-
-The EIP name is derived from `deployment_name` and `environment` in `config.yaml`;
-there is no separate tag field to set.
-
-#### 4. (Optional) Set Up Route 53 for DNS
-
-If using a custom domain:
-
-1. Create or use existing hosted zone:
-   ```bash
-   aws route53 create-hosted-zone --name your-domain.com --caller-reference $(date +%s)
-   ```
-
-2. Update your domain's nameservers to point to Route 53 NS records
-
-3. Update `dns` section in `config.yaml`:
-   ```yaml
-   dns:
-     enabled: true
-     domain: "your-domain.com"
-     zone_id: "Z..." # Optional - will auto-lookup if empty
-   ```
-
-#### 5. Set Up OIDC Provider and IAM Role
-
-See [GitHub Secrets Setup](#github-secrets-setup) above for detailed IAM role configuration.
-
-## Choosing a Config Flavor
-
-The repo ships several example configs under [`lablink-infrastructure/config/`](lablink-infrastructure/config/). Pick the one that matches how you want DNS/SSL set up; `./scripts/setup.sh` copies your selection to `config.yaml`.
-
-| Example | DNS provider | SSL provider | When to use |
-|---------|--------------|--------------|-------------|
-| `ip-only.example.yaml` | None (access via IP) | None (HTTP only) | Fastest path; demos, debugging, throwaway dev. No domain needed. |
-| `cloudflare.example.yaml` | CloudFlare (manual A record) | CloudFlare proxy | Frequent redeploys without Let's Encrypt rate limits; you already manage DNS in CloudFlare. |
-| `letsencrypt.example.yaml` | Route 53 (Terraform-managed) | Let's Encrypt via Caddy | Stable production / staging with a Route 53 hosted zone. **Limit: 5 certs / domain / 7 days.** |
-| `letsencrypt-manual.example.yaml` | Route 53 (manual A record) | Let's Encrypt via Caddy | Same as above but you want to manage the A record yourself (e.g., migrations). |
-| `acm.example.yaml` | Route 53 (Terraform-managed) | AWS ACM via Application Load Balancer | Enterprise production; no Let's Encrypt limits, but ALB adds ~$20/mo. |
-| `dev.example.yaml` | Configurable | Configurable | Local prototyping; S3-backed state under its own `dev/` key. |
-| `test.example.yaml` | Configurable | Configurable | Staging environment, S3-backed state. |
-| `prod.example.yaml` | Configurable | Configurable | Production environment, S3-backed state. |
-| `ci-test.example.yaml` | Route 53 | Let's Encrypt | Template-maintainer CI only — do not use for application deployments. |
-
-**Decision shortcut:**
-- No domain? → `ip-only.example.yaml`.
-- Domain in CloudFlare? → `cloudflare.example.yaml`.
-- Domain in Route 53, deploy weekly or less? → `letsencrypt.example.yaml`.
-- Domain in Route 53, deploy multiple times per week? → `cloudflare.example.yaml` (avoids Let's Encrypt rate limits) or `acm.example.yaml`.
-
-See [`lablink-infrastructure/config/README.md`](lablink-infrastructure/config/README.md) for the full decision tree, per-flavor pros/cons, and rate-limit recovery procedures.
-
-## Configuration Reference
-
-All configuration is in `lablink-infrastructure/config/config.yaml`.
-
-### Database Settings
-
-```yaml
-db:
-  password: "PLACEHOLDER_DB_PASSWORD"  # Injected from GitHub secret
-```
-
-The password is the only configurable database setting. Postgres runs inside the
-allocator container with a fixed identity (`lablink_db`/`lablink` on
-`localhost:5432`), so an external database is not supported.
-
-### Client VM Settings
+Use a stable domain so the URL you hand out keeps working:
+`cp lablink-infrastructure/config/letsencrypt.example.yaml lablink-infrastructure/config/config.yaml`
+(or `cloudflare.example.yaml` if your DNS lives in CloudFlare).
 
 ```yaml
 machine:
-  machine_type: "g4dn.xlarge"  # AWS instance type
-  image: "ghcr.io/talmolab/lablink-client-base-image:latest"  # Docker image
-  ami_id: "ami-0601752c11b394251"  # Region-specific AMI
-  repository: "https://github.com/YOUR_ORG/YOUR_REPO.git"  # Your code/data repo
-  software: "your-software"  # Software identifier
-```
-
-**Instance Types**:
-- `g4dn.xlarge` - GPU instance (NVIDIA T4, good for ML)
-- `t3.large` - CPU-only, cheaper
-- `p3.2xlarge` - More powerful GPU (NVIDIA V100)
-
-**AMI IDs** (Ubuntu 24.04 with Docker + Nvidia):
-- `us-west-2`: `ami-0601752c11b394251`
-- Other regions: Use AWS Console to find similar AMI or create custom
-
-### Application Settings
-
-```yaml
-app:
-  admin_user: "admin"
-  admin_password: "PLACEHOLDER_ADMIN_PASSWORD"  # Injected from secret
-  region: "us-west-2"  # Must match AWS_REGION secret
-```
-
-### DNS Settings
-
-```yaml
-dns:
-  enabled: false  # true to use DNS, false for IP-only
-  terraform_managed: false  # true = OpenTofu creates records
-  domain: "lablink.example.com"  # Full domain name (e.g., test.lablink.example.com)
-  zone_id: ""  # Leave empty for auto-lookup
-```
-
-**Domain Naming**:
-- Specify the full domain directly (e.g., `lablink.example.com` or `test.lablink.example.com`)
-- No automatic subdomain construction - use exactly what you specify
-
-### SSL/TLS Settings
-
-```yaml
-ssl:
-  provider: "none"  # "letsencrypt", "cloudflare", "acm", or "none"
-  email: "admin@example.com"  # For Let's Encrypt notifications
-  certificate_arn: ""  # Required when provider="acm"
-```
-
-**SSL Providers**:
-- `none`: HTTP only (for testing)
-- `letsencrypt`: Automatic SSL with Caddy (production certs)
-- `cloudflare`: Use CloudFlare proxy for SSL
-- `acm`: AWS Certificate Manager via Application Load Balancer
-
-### Let's Encrypt Rate Limits
-
-⚠️ **Important**: When using Let's Encrypt (`ssl.provider: "letsencrypt"`), be aware of rate limits:
-
-| Limit Type | Limit | Lockout Period |
-|------------|-------|----------------|
-| **Certificates per exact domain** | 5 per week | 7 days |
-| Certificates per registered domain | 50 per week | 7 days |
-
-**What this means:**
-- You can only deploy the **same domain** (e.g., `test.lablink.example.com`) **5 times in 7 days**
-- If you hit the limit, you must wait 7 days before deploying that domain again
-- **No override available** for the per-domain limit
-
-**Testing Strategies to Avoid Rate Limits:**
-
-| Strategy | DNS | SSL | Use Case | Rate Limit Risk |
-|----------|-----|-----|----------|-----------------|
-| **IP-only** | Disabled | None | Development/debugging | ✅ None |
-| **CloudFlare** | Enabled | CloudFlare | Frequent testing | ✅ None |
-| **Subdomain rotation** | Enabled | Let's Encrypt | SSL testing | ⚠️ Low (5 per subdomain) |
-| **Production** | Enabled | Let's Encrypt | Stable deployment | ⚠️ Low (rarely redeploy) |
-
-📖 **See [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md) for detailed testing strategies and monitoring certificate usage.**
-
-### Elastic IP Settings
-
-```yaml
+  machine_type: "g4dn.xlarge"   # NVIDIA T4 — the usual SLEAP choice
+  image: "ghcr.io/talmolab/lablink-client-base-image:linux-amd64-v1.0.0"  # pin for a workshop
+  repository: "https://github.com/talmolab/sleap-tutorial-data.git"
+  software: "sleap"
 eip:
-  strategy: "persistent"  # "persistent" or "dynamic"
+  strategy: "persistent"        # same address across redeploys
 ```
 
-The EIP is looked up (or created) under the name `{deployment_name}-eip-{environment}`.
+VM *count* is not a config field — deploy once, then create the client VMs from the
+allocator's admin dashboard. Price it first with `./scripts/estimate-costs.sh`.
 
-## Deployment Workflows
-
-### Deploy LabLink Infrastructure
-
-Deploys or updates your LabLink infrastructure.
-
-**Triggers**:
-- Manual: Actions → "Deploy LabLink Infrastructure" → Run workflow
-- Automatic: Push to `test` branch
-
-**Inputs**:
-- `environment`: `test` or `prod`
-
-**What it does**:
-1. Configures AWS credentials via OIDC
-2. Injects passwords from GitHub secrets into config
-3. Runs OpenTofu to create/update infrastructure
-4. Verifies deployment and DNS
-5. Uploads SSH key as artifact
-
-### Destroy LabLink Infrastructure
-
-**⚠️ WARNING**: This destroys all infrastructure and data!
-
-**Triggers**:
-- Manual only: Actions → "Destroy LabLink Infrastructure" → Run workflow
-
-**Inputs**:
-- `confirm_destroy`: Must type "yes" to confirm
-- `environment`: `test` or `prod`
-
-**What it does**:
-1. Creates a minimal terraform backend configuration
-2. Initializes OpenTofu with S3 backend to access client VM state
-3. Destroys client VMs directly from the S3 state (for test/prod/ci-test)
-4. Destroys the allocator infrastructure (EC2, security groups, EIP, etc.)
-
-**Note**: Client VM state is stored in S3 (same bucket as infrastructure state). OpenTofu can destroy resources using only the state file - no terraform configuration files needed!
-
-### Manual Cleanup and Troubleshooting
-
-If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md)** for step-by-step procedures to:
-
-- Remove orphaned IAM roles, policies, and instance profiles
-- Clean up leftover EC2 instances, security groups, and key pairs
-- Fix OpenTofu state file issues (checksum mismatches, corrupted state)
-- Verify complete resource removal
-
-Common scenarios covered:
-- Destroy workflow failures
-- "Resource in use" errors
-- Orphaned client VMs
-- State lock issues
-
-## Customization
-
-### For Different Research Software
-
-1. Update `config.yaml`:
-   ```yaml
-   machine:
-     repository: "https://github.com/your-org/your-software-data.git"
-     software: "your-software-name"
-   ```
-
-2. (Optional) Use custom Docker image:
-   ```yaml
-   machine:
-     image: "ghcr.io/your-org/your-custom-image:latest"
-   ```
-
-### For Different AWS Regions
-
-1. Update `config.yaml`:
-   ```yaml
-   app:
-     region: "eu-west-1"  # Your region
-   machine:
-     ami_id: "ami-XXXXXXX"  # Region-specific AMI
-   ```
-
-2. Update GitHub secret `AWS_REGION`
-
-3. Find appropriate AMI for region (Ubuntu 24.04 with Docker)
-
-### For Different Instance Types
+### Your own software instead of SLEAP
 
 ```yaml
 machine:
-  machine_type: "t3.xlarge"  # No GPU, cheaper
-  # or
-  machine_type: "p3.2xlarge"  # More powerful GPU
+  image: "ghcr.io/your-org/your-client-image:latest"
+  repository: "https://github.com/your-org/your-data.git"
+  software: "your-software"
 ```
 
-See [AWS EC2 Instance Types](https://aws.amazon.com/ec2/instance-types/) for options.
+See [Using Custom Docker Images](lablink-infrastructure/README.md#using-custom-docker-images)
+for what the client image has to provide.
 
-### Client Startup Script
+### Try it in `dev` before touching `test` or `prod`
 
-The client VMs can be configured with a custom startup script. See the [LabLink Infrastructure README](lablink-infrastructure/README.md#configcustom-startupsh-customizable-client-startup) for more details.
+`dev` is local-only — deliberately not exposed in the GitHub Actions workflows, so
+experiments stay off the shared environments. It still uses the S3 backend (own state
+key), so a real bucket is required:
 
-
-## Troubleshooting
-
-### Orphaned Resources After Failed Destroy
-
-**Cause**: Destroy workflow failed or OpenTofu state is out of sync with AWS resources
-
-**Solution**: Use the automated cleanup script:
 ```bash
-# Dry-run to see what would be deleted
-./scripts/cleanup-orphaned-resources.sh <environment> --dry-run
-
-# Actual cleanup
-./scripts/cleanup-orphaned-resources.sh <environment>
+cp lablink-infrastructure/config/dev.example.yaml lablink-infrastructure/config/config.yaml
+cd lablink-infrastructure
+../scripts/init-terraform.sh dev
+tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=dev"
 ```
 
-The script automatically reads configuration from `config.yaml`, backs up OpenTofu state files, and deletes resources in the correct dependency order. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md).
+### Redeploying several times a week
 
-### Deployment Fails with "InvalidAMI"
+Let's Encrypt allows **5 certificates per exact domain per 7 days**, with no override.
+Use `cloudflare.example.yaml` (CloudFlare edge SSL) or `ip-only.example.yaml` (HTTP, no
+domain needed) for that cadence, and save `letsencrypt.example.yaml` for stable
+deployments. Details in [Rate Limit Considerations](lablink-infrastructure/config/README.md#rate-limit-considerations)
+and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
-**Cause**: AMI ID doesn't exist in your region
+### No domain at all
 
-**Solution**: Update `ami_id` in `config.yaml` with a region-appropriate AMI
+`cp lablink-infrastructure/config/ip-only.example.yaml lablink-infrastructure/config/config.yaml`
+— access the allocator at `http://<IP>:5000`. Fastest path for demos and debugging.
 
-### Cannot Access Allocator Web Interface
+## Where to Go Next
 
-**Cause**: Security group or DNS not configured
+| You have | Read |
+|----------|------|
+| **5 minutes** | This page. `./scripts/setup.sh` → deploy workflow → done. |
+| **30 minutes** | [Configuration guide](lablink-infrastructure/config/README.md) (every field, all config flavors, decision tree) and [Setup and Workflow Reference](docs/SETUP.md) (OIDC explained, manual AWS setup, workflow inputs). |
+| **60 minutes** | [Deployment checklist](DEPLOYMENT_CHECKLIST.md) before a production deploy, [Testing best practices](docs/TESTING_BEST_PRACTICES.md) for repeat testing without cert lockout, and [Infrastructure internals](lablink-infrastructure/README.md) for what the OpenTofu actually builds. |
 
-**Solution**:
-1. Check security group allows inbound traffic on port 5000
-2. If using DNS, verify DNS records propagated
-3. Try accessing via public IP first
+| Reference | Covers |
+|-----------|--------|
+| [docs/SETUP.md](docs/SETUP.md) | Prerequisites, GitHub secrets, OIDC, manual AWS setup, deploy/destroy workflow inputs, repository layout |
+| [lablink-infrastructure/config/README.md](lablink-infrastructure/config/README.md) | Config flavors, every config field, validation, rate limits |
+| [lablink-infrastructure/README.md](lablink-infrastructure/README.md) | What gets deployed, local OpenTofu usage, custom images, the client startup-script hook, security notes |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Failed deploys, orphaned resources, state locks, DNS problems |
+| [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md) | Recovering from a failed destroy, by hand |
+| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | Pre- and post-deploy checklist |
 
-### OpenTofu State Lock Error
+## Something Broke?
 
-**Cause**: Previous deployment didn't complete or cleanup
-
-**Solution**:
-```bash
-# In lablink-infrastructure/
-terraform force-unlock LOCK_ID
-```
-
-### DNS Not Resolving
-
-**Cause**: DNS propagation delay or Route 53 not configured
-
-**Solution**:
-1. Wait 5-10 minutes for propagation
-2. Verify Route 53 hosted zone exists
-3. Check nameservers match at domain registrar
-4. Use `nslookup your-domain.com` to test
-
-### More Help
-
-- **Main Documentation**: https://talmolab.github.io/lablink/
-- **Infrastructure Docs**: [lablink-infrastructure/README.md](lablink-infrastructure/README.md)
-- **GitHub Issues**: https://github.com/talmolab/lablink/issues
-- **Deployment Checklist**: [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
-
-## Project Structure
-
-```
-lablink-template/
-├── .github/workflows/                  # GitHub Actions workflows
-│   ├── terraform-deploy.yml            # Deploy infrastructure (OIDC → AWS)
-│   ├── terraform-destroy.yml           # Destroy infrastructure + client VMs
-│   ├── config-validation.yml           # Validate config.yaml on PR
-│   └── startup-script-validation.yml   # Lint custom-startup.sh on PR
-├── lablink-infrastructure/             # OpenTofu infrastructure
-│   ├── main.tf                         # Core OpenTofu config (EC2, EIP, IAM, Route53)
-│   ├── alb.tf                          # ALB resources (only when ssl.provider="acm")
-│   ├── backend.tf                      # Backend configuration
-│   ├── backend-*.hcl                   # Per-environment backend overrides (dev/test/prod/ci-test)
-│   ├── user_data.sh                    # EC2 initialization script (templated by OpenTofu)
-│   ├── config/
-│   │   ├── config.yaml                 # Your active configuration
-│   │   ├── *.example.yaml              # Per-flavor templates (ip-only, cloudflare, letsencrypt, acm, dev/test/prod, ci-test)
-│   │   ├── custom-startup.sh           # Optional per-client-VM startup hook
-│   │   └── README.md                   # Detailed config selection guide
-│   └── README.md                       # Infrastructure documentation
-├── scripts/                            # Helper scripts
-│   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets
-│   ├── configure.sh                    # Interactive config.yaml wizard (re-runnable)
-│   ├── init-terraform.sh               # OpenTofu init helper (reads bucket from config)
-│   ├── verify-deployment.sh            # Post-deploy DNS/HTTP/SSL checks
-│   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
-│   ├── cleanup-orphaned-resources.sh   # Recover from failed `tofu destroy`
-│   └── validate-all-configs.{sh,ps1}   # Validate every *.example.yaml against the schema
-├── MANUAL_CLEANUP_GUIDE.md             # Manual cleanup procedures
-├── DEPLOYMENT_CHECKLIST.md             # Pre-deployment checklist
-├── README.md                           # This file
-└── LICENSE
-```
+- Deploy or destroy failed, resources left behind, state locked → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- Config rejected by validation → [config guide](lablink-infrastructure/config/README.md#validation)
+- Template bugs → [template issues](https://github.com/talmolab/lablink-template/issues);
+  LabLink itself → [lablink issues](https://github.com/talmolab/lablink/issues)
 
 ## Contributing
 
@@ -643,4 +210,5 @@ BSD 2-Clause License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Need Help?** Check the [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) or [Troubleshooting](#troubleshooting) section above.
+**Need help?** Start with the [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) or
+[Troubleshooting](docs/TROUBLESHOOTING.md).
