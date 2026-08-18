@@ -122,23 +122,6 @@ aws iam delete-policy --policy-arn "${POLICY_ARN}"
 echo "✓ Deleted allocator instance role and policy"
 ```
 
-#### C. Delete Lambda Execution Role
-
-```bash
-ENV="ci-test"
-ROLE_NAME="lablink_lambda_exec_${ENV}"
-
-# Detach AWS managed policy
-aws iam detach-role-policy \
-  --role-name "${ROLE_NAME}" \
-  --policy-arn "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-
-# Delete role
-aws iam delete-role --role-name "${ROLE_NAME}"
-
-echo "✓ Deleted Lambda execution role"
-```
-
 ---
 
 ### 2. Client VM Resources
@@ -333,24 +316,9 @@ EOF
 
 ---
 
-### 5. Lambda Functions
-
-```bash
-ENV="ci-test"
-FUNCTION_NAME="lablink_log_processor_${ENV}"
-
-# Check if function exists
-if aws lambda get-function --function-name "${FUNCTION_NAME}" --region us-west-2 2>/dev/null; then
-  aws lambda delete-function --function-name "${FUNCTION_NAME}" --region us-west-2
-  echo "✓ Deleted Lambda function"
-else
-  echo "✓ No Lambda function found"
-fi
-```
-
 ---
 
-### 6. S3 and DynamoDB State Management
+### 5. S3 and DynamoDB State Management
 
 #### A. List State Files
 
@@ -922,9 +890,6 @@ aws ec2 describe-instances --region ${REGION} --filters "Name=tag:Name,Values=*$
 # Check all IAM resources
 aws iam list-roles --query "Roles[?contains(RoleName, '${ENV}')].RoleName" --output table
 aws iam list-policies --scope Local --query "Policies[?contains(PolicyName, '${ENV}')].PolicyName" --output table
-
-# Check Lambda functions
-aws lambda list-functions --region ${REGION} --query "Functions[?contains(FunctionName, '${ENV}')].FunctionName" --output table
 
 # Check S3 and DynamoDB
 aws s3 ls s3://${BUCKET}/${ENV}/ 2>/dev/null || echo "No S3 state files found"

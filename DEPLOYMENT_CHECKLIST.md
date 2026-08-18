@@ -304,10 +304,6 @@ After running destroy workflow or manual cleanup:
   ```bash
   aws route53 list-resource-record-sets --hosted-zone-id {zone_id} --query "ResourceRecordSets[?starts_with(Name, '{env}')]"
   ```
-- [ ] Lambda functions removed
-  ```bash
-  aws lambda list-functions --region us-west-2 --query "Functions[?contains(FunctionName, '{env}')].FunctionName"
-  ```
 
 **Note**: Replace `{env}` with your environment name (e.g., `ci-test`, `test`, `prod`) and `{bucket}`, `{zone_id}` with your actual values from config.yaml.
 
