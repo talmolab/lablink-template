@@ -148,7 +148,7 @@ data "aws_iam_policy_document" "s3_backend_doc" {
       "dynamodb:DeleteItem"
     ]
     resources = [
-      "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/lock-table"
+      "arn:aws:dynamodb:${local.aws_region}:${data.aws_caller_identity.current.account_id}:table/lock-table"
     ]
   }
 }
