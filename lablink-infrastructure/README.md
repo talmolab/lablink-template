@@ -526,10 +526,23 @@ If `tofu destroy` fails or leaves orphaned resources, use the automated cleanup 
 
 The script automatically handles:
 
-- Reading configuration from `config/config.yaml`
+- Reading `deployment_name`, `bucket_name`, `region` and `eip.strategy` from `config/config.yaml`
 - Backing up OpenTofu state files before deletion
-- Deleting resources in correct dependency order
+- Deleting resources in correct dependency order — instances and the load balancer before the security groups holding their ENIs
+- Skipping the Elastic IP unless `eip.strategy` is `dynamic`, so a persistent EIP is never released
 - Dry-run mode for safe testing: `./scripts/cleanup-orphaned-resources.sh test --dry-run`
+
+Every allocator-side resource is named `{deployment_name}-{resource}-{environment}`, so
+the script needs the right `deployment_name`. It reads one from `config.yaml`, but the
+deploy workflow pins its own from the workflow input without writing it back — so
+recovering a CI deploy usually needs the override:
+
+```bash
+./scripts/cleanup-orphaned-resources.sh test --deployment-name sleap-lablink --dry-run
+```
+
+A run that reports `0 deleted` with a long list of `not found` is almost always a
+`deployment_name` mismatch, not a clean environment.
 
 For detailed manual cleanup procedures and troubleshooting, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
 

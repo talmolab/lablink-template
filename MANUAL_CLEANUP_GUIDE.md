@@ -91,19 +91,24 @@ aws iam list-instance-profiles --query "InstanceProfiles[?contains(InstanceProfi
 
 #### B. Delete Allocator Instance Role
 
+The role carries **two** attached policies (`main.tf:426-435`), and `delete-role`
+fails while either remains attached — so detach whatever is actually attached rather
+than a policy you named up front.
+
 ```bash
 ENV="ci-test"
-ROLE_NAME="lablink_instance_role_${ENV}"
-PROFILE_NAME="lablink_instance_profile_${ENV}"
+DEPLOYMENT="my-lablink"   # your deployment_name from config.yaml
 
-# Get custom policy ARN
+ROLE_NAME="${DEPLOYMENT}-allocator-role-${ENV}"
+PROFILE_NAME="${DEPLOYMENT}-allocator-profile-${ENV}"
+
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/lablink_s3_backend_${ENV}"
 
-# Detach custom policy
-aws iam detach-role-policy \
-  --role-name "${ROLE_NAME}" \
-  --policy-arn "${POLICY_ARN}"
+# Detach every attached managed policy
+for POLICY_ARN in $(aws iam list-attached-role-policies --role-name "${ROLE_NAME}" \
+  --query 'AttachedPolicies[*].PolicyArn' --output text); do
+  aws iam detach-role-policy --role-name "${ROLE_NAME}" --policy-arn "${POLICY_ARN}"
+done
 
 # Remove role from instance profile
 aws iam remove-role-from-instance-profile \
@@ -116,10 +121,37 @@ aws iam delete-instance-profile --instance-profile-name "${PROFILE_NAME}"
 # Delete role
 aws iam delete-role --role-name "${ROLE_NAME}"
 
-# Delete custom policy
-aws iam delete-policy --policy-arn "${POLICY_ARN}"
+# Delete the two custom policies the deployment owns
+aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${DEPLOYMENT}-s3-backend-policy-${ENV}"
+aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${DEPLOYMENT}-ec2-mgmt-policy-${ENV}"
 
-echo "✓ Deleted allocator instance role and policy"
+echo "Deleted allocator instance role and policies"
+```
+
+#### C. Delete Client VM Role
+
+Client resources are named from the *allocator's* `resource_prefix`
+(`{software}-lablink-client-{environment}`), which carries no `deployment_name` — so
+find them by suffix rather than by an exact name.
+
+```bash
+ENV="ci-test"
+
+for ROLE_NAME in $(aws iam list-roles \
+  --query "Roles[?ends_with(RoleName, \`-lablink-client-${ENV}-vm-role\`)].RoleName" \
+  --output text); do
+  PROFILE_NAME="${ROLE_NAME%-vm-role}-instance-profile"
+
+  for POLICY_ARN in $(aws iam list-attached-role-policies --role-name "${ROLE_NAME}" \
+    --query 'AttachedPolicies[*].PolicyArn' --output text); do
+    aws iam detach-role-policy --role-name "${ROLE_NAME}" --policy-arn "${POLICY_ARN}"
+  done
+
+  aws iam remove-role-from-instance-profile \
+    --instance-profile-name "${PROFILE_NAME}" --role-name "${ROLE_NAME}"
+  aws iam delete-instance-profile --instance-profile-name "${PROFILE_NAME}"
+  aws iam delete-role --role-name "${ROLE_NAME}"
+done
 ```
 
 ---
@@ -136,13 +168,13 @@ ENV="ci-test"
 # List client VMs
 echo "=== Client VMs ==="
 aws ec2 describe-instances --region us-west-2 \
-  --filters "Name=tag:Name,Values=lablink-vm-${ENV}-*" "Name=instance-state-name,Values=running,stopped" \
+  --filters "Name=tag:Name,Values=*-lablink-client-${ENV}-vm-*" "Name=instance-state-name,Values=running,stopped" \
   --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0],LaunchTime]' \
   --output table
 
 # Get instance IDs
 INSTANCE_IDS=$(aws ec2 describe-instances --region us-west-2 \
-  --filters "Name=tag:Name,Values=lablink-vm-${ENV}-*" "Name=instance-state-name,Values=running,stopped" \
+  --filters "Name=tag:Name,Values=*-lablink-client-${ENV}-vm-*" "Name=instance-state-name,Values=running,stopped" \
   --query 'Reservations[*].Instances[*].InstanceId' \
   --output text)
 
@@ -160,7 +192,7 @@ fi
 
 ```bash
 ENV="ci-test"
-SG_NAME="lablink_client_${ENV}_sg"
+SG_NAME="*-lablink-client-${ENV}-sg"   # wildcard: the prefix has no deployment_name
 
 # Find security group ID
 SG_ID=$(aws ec2 describe-security-groups --region us-west-2 \
@@ -185,15 +217,14 @@ fi
 
 ```bash
 ENV="ci-test"
-KEY_NAME="lablink_key_pair_client_${ENV}"
 
-# Check if key exists
-if aws ec2 describe-key-pairs --region us-west-2 --key-names "${KEY_NAME}" 2>/dev/null; then
+# --key-names takes exact names only, so match the wildcard through --filters
+for KEY_NAME in $(aws ec2 describe-key-pairs --region us-west-2 \
+  --filters "Name=key-name,Values=*-lablink-client-${ENV}-keypair" \
+  --query 'KeyPairs[*].KeyName' --output text); do
   aws ec2 delete-key-pair --region us-west-2 --key-name "${KEY_NAME}"
-  echo "✓ Deleted client VM key pair"
-else
-  echo "✓ No client VM key pair found"
-fi
+  echo "Deleted client VM key pair: ${KEY_NAME}"
+done
 ```
 
 ---
@@ -202,73 +233,114 @@ fi
 
 #### A. Terminate Allocator Instance
 
+Every allocator-side resource is named `{deployment_name}-{resource}-{environment}`,
+so each snippet below needs your `deployment_name` from `config.yaml`.
+
 ```bash
 ENV="ci-test"
+DEPLOYMENT="my-lablink"   # your deployment_name from config.yaml
 
 # Find allocator instance
 INSTANCE_ID=$(aws ec2 describe-instances --region us-west-2 \
-  --filters "Name=tag:Name,Values=lablink_allocator_server_${ENV}" "Name=instance-state-name,Values=running,stopped" \
+  --filters "Name=tag:Name,Values=${DEPLOYMENT}-allocator-${ENV}" "Name=instance-state-name,Values=running,stopped" \
   --query 'Reservations[0].Instances[0].InstanceId' \
   --output text)
 
-if [ "$INSTANCE_ID" != "None" ] && [ ! -z "$INSTANCE_ID" ]; then
+if [ "$INSTANCE_ID" != "None" ] && [ -n "$INSTANCE_ID" ]; then
   aws ec2 terminate-instances --region us-west-2 --instance-ids "${INSTANCE_ID}"
-  echo "✓ Allocator instance terminating: ${INSTANCE_ID}"
+  echo "Allocator instance terminating: ${INSTANCE_ID}"
 else
-  echo "✓ No allocator instance found"
+  echo "No allocator instance found"
 fi
 ```
 
-#### B. Release Elastic IP (if using dynamic strategy)
+#### B. Delete the Load Balancer (only when SSL/ALB is configured)
+
+Do this **before** the security groups: the ALB holds ENIs in
+`{deployment_name}-alb-sg-{environment}`, and `delete-security-group` fails while
+they exist. Deleting the load balancer removes its listeners with it; the target
+group outlives it and must go separately.
 
 ```bash
 ENV="ci-test"
+DEPLOYMENT="my-lablink"
+
+ALB_ARN=$(aws elbv2 describe-load-balancers --region us-west-2 \
+  --names "${DEPLOYMENT}-alb-${ENV}" \
+  --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null)
+
+if [ "$ALB_ARN" != "None" ] && [ -n "$ALB_ARN" ]; then
+  aws elbv2 delete-load-balancer --region us-west-2 --load-balancer-arn "${ALB_ARN}"
+  echo "Deleted load balancer; waiting for its ENIs to detach..."
+  sleep 30
+fi
+
+TG_ARN=$(aws elbv2 describe-target-groups --region us-west-2 \
+  --names "${DEPLOYMENT}-alb-tg-${ENV}" \
+  --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null)
+
+if [ "$TG_ARN" != "None" ] && [ -n "$TG_ARN" ]; then
+  aws elbv2 delete-target-group --region us-west-2 --target-group-arn "${TG_ARN}"
+  echo "Deleted target group"
+fi
+```
+
+#### C. Release Elastic IP — dynamic strategy ONLY
+
+⚠️ **CHECK `eip.strategy` FIRST**: a **persistent** EIP carries the *same* `Name` tag as a dynamic one (`main.tf:290-306`), so the tag cannot tell them apart. A persistent EIP is pre-allocated by you and deliberately outlives the deployment — releasing it throws away the stable address the strategy exists to preserve, and you cannot get that IP back. Read `eip.strategy` out of `config.yaml` and skip this step entirely unless it is `dynamic`.
+
+```bash
+ENV="ci-test"
+DEPLOYMENT="my-lablink"
 
 # Find EIP allocation ID
 ALLOCATION_ID=$(aws ec2 describe-addresses --region us-west-2 \
-  --filters "Name=tag:Name,Values=lablink-eip-${ENV}" \
+  --filters "Name=tag:Name,Values=${DEPLOYMENT}-eip-${ENV}" \
   --query 'Addresses[0].AllocationId' \
   --output text)
 
-if [ "$ALLOCATION_ID" != "None" ] && [ ! -z "$ALLOCATION_ID" ]; then
+if [ "$ALLOCATION_ID" != "None" ] && [ -n "$ALLOCATION_ID" ]; then
   aws ec2 release-address --region us-west-2 --allocation-id "${ALLOCATION_ID}"
-  echo "✓ Released Elastic IP"
+  echo "Released Elastic IP"
 else
-  echo "✓ No Elastic IP found"
+  echo "No Elastic IP found"
 fi
 ```
 
-#### C. Delete Allocator Security Group
+#### D. Delete Security Groups
 
 ```bash
 ENV="ci-test"
-SG_NAME="allow_http_https_${ENV}"
+DEPLOYMENT="my-lablink"
 
-# Find security group ID
-SG_ID=$(aws ec2 describe-security-groups --region us-west-2 \
-  --filters "Name=group-name,Values=${SG_NAME}" \
-  --query 'SecurityGroups[0].GroupId' \
-  --output text)
+for SG_NAME in "${DEPLOYMENT}-allocator-sg-${ENV}" "${DEPLOYMENT}-alb-sg-${ENV}"; do
+  SG_ID=$(aws ec2 describe-security-groups --region us-west-2 \
+    --filters "Name=group-name,Values=${SG_NAME}" \
+    --query 'SecurityGroups[0].GroupId' \
+    --output text)
 
-if [ "$SG_ID" != "None" ] && [ ! -z "$SG_ID" ]; then
-  aws ec2 delete-security-group --region us-west-2 --group-id "${SG_ID}"
-  echo "✓ Deleted allocator security group"
-else
-  echo "✓ No allocator security group found"
-fi
+  if [ "$SG_ID" != "None" ] && [ -n "$SG_ID" ]; then
+    aws ec2 delete-security-group --region us-west-2 --group-id "${SG_ID}" \
+      && echo "Deleted ${SG_NAME}" \
+      || echo "${SG_NAME} still in use — retry once its ENIs detach"
+  else
+    echo "No ${SG_NAME} found"
+  fi
+done
 ```
 
-#### D. Delete Allocator Key Pair
+#### E. Delete Allocator Key Pair
 
 ```bash
 ENV="ci-test"
-KEY_NAME="lablink-key-${ENV}"
+DEPLOYMENT="my-lablink"
+KEY_NAME="${DEPLOYMENT}-keypair-${ENV}"
 
 if aws ec2 describe-key-pairs --region us-west-2 --key-names "${KEY_NAME}" 2>/dev/null; then
   aws ec2 delete-key-pair --region us-west-2 --key-name "${KEY_NAME}"
-  echo "✓ Deleted allocator key pair"
+  echo "Deleted allocator key pair"
 else
-  echo "✓ No allocator key pair found"
+  echo "No allocator key pair found"
 fi
 ```
 
@@ -433,7 +505,7 @@ Cannot delete entity, must detach all policies first.
 **Fix:**
 
 ```bash
-ROLE_NAME="lablink_instance_role_ci-test"
+ROLE_NAME="my-lablink-allocator-role-ci-test"   # {deployment_name}-allocator-role-{environment}
 
 # List attached policies
 echo "Attached policies:"
@@ -461,7 +533,7 @@ Cannot delete entity, must remove roles from instance profile first.
 **Fix:**
 
 ```bash
-ROLE_NAME="lablink_cloud_watch_agent_role_ci-test"
+ROLE_NAME="my-lablink-allocator-role-ci-test"
 
 # Find instance profile
 PROFILE_NAME=$(aws iam list-instance-profiles-for-role --role-name "${ROLE_NAME}" \
@@ -626,11 +698,12 @@ An automated cleanup script is available at [scripts/cleanup-orphaned-resources.
 
 ### Key Features
 
-- **Automatic Configuration**: Reads `bucket_name` and `region` from `lablink-infrastructure/config/config.yaml`
+- **Automatic Configuration**: Reads `deployment_name`, `bucket_name`, `region` and `eip.strategy` from `lablink-infrastructure/config/config.yaml`
 - **Dry-Run Mode**: Test the cleanup process without making changes
 - **State Backup**: Automatically backs up OpenTofu state files before deletion
-- **Color-Coded Output**: Visual feedback with green (success), yellow (warnings), and red (errors)
-- **Dependency-Aware**: Deletes resources in correct order to avoid dependency conflicts
+- **Honest Reporting**: A resource that was not found reports `[--] not found`, never a green `[OK]`, and the run ends with a `N deleted, M not found, K failed` summary — so a run that matched nothing is distinguishable from a clean teardown
+- **Dependency-Aware**: Deletes resources in correct order — instances and the load balancer before the security groups holding their ENIs
+- **Persistent-EIP Safe**: Skips the EIP entirely unless `eip.strategy` is `dynamic`, because a persistent EIP shares its `Name` tag with a dynamic one and is meant to outlive the deployment
 
 ### Usage
 
@@ -650,6 +723,18 @@ An automated cleanup script is available at [scripts/cleanup-orphaned-resources.
 ./scripts/cleanup-orphaned-resources.sh <environment> --yes
 ```
 
+**Overriding the deployment name**: every allocator-side resource is named
+`{deployment_name}-{resource}-{environment}`, so the script needs a `deployment_name`
+and takes it from `config.yaml` by default. Recovering a CI deploy usually needs an
+override, because the deploy workflow pins `deployment_name` from its own workflow
+input rather than from the committed file:
+```bash
+./scripts/cleanup-orphaned-resources.sh test --deployment-name sleap-lablink --dry-run
+```
+
+If the script reports `0 deleted` and a long list of `not found`, the deployment name
+is the first thing to check.
+
 ### When to Use This Script
 
 Use the automated script when:
@@ -664,24 +749,34 @@ For complex scenarios or if the script fails, refer to the manual cleanup proced
 
 The script provides detailed progress information:
 ```
-=== LabLink Environment Cleanup ===
-Environment: test
-Bucket: lablink-terraform-state-bucket
-Region: us-west-2
+Configuration:
+  Deployment:  sleap-lablink
+  Environment: test
+  S3 Bucket:   tf-state-lablink-example
+  AWS Region:  us-west-2
+  EIP strategy: dynamic
 
-WARNING: This will delete ALL resources for environment 'test'
-Continue? (yes/no): yes
+=== Starting cleanup: sleap-lablink / test ===
 
-Deleting EC2 instances...
-  ✓ Terminated 2 client VMs
-  ✓ Terminated allocator instance
+1. Terminating EC2 instances...
+  [OK] terminated client VMs: i-0abc i-0def
+  [OK] terminated allocator: i-0123
 
-Waiting for instances to terminate...
+2. Deleting load balancer...
+  [--] no load balancer sleap-lablink-alb-test
 
-Deleting security groups...
-  ✓ Deleted client security group
-  ✓ Deleted allocator security group
+3. Waiting for resources to detach...
+  Waiting 30 seconds...
+  [--] no target group sleap-lablink-alb-tg-test
+
+4. Deleting security groups...
+  [OK] deleted client security group: sg-0aaa
+  [OK] deleted allocator security group: sg-0bbb
+  [--] no ALB security group (sleap-lablink-alb-sg-test)
 ...
+
+=== Cleanup summary: sleap-lablink / test ===
+  9 deleted, 6 not found, 0 failed
 ```
 
 ### Verification After Automated Cleanup
@@ -772,7 +867,8 @@ aws ec2 delete-security-group --region us-west-2 --group-id ${SG_ID}
 **Solution**:
 ```bash
 ENV="test"
-ROLE_NAME="lablink_instance_role_${ENV}"
+DEPLOYMENT="my-lablink"   # your deployment_name from config.yaml
+ROLE_NAME="${DEPLOYMENT}-allocator-role-${ENV}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # List and detach all attached policies
@@ -791,9 +887,13 @@ aws iam delete-role --role-name ${ROLE_NAME}
 
 #### 3. Allocator Instance Not Found
 
-**Error**: Script reports "No allocator instance found" but instance still exists
+**Error**: Script reports `[--] no allocator (...)` but the instance still exists
 
-**Cause**: Instance tag name doesn't match expected format
+**Cause**: Almost always a `deployment_name` mismatch. The tag is
+`{deployment_name}-allocator-{environment}` (`main.tf:285`), and the script takes
+`deployment_name` from `config.yaml` — which the deploy workflow does *not* write
+back, so a CI deploy under a different name is invisible to it. Re-run with
+`--deployment-name`, using the name the wildcard search below reveals.
 
 **Solution**:
 ```bash

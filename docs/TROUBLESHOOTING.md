@@ -22,7 +22,15 @@ First stop when a deploy fails or the allocator is unreachable. Two companions:
 ./scripts/cleanup-orphaned-resources.sh <environment>
 ```
 
-The script automatically reads configuration from `config.yaml`, backs up OpenTofu state files, and deletes resources in the correct dependency order. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
+The script reads `deployment_name`, `bucket_name`, `region` and `eip.strategy` from `config.yaml`, backs up OpenTofu state files, and deletes resources in the correct dependency order.
+
+Resources are named `{deployment_name}-{resource}-{environment}`, so the script needs the right `deployment_name`. The deploy workflow pins its own from the workflow input without writing it back to the committed config, so recovering a CI deploy usually needs the override:
+
+```bash
+./scripts/cleanup-orphaned-resources.sh <environment> --deployment-name YOUR-DEPLOYMENT --dry-run
+```
+
+**`0 deleted` with a long list of `not found` means the deployment name is wrong**, not that the environment is clean. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
 
 ## Deployment Fails with "InvalidAMI"
 
