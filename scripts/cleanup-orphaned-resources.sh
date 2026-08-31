@@ -615,7 +615,7 @@ echo ""
 
 if [ "$FAILED" -gt 0 ]; then
   echo -e "${YELLOW}Some deletions failed.${NC} Security groups usually just need a"
-  echo "retry once their ENIs detach; anything else, see MANUAL_CLEANUP_GUIDE.md."
+  echo "retry once their ENIs detach; anything else, see docs/MANUAL_CLEANUP_GUIDE.md."
   echo ""
   exit 1
 fi

@@ -544,7 +544,7 @@ recovering a CI deploy usually needs the override:
 A run that reports `0 deleted` with a long list of `not found` is almost always a
 `deployment_name` mismatch, not a clean environment.
 
-For detailed manual cleanup procedures and troubleshooting, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
+For detailed manual cleanup procedures and troubleshooting, see [MANUAL_CLEANUP_GUIDE.md](../docs/MANUAL_CLEANUP_GUIDE.md).
 
 ## Documentation
 

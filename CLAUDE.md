@@ -80,5 +80,5 @@ hard-fails if the placeholders are absent, so keep them in any config you hand-w
 ## When Adding Features
 
 Update the docs that ship with the change: `README.md` for user-facing configuration,
-`DEPLOYMENT_CHECKLIST.md` for anything that alters deploy steps, and
+`docs/DEPLOYMENT_CHECKLIST.md` for anything that alters deploy steps, and
 `lablink-infrastructure/config/README.md` for schema changes.

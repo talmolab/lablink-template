@@ -2,7 +2,7 @@
 
 First stop when a deploy fails or the allocator is unreachable. Two companions:
 
-- **[MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md)** — step-by-step recovery from
+- **[MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md)** — step-by-step recovery from
   failed destroys, orphaned resources, and corrupted OpenTofu state.
 - **[lablink-infrastructure/README.md](../lablink-infrastructure/README.md#troubleshooting)** —
   runtime issues on a deployed allocator (Caddy/SSL logs, Docker container, DNS).
@@ -30,7 +30,7 @@ Resources are named `{deployment_name}-{resource}-{environment}`, so the script 
 ./scripts/cleanup-orphaned-resources.sh <environment> --deployment-name YOUR-DEPLOYMENT --dry-run
 ```
 
-**`0 deleted` with a long list of `not found` means the deployment name is wrong**, not that the environment is clean. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](../MANUAL_CLEANUP_GUIDE.md).
+**`0 deleted` with a long list of `not found` means the deployment name is wrong**, not that the environment is clean. For detailed manual cleanup procedures, see [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md).
 
 ## Deployment Fails with "InvalidAMI"
 
@@ -73,4 +73,4 @@ tofu force-unlock LOCK_ID
 - **Infrastructure Docs**: [lablink-infrastructure/README.md](../lablink-infrastructure/README.md)
 - **Template issues**: https://github.com/talmolab/lablink-template/issues
 - **LabLink issues**: https://github.com/talmolab/lablink/issues
-- **Deployment Checklist**: [DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)
+- **Deployment Checklist**: [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)

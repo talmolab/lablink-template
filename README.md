@@ -214,7 +214,7 @@ and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 |----------|------|
 | **5 minutes** | This page. `./scripts/setup.sh` → deploy workflow → done. |
 | **30 minutes** | [Configuration guide](lablink-infrastructure/config/README.md) (every field, all config flavors, decision tree) and [Setup and Workflow Reference](docs/SETUP.md) (OIDC explained, manual AWS setup, workflow inputs). |
-| **60 minutes** | [Deployment checklist](DEPLOYMENT_CHECKLIST.md) before a production deploy, [Testing best practices](docs/TESTING_BEST_PRACTICES.md) for repeat testing without cert lockout, and [Infrastructure internals](lablink-infrastructure/README.md) for what the OpenTofu actually builds. |
+| **60 minutes** | [Deployment checklist](docs/DEPLOYMENT_CHECKLIST.md) before a production deploy, [Testing best practices](docs/TESTING_BEST_PRACTICES.md) for repeat testing without cert lockout, and [Infrastructure internals](lablink-infrastructure/README.md) for what the OpenTofu actually builds. |
 
 | Reference | Covers |
 |-----------|--------|
@@ -222,8 +222,8 @@ and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 | [lablink-infrastructure/config/README.md](lablink-infrastructure/config/README.md) | Config flavors, every config field, validation, rate limits |
 | [lablink-infrastructure/README.md](lablink-infrastructure/README.md) | What gets deployed, local OpenTofu usage, custom images, the client startup-script hook, security notes |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Failed deploys, orphaned resources, state locks, DNS problems |
-| [MANUAL_CLEANUP_GUIDE.md](MANUAL_CLEANUP_GUIDE.md) | Recovering from a failed destroy, by hand |
-| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | Pre- and post-deploy checklist |
+| [docs/MANUAL_CLEANUP_GUIDE.md](docs/MANUAL_CLEANUP_GUIDE.md) | Recovering from a failed destroy, by hand |
+| [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md) | Pre- and post-deploy checklist |
 
 ## Something Broke?
 
@@ -254,5 +254,5 @@ BSD 2-Clause License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Need help?** Start with the [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) or
+**Need help?** Start with the [Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md) or
 [Troubleshooting](docs/TROUBLESHOOTING.md).
