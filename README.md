@@ -60,6 +60,10 @@ defaults:
 **Do not move or rename `lablink-infrastructure/config/config.yaml`** — the path is
 hardcoded in the infrastructure.
 
+Every script in `scripts/` can be run from any directory — each one locates the
+repository from its own path, so `./scripts/setup.sh` and
+`~/code/lablink-template/scripts/setup.sh` behave identically.
+
 ### 3. Deploy
 
 1. Actions → **"Deploy LabLink Infrastructure"** → **Run workflow**

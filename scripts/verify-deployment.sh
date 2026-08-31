@@ -9,8 +9,11 @@
 #   - curl, nslookup (for DNS verification)
 #
 # Usage:
-#   verify-deployment.sh [--ci] <environment>       # Config-aware (reads config.yaml + tofu outputs)
-#   verify-deployment.sh [--ci] <domain> <ip>        # Backwards-compatible (explicit values)
+#   ./scripts/verify-deployment.sh [--ci] <environment>      # Config-aware (reads config.yaml + tofu outputs)
+#   ./scripts/verify-deployment.sh [--ci] <domain> <ip>      # Backwards-compatible (explicit values)
+#
+# Runs from any directory: it resolves the repository from its own path. Config-aware
+# mode cd's to lablink-infrastructure/ itself, because `tofu output` has to run there.
 #
 # Options:
 #   --ci    Disable ANSI colors for clean CI logs
@@ -132,8 +135,8 @@ elif [ $# -eq 2 ]; then
 else
     echo -e "${RED}Error: Too many arguments${NC}"
     echo "Usage:"
-    echo "  verify-deployment.sh [--ci] <environment>"
-    echo "  verify-deployment.sh [--ci] <domain> <ip>"
+    echo "  $0 [--ci] <environment>"
+    echo "  $0 [--ci] <domain> <ip>"
     exit 1
 fi
 
@@ -141,18 +144,19 @@ fi
 # Config-aware mode: resolve values from config.yaml + tofu outputs
 # ============================================================================
 if [ "$MODE" = "config-aware" ]; then
-    # Locate lablink-infrastructure directory
-    if [ -f "config/config.yaml" ]; then
-        # Already in lablink-infrastructure/
-        true
-    elif [ -f "lablink-infrastructure/config/config.yaml" ]; then
-        cd lablink-infrastructure
-    else
-        echo -e "${RED}Error: Cannot find config/config.yaml${NC}"
-        echo "  Run this script from the lablink-infrastructure/ directory,"
-        echo "  or from the repository root (lablink-infrastructure/ must exist)."
+    # Work from lablink-infrastructure/ regardless of the caller's directory: that
+    # is where `tofu output` has to run, and cfg_get reads config/config.yaml
+    # relative to it. Resolved from this script's own path rather than the cwd, so
+    # an already-correct cwd is no longer a precondition.
+    INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lablink-infrastructure" 2>/dev/null && pwd)"
+    if [ -z "$INFRA_DIR" ] || [ ! -f "$INFRA_DIR/config/config.yaml" ]; then
+        echo -e "${RED}Error: Cannot find lablink-infrastructure/config/config.yaml${NC}"
+        echo "  Expected it next to scripts/. Is this a complete lablink-template checkout?"
+        echo "  To check a deployment without a checkout, pass values explicitly:"
+        echo "    $0 <domain> <ip>"
         exit 1
     fi
+    cd "$INFRA_DIR"
 
     # Read config values
     DNS_ENABLED=$(cfg_get "dns.enabled" "false")

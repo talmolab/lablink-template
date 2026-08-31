@@ -1,5 +1,9 @@
 #!/bin/bash
 # Helper script to initialize OpenTofu with bucket from config.yaml
+#
+# Usage: ./scripts/init-terraform.sh [dev|test|ci-test|prod]   (default: dev)
+# Runs from any directory: it cd's to lablink-infrastructure/ itself, which is where
+# `tofu init` has to run. It leaves you nowhere — run tofu from that directory after.
 
 set -e
 

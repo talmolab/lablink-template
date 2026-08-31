@@ -3,7 +3,7 @@
 # Reads config.yaml and queries the AWS Pricing API for a daily cost breakdown.
 #
 # Usage: ./scripts/estimate-costs.sh
-# Must be run from the repository root directory.
+# Runs from any directory: it resolves the repository from its own path.
 #
 # Prerequisites: aws CLI, jq
 # Uses the caller's AWS credentials (not the EC2 instance role).
@@ -30,9 +30,14 @@ error()   { echo -e "${RED}ERR${NC} $*"; }
 # ============================================================================
 # Prerequisites
 # ============================================================================
+# Work from the repository root no matter where the caller is: every path below is
+# relative to it. Mirrors init-terraform.sh, which does the same for its own directory.
+# This script takes no arguments, so there is no caller-relative path to invalidate.
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+
 if [ ! -d "lablink-infrastructure" ]; then
-    error "Must be run from the repository root (lablink-infrastructure/ directory not found)."
-    echo "  cd /path/to/your/lablink-template && ./scripts/estimate-costs.sh"
+    error "lablink-infrastructure/ not found next to scripts/."
+    echo "  Is this a complete lablink-template checkout? Expected it at $(pwd)."
     exit 1
 fi
 

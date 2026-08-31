@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Validate all example configuration files
 # This script validates each *.example.yaml file in lablink-infrastructure/config
+#
+# Usage: ./scripts/validate-all-configs.sh
+# Runs from any directory: it resolves the repository from its own path.
+#
+# Prerequisites: docker (it runs the allocator image's validator)
 
 set -euo pipefail
 

@@ -4,7 +4,7 @@
 # Then calls configure.sh to generate config.yaml
 #
 # Usage: ./scripts/setup.sh
-# Must be run from the repository root directory.
+# Runs from any directory: it resolves the repository from its own path.
 #
 # For updating configuration later (instance types, image tags, etc.),
 # run ./scripts/configure.sh directly — no need to re-run this script.
@@ -45,12 +45,17 @@ echo ""
 header "Phase 1: Prerequisites Check"
 
 # Check: running from repo root
+# Work from the repository root no matter where the caller is: every path below is
+# relative to it. Mirrors init-terraform.sh, which does the same for its own directory.
+# This script takes no arguments, so there is no caller-relative path to invalidate.
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+
 if [ ! -d "lablink-infrastructure" ]; then
-    error "Must be run from the repository root (lablink-infrastructure/ directory not found)."
-    echo "  cd /path/to/your/lablink-template && ./scripts/setup.sh"
+    error "lablink-infrastructure/ not found next to scripts/."
+    echo "  Is this a complete lablink-template checkout? Expected it at $(pwd)."
     exit 1
 fi
-success "Running from repository root"
+success "Working from $(pwd)"
 
 # Check: AWS CLI installed
 if ! command -v aws &> /dev/null; then
