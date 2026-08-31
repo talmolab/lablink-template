@@ -205,13 +205,11 @@ and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
 ### An AWS region other than us-west-2
 
-`app.region` in `config.yaml` decides where everything lands. Both bundled AMIs exist
-only in us-west-2 and AMI IDs do not cross regions, so copy them into your region, set
-`machine.ami_id` to the client copy, and set the `ALLOCATOR_AMI_ID` repository variable
-to the allocator copy. Full walkthrough:
+Not supported yet. `app.region` in `config.yaml` decides where everything lands, but the
+allocator AMI is a literal in `main.tf` and exists only in us-west-2, so any other region
+makes OpenTofu **refuse to plan** with an error saying so — rather than silently
+deploying to us-west-2, which is what it did before. What it would take:
 [Deploying outside us-west-2](lablink-infrastructure/README.md#deploying-outside-us-west-2).
-Change the region without an allocator AMI and OpenTofu refuses to plan, with an error
-telling you what to supply.
 
 ### No domain at all
 

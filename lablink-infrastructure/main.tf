@@ -31,17 +31,6 @@ variable "repository" {
   default     = ""
 }
 
-variable "allocator_ami_id" {
-  description = "AMI for the allocator EC2 instance. Leave empty to use the bundled us-west-2 image; supply an equivalent image when deploying to another region."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.allocator_ami_id == "" || can(regex("^ami-[0-9a-f]{8,17}$", var.allocator_ami_id))
-    error_message = "allocator_ami_id must be empty or an AMI ID like 'ami-0bd08c9d4aa9f0bc6'."
-  }
-}
-
 # Resource naming convention: {deployment_name}-{resource_type}-{environment}
 locals {
   # Standard tags applied to all resources
@@ -74,16 +63,17 @@ locals {
   # with no app block.
   aws_region = try(local.config_file.app.region, var.region)
 
-  # AMI IDs are region-scoped. This image exists only in us-west-2, and it is a custom
-  # build with Docker baked in — user_data.sh assumes that and only starts the daemon
-  # (its "Install Docker" block installs apt prerequisites, never Docker itself), so a
-  # stock Ubuntu AMI would boot and then fail. Deploying elsewhere therefore needs an
-  # equivalent image in that region, passed as -var="allocator_ami_id=ami-...". The
-  # precondition on aws_instance.lablink_allocator_server refuses to plan rather than
-  # letting apply die with InvalidAMIID.NotFound after creating other resources.
-  bundled_allocator_ami        = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 + Docker
-  bundled_allocator_ami_region = "us-west-2"
-  allocator_ami_id             = var.allocator_ami_id != "" ? var.allocator_ami_id : local.bundled_allocator_ami
+  # AMI IDs are region-scoped, and this image exists only in us-west-2, so us-west-2 is
+  # the only region this template can deploy to. It is a custom build with Docker baked
+  # in — user_data.sh assumes that and only starts the daemon (its "Install Docker" block
+  # installs apt prerequisites, never Docker itself), so a stock Ubuntu AMI would boot
+  # and then fail, and the allocator's config schema has no field to point elsewhere.
+  # Supporting another region means copying this image into it and changing the two
+  # values below. The precondition on aws_instance.lablink_allocator_server refuses to
+  # plan on any other region rather than letting apply die with InvalidAMIID.NotFound
+  # after creating other resources.
+  allocator_ami        = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 + Docker
+  allocator_ami_region = "us-west-2"
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
@@ -290,7 +280,7 @@ resource "aws_security_group" "allow_http" {
 }
 
 resource "aws_instance" "lablink_allocator_server" {
-  ami                  = local.allocator_ami_id
+  ami                  = local.allocator_ami
   instance_type        = local.allocator_instance_type
   security_groups      = [aws_security_group.allow_http.name]
   key_name             = aws_key_pair.lablink_key_pair.key_name
@@ -318,22 +308,19 @@ resource "aws_instance" "lablink_allocator_server" {
 
   lifecycle {
     precondition {
-      condition     = var.allocator_ami_id != "" || local.aws_region == local.bundled_allocator_ami_region
+      condition     = local.aws_region == local.allocator_ami_region
       error_message = <<-EOT
-        app.region is "${local.aws_region}", but the bundled allocator AMI
-        (${local.bundled_allocator_ami}) exists only in ${local.bundled_allocator_ami_region}.
-        AMI IDs do not cross regions, so this apply would fail with
-        InvalidAMIID.NotFound.
+        app.region is "${local.aws_region}", but the allocator AMI
+        (${local.allocator_ami}) exists only in ${local.allocator_ami_region}, and AMI IDs
+        do not cross regions, so this apply would fail with InvalidAMIID.NotFound.
 
-        Build or copy an equivalent image — Ubuntu 24.04 with Docker pre-installed —
-        into ${local.aws_region} and pass it in:
+        ${local.allocator_ami_region} is currently the only supported region. Either set
+        app.region back to ${local.allocator_ami_region}, or copy the image into
+        ${local.aws_region} and update local.allocator_ami and local.allocator_ami_region
+        in main.tf:
 
-          tofu apply -var="allocator_ami_id=ami-xxxxxxxxxxxx" ...
-
-        To copy the bundled one:
-
-          aws ec2 copy-image --source-region ${local.bundled_allocator_ami_region} \
-            --source-image-id ${local.bundled_allocator_ami} \
+          aws ec2 copy-image --source-region ${local.allocator_ami_region} \
+            --source-image-id ${local.allocator_ami} \
             --region ${local.aws_region} --name lablink-allocator-ubuntu24-docker
 
         Set machine.ami_id in config.yaml to a client image in ${local.aws_region} too:

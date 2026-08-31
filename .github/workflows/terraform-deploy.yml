@@ -222,8 +222,7 @@ jobs:
         run: |
           tofu plan \
             -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
-            -var="environment=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_ami_id=${{ vars.ALLOCATOR_AMI_ID }}"
+            -var="environment=${{ steps.setenv.outputs.env }}"
 
       - name: OpenTofu Apply
         id: apply
@@ -231,8 +230,7 @@ jobs:
         run: |
           tofu apply -auto-approve \
             -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" \
-            -var="environment=${{ steps.setenv.outputs.env }}" \
-            -var="allocator_ami_id=${{ vars.ALLOCATOR_AMI_ID }}"
+            -var="environment=${{ steps.setenv.outputs.env }}"
         continue-on-error: true
 
       - name: Save PEM Key to Artifact
@@ -280,4 +278,4 @@ jobs:
       - name: OpenTofu Destroy on Failure
         working-directory: ${{ steps.setenv.outputs.workdir }}
         if: steps.apply.outcome == 'failure'
-        run: tofu destroy -auto-approve -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" -var="environment=${{ steps.setenv.outputs.env }}" -var="allocator_ami_id=${{ vars.ALLOCATOR_AMI_ID }}"
+        run: tofu destroy -auto-approve -var="deployment_name=${{ steps.setenv.outputs.deployment_name }}" -var="environment=${{ steps.setenv.outputs.env }}"

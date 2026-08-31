@@ -233,12 +233,6 @@ Deploys or updates your LabLink infrastructure.
 
 **Repository variables**:
 - `DEPLOYMENT_NAME`: used as the deployment name on pushes to `test`, which carry no inputs.
-- `ALLOCATOR_AMI_ID`: optional. The allocator AMI, needed only when `app.region` is not
-  `us-west-2` — AMI IDs are region-scoped and the bundled image exists only there. Leave
-  it unset for us-west-2. It is a repository variable rather than a `config.yaml` field
-  because the allocator's schema has no field for it, and rather than a workflow input so
-  that push-triggered deploys pick it up too. See
-  [Deploying outside us-west-2](../lablink-infrastructure/README.md#deploying-outside-us-west-2).
 
 **What it does**:
 1. Configures AWS credentials via OIDC
