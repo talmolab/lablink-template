@@ -297,6 +297,7 @@ lablink-template/
 ├── scripts/                            # Helper scripts
 │   ├── setup.sh                        # One-time setup: OIDC, IAM, S3, DynamoDB, GitHub secrets
 │   ├── configure.sh                    # Interactive config.yaml wizard (re-runnable)
+│   ├── doctor.sh                       # Pre-deploy preflight: tools, AWS, secrets, config
 │   ├── init-terraform.sh               # OpenTofu init helper (reads bucket from config)
 │   ├── verify-deployment.sh            # Post-deploy DNS/HTTP/SSL checks
 │   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
