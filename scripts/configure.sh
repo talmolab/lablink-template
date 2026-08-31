@@ -3,7 +3,7 @@
 # Generates lablink-infrastructure/config/config.yaml interactively.
 #
 # Usage: ./scripts/configure.sh
-# Must be run from the repository root directory.
+# Runs from any directory: it resolves the repository from its own path.
 #
 # This script can be run as many times as needed to update configuration.
 # If config.yaml already exists, current values are used as defaults.
@@ -39,9 +39,14 @@ prompt()  { echo -en "${BOLD}$*${NC}"; }
 # ============================================================================
 # Prerequisites
 # ============================================================================
+# Work from the repository root no matter where the caller is: every path below is
+# relative to it. Mirrors init-terraform.sh, which does the same for its own directory.
+# This script takes no arguments, so there is no caller-relative path to invalidate.
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+
 if [ ! -d "lablink-infrastructure" ]; then
-    error "Must be run from the repository root (lablink-infrastructure/ directory not found)."
-    echo "  cd /path/to/your/lablink-template && ./scripts/configure.sh"
+    error "lablink-infrastructure/ not found next to scripts/."
+    echo "  Is this a complete lablink-template checkout? Expected it at $(pwd)."
     exit 1
 fi
 
