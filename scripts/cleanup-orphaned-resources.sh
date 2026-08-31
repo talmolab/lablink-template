@@ -2,9 +2,13 @@
 # cleanup-orphaned-resources.sh
 # Manually clean up orphaned AWS resources for a LabLink deployment.
 #
-# Usage: ./cleanup-orphaned-resources.sh <environment> [--deployment-name NAME] [--dry-run] [--yes]
-# Example: ./cleanup-orphaned-resources.sh test --dry-run
-# Example: ./cleanup-orphaned-resources.sh test --deployment-name sleap-lablink --yes
+# Usage: ./scripts/cleanup-orphaned-resources.sh <environment> [--deployment-name NAME] [--dry-run] [--yes]
+# Example: ./scripts/cleanup-orphaned-resources.sh test --dry-run
+# Example: ./scripts/cleanup-orphaned-resources.sh test --deployment-name sleap-lablink --yes
+#
+# Runs from any directory: it resolves the repository from its own path. This differs
+# from setup.sh, configure.sh and estimate-costs.sh, which must be run from the
+# repository root.
 #
 # Flags:
 #   --deployment-name NAME  Override the deployment_name read from config.yaml.
