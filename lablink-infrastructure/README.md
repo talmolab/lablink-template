@@ -80,10 +80,10 @@ cp config/example.config.yaml config/config.yaml
 
 - **REQUIRED**: Change `db.password` and `app.admin_password` (security!)
 - **REQUIRED**: Set `bucket_name` to a globally unique S3 bucket name (for test/prod)
-- Customize `machine.ami_id` for your AWS region
+- Customize `machine.ami_id` for your AWS region (see [Deploying outside us-west-2](#deploying-outside-us-west-2))
 - Customize `machine.image` to use your Docker image or LabLink's public images
 - Customize `machine.repository` to clone your research code
-- Set `app.region` to your AWS region
+- Set `app.region` to your AWS region — this drives the OpenTofu provider, the S3 backend, and client VM provisioning
 
 **Example configuration:**
 
@@ -372,10 +372,52 @@ AMI IDs are region-specific. If deploying to a different region:
    ```
 3. Update `machine.ami_id` in `config/config.yaml`
 
-**Pre-configured custom AMIs (us-west-2):**
+**Pre-configured custom AMIs (us-west-2 only):**
 
-- Client VM: `ami-0601752c11b394251` (Ubuntu 24.04 + Docker + Nvidia GPU drivers)
-- Allocator VM: `ami-0bd08c9d4aa9f0bc6` (Ubuntu 24.04 + Docker)
+| VM | AMI | Contents | How to override |
+|----|-----|----------|-----------------|
+| Client | `ami-0601752c11b394251` | Ubuntu 24.04 + Docker + Nvidia GPU drivers | `machine.ami_id` in `config.yaml` |
+| Allocator | `ami-0bd08c9d4aa9f0bc6` | Ubuntu 24.04 + Docker | `-var="allocator_ami_id=ami-..."` |
+
+### Deploying outside us-west-2
+
+`app.region` in `config.yaml` is what decides where the deployment lands — the AWS
+provider reads it, `scripts/init-terraform.sh` points the S3 backend at it, and the
+allocator uses it to provision client VMs.
+
+**AMI IDs do not cross regions**, and both images above exist only in us-west-2, so
+changing `app.region` alone is not enough. Both are custom builds with Docker
+pre-installed, which `user_data.sh` depends on — it starts the Docker daemon rather
+than installing it, so a stock Ubuntu AMI boots and then fails. You need an equivalent
+image in the target region:
+
+```bash
+# Copy the bundled allocator image into your region
+aws ec2 copy-image --source-region us-west-2 \
+  --source-image-id ami-0bd08c9d4aa9f0bc6 \
+  --region YOUR-REGION --name lablink-allocator-ubuntu24-docker
+
+# Same for the client image
+aws ec2 copy-image --source-region us-west-2 \
+  --source-image-id ami-0601752c11b394251 \
+  --region YOUR-REGION --name lablink-client-ubuntu24-docker-nvidia
+```
+
+Then set `machine.ami_id` in `config.yaml` to the client copy, and pass the allocator
+copy at apply time:
+
+```bash
+tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=test" \
+  -var="allocator_ami_id=ami-YOUR-ALLOCATOR-COPY"
+```
+
+The allocator AMI is a `-var` rather than a `config.yaml` field because `config.yaml`
+is validated against the allocator's schema, which has no field for it — any extra key
+makes the config fail outright.
+
+If you change `app.region` without supplying an allocator AMI, OpenTofu **refuses to
+plan** and tells you what to do, rather than failing partway through apply with
+`InvalidAMIID.NotFound`.
 
 ## Using Custom Docker Images
 

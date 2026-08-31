@@ -203,6 +203,16 @@ domain needed) for that cadence, and save `letsencrypt.example.yaml` for stable
 deployments. Details in [Rate Limit Considerations](lablink-infrastructure/config/README.md#rate-limit-considerations)
 and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
+### An AWS region other than us-west-2
+
+`app.region` in `config.yaml` decides where everything lands. Both bundled AMIs exist
+only in us-west-2 and AMI IDs do not cross regions, so copy them into your region, set
+`machine.ami_id` to the client copy, and set the `ALLOCATOR_AMI_ID` repository variable
+to the allocator copy. Full walkthrough:
+[Deploying outside us-west-2](lablink-infrastructure/README.md#deploying-outside-us-west-2).
+Change the region without an allocator AMI and OpenTofu refuses to plan, with an error
+telling you what to supply.
+
 ### No domain at all
 
 `cp lablink-infrastructure/config/ip-only.example.yaml lablink-infrastructure/config/config.yaml`

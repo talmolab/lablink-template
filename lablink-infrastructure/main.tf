@@ -31,6 +31,17 @@ variable "repository" {
   default     = ""
 }
 
+variable "allocator_ami_id" {
+  description = "AMI for the allocator EC2 instance. Leave empty to use the bundled us-west-2 image; supply an equivalent image when deploying to another region."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.allocator_ami_id == "" || can(regex("^ami-[0-9a-f]{8,17}$", var.allocator_ami_id))
+    error_message = "allocator_ami_id must be empty or an AMI ID like 'ami-0bd08c9d4aa9f0bc6'."
+  }
+}
+
 # Resource naming convention: {deployment_name}-{resource_type}-{environment}
 locals {
   # Standard tags applied to all resources
@@ -53,6 +64,26 @@ locals {
   dns_terraform_managed = try(local.config_file.dns.terraform_managed, true) # default true for backwards compatibility
   dns_domain            = try(local.config_file.dns.domain, "")
   dns_zone_id           = try(local.config_file.dns.zone_id, "")
+
+  # app.region is the single source of truth for where this deployment lives: the
+  # allocator reads it from the config copied onto the instance to provision client
+  # VMs, scripts/init-terraform.sh points the S3 backend at it, and every helper
+  # script under scripts/ queries it. No .tf file read it until now, so the provider
+  # fell back to var.region's default and the infrastructure landed in us-west-2
+  # regardless of what the config said. var.region stays as the fallback for a config
+  # with no app block.
+  aws_region = try(local.config_file.app.region, var.region)
+
+  # AMI IDs are region-scoped. This image exists only in us-west-2, and it is a custom
+  # build with Docker baked in — user_data.sh assumes that and only starts the daemon
+  # (its "Install Docker" block installs apt prerequisites, never Docker itself), so a
+  # stock Ubuntu AMI would boot and then fail. Deploying elsewhere therefore needs an
+  # equivalent image in that region, passed as -var="allocator_ami_id=ami-...". The
+  # precondition on aws_instance.lablink_allocator_server refuses to plan rather than
+  # letting apply die with InvalidAMIID.NotFound after creating other resources.
+  bundled_allocator_ami        = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 + Docker
+  bundled_allocator_ami_region = "us-west-2"
+  allocator_ami_id             = var.allocator_ami_id != "" ? var.allocator_ami_id : local.bundled_allocator_ami
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
@@ -86,7 +117,7 @@ locals {
 }
 
 provider "aws" {
-  region = var.region
+  region = local.aws_region
 }
 
 # Get the current AWS account ID
@@ -259,7 +290,7 @@ resource "aws_security_group" "allow_http" {
 }
 
 resource "aws_instance" "lablink_allocator_server" {
-  ami                  = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 with Docker pre-installed
+  ami                  = local.allocator_ami_id
   instance_type        = local.allocator_instance_type
   security_groups      = [aws_security_group.allow_http.name]
   key_name             = aws_key_pair.lablink_key_pair.key_name
@@ -284,6 +315,33 @@ resource "aws_instance" "lablink_allocator_server" {
   tags = merge(local.common_tags, {
     Name = "${var.deployment_name}-allocator-${var.environment}"
   })
+
+  lifecycle {
+    precondition {
+      condition     = var.allocator_ami_id != "" || local.aws_region == local.bundled_allocator_ami_region
+      error_message = <<-EOT
+        app.region is "${local.aws_region}", but the bundled allocator AMI
+        (${local.bundled_allocator_ami}) exists only in ${local.bundled_allocator_ami_region}.
+        AMI IDs do not cross regions, so this apply would fail with
+        InvalidAMIID.NotFound.
+
+        Build or copy an equivalent image — Ubuntu 24.04 with Docker pre-installed —
+        into ${local.aws_region} and pass it in:
+
+          tofu apply -var="allocator_ami_id=ami-xxxxxxxxxxxx" ...
+
+        To copy the bundled one:
+
+          aws ec2 copy-image --source-region ${local.bundled_allocator_ami_region} \
+            --source-image-id ${local.bundled_allocator_ami} \
+            --region ${local.aws_region} --name lablink-allocator-ubuntu24-docker
+
+        Set machine.ami_id in config.yaml to a client image in ${local.aws_region} too:
+        the allocator uses it to provision client VMs, and this precondition cannot
+        check it because that happens at runtime, not at apply.
+      EOT
+    }
+  }
 }
 
 # EIP Lookup (for persistent strategy - reuse existing tagged EIP)

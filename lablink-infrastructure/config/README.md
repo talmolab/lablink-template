@@ -406,8 +406,12 @@ provisions client VMs — long after a green `tofu apply`.
 | `p3.2xlarge` | NVIDIA V100, heavier training |
 
 `machine.ami_id` is **region-specific**: `ami-0601752c11b394251` is the Ubuntu 24.04 +
-Docker + NVIDIA driver AMI in `us-west-2`. If you change `app.region`, you must also
-change the AMI and the `AWS_REGION` GitHub secret.
+Docker + NVIDIA driver AMI in `us-west-2`. There is a second, separate AMI for the
+allocator itself (`ami-0bd08c9d4aa9f0bc6`, Ubuntu 24.04 + Docker), also us-west-2 only.
+It has no `config.yaml` field — the allocator's schema has none, and any extra key makes
+the config fail validation — so it is passed to OpenTofu as
+`-var="allocator_ami_id=ami-..."`. Changing `app.region` means changing both, plus the
+`AWS_REGION` GitHub secret.
 
 `allocator.image_tag` selects the allocator container image. `linux-amd64-latest-test`
 tracks the latest test build; pin a version such as `linux-amd64-v1.2.3` for production.
@@ -433,12 +437,37 @@ sed -i 's/domain: "old.example.com"/domain: "new.example.com"/' \
 
 ### Change AWS Region
 
+`app.region` is what decides where the deployment lands: the OpenTofu AWS provider reads
+it, `scripts/init-terraform.sh` points the S3 backend at it, and the allocator uses it to
+provision client VMs.
+
 ```yaml
 app:
   region: "eu-west-1"      # your new region
 machine:
-  ami_id: "ami-XXXXXXXX"   # AMIs are region-specific — find an Ubuntu 24.04 + Docker AMI
+  ami_id: "ami-XXXXXXXX"   # client AMI, must exist in eu-west-1
 ```
+
+Then supply an allocator AMI for the new region at apply time — it is a `-var`, not a
+config field:
+
+```bash
+tofu apply -var="deployment_name=YOUR-DEPLOYMENT" -var="environment=test" \
+  -var="allocator_ami_id=ami-YOUR-ALLOCATOR-COPY"
+```
+
+Both bundled images are custom builds with Docker pre-installed, and `user_data.sh`
+depends on that — it starts the Docker daemon rather than installing it, so a stock
+Ubuntu AMI is not a drop-in. Copy the existing ones instead:
+
+```bash
+aws ec2 copy-image --source-region us-west-2 \
+  --source-image-id ami-0bd08c9d4aa9f0bc6 \
+  --region eu-west-1 --name lablink-allocator-ubuntu24-docker
+```
+
+Omitting the allocator AMI is caught at plan time with an explanatory error rather than
+failing partway through apply.
 
 Also update the `AWS_REGION` GitHub secret so the workflows authenticate in the same
 region.

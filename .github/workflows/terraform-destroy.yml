@@ -113,4 +113,5 @@ jobs:
         run: |
           tofu destroy -auto-approve \
             -var="deployment_name=${{ github.event.inputs.deployment_name }}" \
-            -var="environment=${{ github.event.inputs.environment }}"
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="allocator_ami_id=${{ vars.ALLOCATOR_AMI_ID }}"

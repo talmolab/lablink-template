@@ -34,9 +34,30 @@ Resources are named `{deployment_name}-{resource}-{environment}`, so the script 
 
 ## Deployment Fails with "InvalidAMI"
 
-**Cause**: AMI ID doesn't exist in your region
+**Cause**: AMI IDs are region-scoped, and the AMI named does not exist in the region
+`app.region` selects. There are two separate AMIs, overridden in different places:
 
-**Solution**: Update `ami_id` in `config.yaml` with a region-appropriate AMI
+| AMI | Used by | Override with |
+|-----|---------|---------------|
+| Allocator | OpenTofu, at apply | `-var="allocator_ami_id=ami-..."` |
+| Client | the allocator, when provisioning VMs | `machine.ami_id` in `config.yaml` |
+
+**Solution**: copy an equivalent image into your region and supply it. Both bundled
+images are custom builds with Docker pre-installed — `user_data.sh` starts the Docker
+daemon rather than installing it, so a stock Ubuntu AMI is not a substitute.
+
+```bash
+aws ec2 copy-image --source-region us-west-2 \
+  --source-image-id ami-0bd08c9d4aa9f0bc6 \
+  --region YOUR-REGION --name lablink-allocator-ubuntu24-docker
+```
+
+Changing `app.region` without an allocator AMI for that region is caught at plan time
+with an explanatory error, so it fails before creating anything. A client AMI mismatch
+cannot be caught that way — the allocator uses it at runtime, so it surfaces as a
+failed VM launch in the admin UI rather than a failed apply.
+
+See [Deploying outside us-west-2](../lablink-infrastructure/README.md#deploying-outside-us-west-2).
 
 ## Cannot Access Allocator Web Interface
 
