@@ -264,5 +264,5 @@ eip:
 - [Let's Encrypt Rate Limits](https://letsencrypt.org/docs/rate-limits/)
 - [Let's Encrypt Staging Environment](https://letsencrypt.org/docs/staging-environment/)
 - [Certificate Transparency Log (crt.sh)](https://crt.sh/)
-- [LabLink Deployment Checklist](../DEPLOYMENT_CHECKLIST.md)
+- [LabLink Deployment Checklist](DEPLOYMENT_CHECKLIST.md)
 - [Configuration Examples](../lablink-infrastructure/config/README.md)

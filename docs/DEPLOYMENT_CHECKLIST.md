@@ -162,7 +162,7 @@ Use this checklist to ensure you have completed all required setup steps before 
   - **IP-only** (no DNS/SSL): `dns.enabled: false`, `ssl.provider: "none"` - No rate limits
   - **Subdomain rotation**: Use different subdomains (`test1`, `test2`, etc.) - 5 attempts per subdomain
   - **CloudFlare SSL**: `ssl.provider: "cloudflare"` - No Let's Encrypt limits
-  - See [TESTING_BEST_PRACTICES.md](docs/TESTING_BEST_PRACTICES.md) for detailed guidance
+  - See [TESTING_BEST_PRACTICES.md](TESTING_BEST_PRACTICES.md) for detailed guidance
 - [ ] If this is production with stable domain: proceed with Let's Encrypt
 - [ ] If this is testing/staging: consider IP-only or CloudFlare to avoid lockouts
 
@@ -367,8 +367,8 @@ See [Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md) for detailed commands and tr
 
 ## Need Help?
 
-- [ ] Checked [README.md](README.md) troubleshooting section
-- [ ] Reviewed [lablink-infrastructure/README.md](lablink-infrastructure/README.md)
+- [ ] Checked [README.md](../README.md) troubleshooting section
+- [ ] Reviewed [lablink-infrastructure/README.md](../lablink-infrastructure/README.md)
 - [ ] Consulted main docs: https://talmolab.github.io/lablink/
 - [ ] Searched existing issues: https://github.com/talmolab/lablink/issues
 - [ ] Created new issue if problem persists

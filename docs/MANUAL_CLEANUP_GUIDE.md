@@ -687,14 +687,14 @@ Before deploying with Let's Encrypt, check your certificate quota:
 ```
 
 **See Also:**
-- [TESTING_BEST_PRACTICES.md](docs/TESTING_BEST_PRACTICES.md) - Comprehensive testing strategies to avoid rate limits
+- [TESTING_BEST_PRACTICES.md](TESTING_BEST_PRACTICES.md) - Comprehensive testing strategies to avoid rate limits
 - [Let's Encrypt Rate Limits](https://letsencrypt.org/docs/rate-limits/) - Official documentation
 
 ---
 
 ## Automated Cleanup Script
 
-An automated cleanup script is available at [scripts/cleanup-orphaned-resources.sh](scripts/cleanup-orphaned-resources.sh) that handles the complete cleanup process for orphaned resources.
+An automated cleanup script is available at [scripts/cleanup-orphaned-resources.sh](../scripts/cleanup-orphaned-resources.sh) that handles the complete cleanup process for orphaned resources.
 
 ### Key Features
 
@@ -1026,7 +1026,7 @@ ENV="test"
 
 If you encounter issues not covered in this guide:
 
-1. Check the [README.md](README.md) for general troubleshooting
+1. Check the [README.md](../README.md) for general troubleshooting
 2. Review the [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for deployment verification steps
 3. Check the allocator's own logs: `ssh ubuntu@<ip> sudo docker logs $(sudo docker ps -q)`
 4. Open an issue in the GitHub repository with:

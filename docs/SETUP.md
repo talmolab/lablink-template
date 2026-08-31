@@ -260,7 +260,7 @@ Deploys or updates your LabLink infrastructure.
 
 ### Manual Cleanup and Troubleshooting
 
-If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cleanup Guide](../MANUAL_CLEANUP_GUIDE.md)** for step-by-step procedures to:
+If the destroy workflow fails or leaves orphaned resources, see the **[Manual Cleanup Guide](MANUAL_CLEANUP_GUIDE.md)** for step-by-step procedures to:
 
 - Remove orphaned IAM roles, policies, and instance profiles
 - Clean up leftover EC2 instances, security groups, and key pairs
@@ -303,8 +303,12 @@ lablink-template/
 │   ├── estimate-costs.sh               # Daily AWS cost estimate for a given config
 │   ├── cleanup-orphaned-resources.sh   # Recover from failed `tofu destroy`
 │   └── validate-all-configs.{sh,ps1}   # Validate every *.example.yaml against the schema
-├── MANUAL_CLEANUP_GUIDE.md             # Manual cleanup procedures
-├── DEPLOYMENT_CHECKLIST.md             # Pre-deployment checklist
-├── README.md                           # This file
+├── docs/                               # Guides and reference
+│   ├── SETUP.md                        # This file
+│   ├── DEPLOYMENT_CHECKLIST.md         # Pre-deployment checklist
+│   ├── MANUAL_CLEANUP_GUIDE.md         # Manual cleanup procedures
+│   ├── TROUBLESHOOTING.md              # Failed deploys, orphaned resources, state locks
+│   └── TESTING_BEST_PRACTICES.md       # Repeat testing without cert lockout
+├── README.md                           # Project overview and quickstart
 └── LICENSE
 ```

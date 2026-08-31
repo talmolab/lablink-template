@@ -517,12 +517,12 @@ docker run --rm \
 
 **Solution:**
 - You've hit the rate limit (5 certificates/week)
-- See [MANUAL_CLEANUP_GUIDE.md](../../MANUAL_CLEANUP_GUIDE.md#scenario-6-lets-encrypt-rate-limit-reached) for recovery options
+- See [MANUAL_CLEANUP_GUIDE.md](../../docs/MANUAL_CLEANUP_GUIDE.md#scenario-6-lets-encrypt-rate-limit-reached) for recovery options
 
 ## Additional Resources
 
 - [Main README](../../README.md) - Overview and quick start
-- [Deployment Checklist](../../DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment guide
+- [Deployment Checklist](../../docs/DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment guide
 - [Testing Best Practices](../../docs/TESTING_BEST_PRACTICES.md) - Rate limit strategies
-- [Manual Cleanup Guide](../../MANUAL_CLEANUP_GUIDE.md) - Troubleshooting and cleanup
+- [Manual Cleanup Guide](../../docs/MANUAL_CLEANUP_GUIDE.md) - Troubleshooting and cleanup
 - [Infrastructure README](../README.md) - OpenTofu documentation
