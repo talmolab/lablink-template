@@ -169,33 +169,36 @@ Use this checklist to ensure you have completed all required setup steps before 
 **S3 Bucket:**
 - [ ] Updated `bucket_name` to match created S3 bucket
 
-### Verify AWS Resources (Optional)
-
-Before deploying, you can verify all required AWS resources exist:
+### Verify Prerequisites
 
 ```bash
-# Verify S3 bucket exists
-aws s3 ls s3://YOUR-BUCKET-NAME
+./scripts/doctor.sh
+```
 
-# Verify DynamoDB table exists
-aws dynamodb describe-table --table-name lock-table --region YOUR-REGION --query "Table.TableName" --output text
+Checks tools, AWS credentials, the S3 state bucket, the DynamoDB lock table, the IAM
+role, the OIDC provider, the four GitHub secrets, and `config.yaml` against the
+allocator's schema — reading bucket and region out of your config, so there is nothing
+to substitute. Exits non-zero if anything fails.
 
-# Verify Route53 hosted zone exists (if using DNS)
+- [ ] `./scripts/doctor.sh` passes
+
+DNS is outside what it checks. If you are using DNS, verify the zone by hand:
+
+```bash
+# Verify Route53 hosted zone exists
 aws route53 get-hosted-zone --id YOUR-ZONE-ID --query "HostedZone.Name" --output text
 
 # Verify domain registration (if registered via Route53)
 aws route53domains get-domain-detail --domain-name your-domain.com --region us-east-1 --query "{Domain: DomainName, Status: StatusList, AutoRenew: AutoRenew}"
-
-# Verify GitHub secrets exist
-gh secret list
 ```
 
-Replace `YOUR-BUCKET-NAME`, `YOUR-REGION`, `YOUR-ZONE-ID`, and `your-domain.com` with your actual values from `config.yaml`.
+Replace `YOUR-ZONE-ID` and `your-domain.com` with your actual values from `config.yaml`.
 
 ## Deployment
 
 ### Before Running Workflow
 - [ ] Reviewed all changes in `config.yaml`
+- [ ] `./scripts/doctor.sh` passes
 - [ ] Committed and pushed changes to repository
 - [ ] Verified no sensitive data in committed files
 

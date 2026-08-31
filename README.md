@@ -64,6 +64,17 @@ Every script in `scripts/` can be run from any directory — each one locates th
 repository from its own path, so `./scripts/setup.sh` and
 `~/code/lablink-template/scripts/setup.sh` behave identically.
 
+Before your first deploy, confirm everything is actually in place:
+
+```bash
+./scripts/doctor.sh
+```
+
+It re-checks the AWS resources and GitHub secrets `setup.sh` created — they can be
+deleted out of band long after setup succeeded — and reproduces every hard-fail in the
+deploy workflow, so a config problem surfaces in seconds instead of three minutes into a
+workflow run.
+
 ### 3. Deploy
 
 1. Actions → **"Deploy LabLink Infrastructure"** → **Run workflow**
@@ -85,8 +96,35 @@ The workflow's final step logs `allocator_fqdn` and `ec2_public_ip` — that is 
 allocator address. Log in with `admin` and your `ADMIN_PASSWORD` secret, then create
 client VMs from the dashboard. The SSH key is uploaded as a workflow artifact.
 
-Check it from your machine any time with `./scripts/verify-deployment.sh test` (pass the
-environment you deployed).
+Confirm it from your machine with `./scripts/verify-deployment.sh test` (pass the
+environment you deployed), then see
+[Operating Your Deployment](#operating-your-deployment) for the rest of the admin UI.
+
+## Operating Your Deployment
+
+Day-to-day operation lives in the allocator's own admin UI — the same pages the
+[LabLink CLI](https://github.com/talmolab/lablink) wraps for terminal users, so there is
+nothing extra to install. Log in with `admin` and your `ADMIN_PASSWORD` secret.
+
+| Page | What it does |
+|------|--------------|
+| `/admin` | Dashboard — DB connection stats and links to everything below |
+| `/admin/instances` | Client VM inventory: per-VM state, plus connect / release / peek actions |
+| `/admin/create` | Launch N client VMs. The allocator runs its own OpenTofu, so you need none locally |
+| `/admin/instances/delete` | Destroy all client VMs. **Also clears the `vms` table** — inventory, per-VM logs, and session history go with them |
+| `/admin/scheduled-destruction` | Schedule teardown ahead of time, so a workshop cleans up without you |
+| `/admin/logs/<hostname>` | A client VM's cloud-init and container logs, shipped to the allocator |
+| `/admin/allocator-logs` | The allocator's own log, no SSH needed. First place to look when the deploy went green but the app never came up |
+| `/admin/session-metrics` | Cohort participation funnel and time-in-software, with CSV/JSON export. Only appears when the config sets `monitoring.enabled: true` |
+
+From your own machine:
+
+| Command | What it does |
+|---------|--------------|
+| `./scripts/doctor.sh` | Preflight before a deploy: tools, AWS credentials, state bucket, lock table, IAM role, OIDC provider, GitHub secrets, config validity |
+| `./scripts/verify-deployment.sh <env>` | After a deploy: DNS resolution, allocator health endpoint, SSL certificate expiry |
+| `./scripts/estimate-costs.sh` | Daily and monthly cost for your current config, from the AWS Pricing API |
+| `./scripts/cleanup-orphaned-resources.sh <env>` | Delete what a failed destroy left behind. Run with `--dry-run` first |
 
 ## How a Deploy Flows
 
@@ -189,6 +227,8 @@ and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
 ## Something Broke?
 
+- Deploy about to run, or just failed on a prerequisite → `./scripts/doctor.sh`
+- Deploy went green but the allocator never came up → `/admin/allocator-logs` in the allocator UI
 - Deploy or destroy failed, resources left behind, state locked → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - Config rejected by validation → [config guide](lablink-infrastructure/config/README.md#validation)
 - Template bugs → [template issues](https://github.com/talmolab/lablink-template/issues);
