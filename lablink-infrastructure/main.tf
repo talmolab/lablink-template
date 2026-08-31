@@ -63,17 +63,22 @@ locals {
   # with no app block.
   aws_region = try(local.config_file.app.region, var.region)
 
-  # AMI IDs are region-scoped, and this image exists only in us-west-2, so us-west-2 is
-  # the only region this template can deploy to. It is a custom build with Docker baked
-  # in — user_data.sh assumes that and only starts the daemon (its "Install Docker" block
-  # installs apt prerequisites, never Docker itself), so a stock Ubuntu AMI would boot
-  # and then fail, and the allocator's config schema has no field to point elsewhere.
-  # Supporting another region means copying this image into it and changing the two
-  # values below. The precondition on aws_instance.lablink_allocator_server refuses to
-  # plan on any other region rather than letting apply die with InvalidAMIID.NotFound
-  # after creating other resources.
-  allocator_ami        = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 + Docker
-  allocator_ami_region = "us-west-2"
+  # AMI IDs are region-scoped: the same machine image gets a different ID in every
+  # region it is copied to, so this is a lookup rather than a literal, and the keys are
+  # the regions this template can deploy to. The images are custom builds with Docker
+  # baked in — user_data.sh assumes that and only starts the daemon (its "Install Docker"
+  # block installs apt prerequisites, never Docker itself), so a stock Ubuntu AMI would
+  # boot and then fail. Adding a region means copying BOTH images into it, making the
+  # copies public (other accounts launch them), and adding the allocator ID here; see
+  # "Deploying to another region" in the README. lookup() rather than a bare index so an
+  # unlisted region reaches the precondition below with a usable message instead of
+  # failing evaluation with "Invalid index".
+  allocator_ami_by_region = {
+    "us-west-2" = "ami-0bd08c9d4aa9f0bc6"
+    "us-east-1" = "ami-0731df69b0f192475"
+    "us-east-2" = "ami-0662274c85c271f53"
+  }
+  allocator_ami = lookup(local.allocator_ami_by_region, local.aws_region, "")
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
@@ -308,19 +313,21 @@ resource "aws_instance" "lablink_allocator_server" {
 
   lifecycle {
     precondition {
-      condition     = local.aws_region == local.allocator_ami_region
+      condition     = contains(keys(local.allocator_ami_by_region), local.aws_region)
       error_message = <<-EOT
-        app.region is "${local.aws_region}", but the allocator AMI
-        (${local.allocator_ami}) exists only in ${local.allocator_ami_region}, and AMI IDs
-        do not cross regions, so this apply would fail with InvalidAMIID.NotFound.
+        app.region is "${local.aws_region}", but there is no allocator AMI recorded for
+        that region. AMI IDs are region-scoped, so the image has to be copied into each
+        region and listed in main.tf. This apply would otherwise fail with
+        InvalidAMIID.NotFound.
 
-        ${local.allocator_ami_region} is currently the only supported region. Either set
-        app.region back to ${local.allocator_ami_region}, or copy the image into
-        ${local.aws_region} and update local.allocator_ami and local.allocator_ami_region
-        in main.tf:
+        Supported regions: ${join(", ", keys(local.allocator_ami_by_region))}
 
-          aws ec2 copy-image --source-region ${local.allocator_ami_region} \
-            --source-image-id ${local.allocator_ami} \
+        Either set app.region to one of those, or add ${local.aws_region}: copy both
+        images into it, make the copies public, and add the allocator ID to
+        local.allocator_ami_by_region in main.tf.
+
+          aws ec2 copy-image --source-region us-west-2 \
+            --source-image-id ami-0bd08c9d4aa9f0bc6 \
             --region ${local.aws_region} --name lablink-allocator-ubuntu24-docker
 
         Set machine.ami_id in config.yaml to a client image in ${local.aws_region} too:

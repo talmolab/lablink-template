@@ -124,14 +124,16 @@ Use this checklist to ensure you have completed all required setup steps before 
   - Or set to empty string if not needed
 - [ ] Updated `software` name for your application
 - [ ] Verified `machine_type` is appropriate for your workload
-- [ ] Verified `ami_id` (the **client** AMI) exists in your `app.region`
+- [ ] Set `ami_id` (the **client** AMI) to the image for your `app.region`:
+      `us-west-2` → `ami-0601752c11b394251`, `us-east-1` → `ami-0c3412413810adacc`,
+      `us-east-2` → `ami-0cd7567480c4840a0`
 - [ ] (Optional) Updated `image` if using custom Docker image
 
 **Application Settings:**
 - [ ] Verified `region` matches `AWS_REGION` secret — `app.region` is what the OpenTofu
       provider, the S3 backend, and client VM provisioning all read
-- [ ] Left `region` as `us-west-2` — the allocator AMI is us-west-2 only, and any other
-      region is refused at plan time
+- [ ] Set `region` to one of `us-west-2`, `us-east-1`, `us-east-2` — the only regions
+      the machine images exist in; anything else is refused at plan time
 - [ ] Confirmed `admin_user` is acceptable (default: "admin")
 
 **DNS Settings** (if using DNS):

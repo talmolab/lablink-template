@@ -205,11 +205,13 @@ and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
 ### An AWS region other than us-west-2
 
-Not supported yet. `app.region` in `config.yaml` decides where everything lands, but the
-allocator AMI is a literal in `main.tf` and exists only in us-west-2, so any other region
-makes OpenTofu **refuse to plan** with an error saying so — rather than silently
-deploying to us-west-2, which is what it did before. What it would take:
-[Deploying outside us-west-2](lablink-infrastructure/README.md#deploying-outside-us-west-2).
+`app.region` in `config.yaml` decides where everything lands. Supported regions are
+**us-west-2, us-east-1 and us-east-2** — the ones LabLink's two machine images have been
+copied into, since AMI IDs are region-scoped. Set `app.region`, set `machine.ami_id` to
+the client AMI for that region, and deploy. Any other region makes OpenTofu **refuse to
+plan**, naming the supported ones, rather than silently deploying to us-west-2 the way it
+did before. Region table and how to add one:
+[Deploying to another region](lablink-infrastructure/README.md#deploying-to-another-region).
 
 ### No domain at all
 

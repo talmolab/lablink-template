@@ -405,13 +405,18 @@ provisions client VMs — long after a green `tofu apply`.
 | `t3.large` | CPU-only, cheapest for testing |
 | `p3.2xlarge` | NVIDIA V100, heavier training |
 
-`machine.ami_id` is **region-specific**: `ami-0601752c11b394251` is the Ubuntu 24.04 +
-Docker + NVIDIA driver AMI in `us-west-2`. There is a second, separate AMI for the
-allocator itself (`ami-0bd08c9d4aa9f0bc6`, Ubuntu 24.04 + Docker), also us-west-2 only.
-It has no `config.yaml` field — the allocator's schema has none, and any extra key makes
-the config fail validation — so it lives as `local.allocator_ami` in `main.tf`. That
-makes us-west-2 the only region this template deploys to; see
-[Change AWS Region](#change-aws-region).
+`machine.ami_id` is **region-specific** — set it to the client AMI for your `app.region`:
+
+| Region | `machine.ami_id` |
+|--------|------------------|
+| `us-west-2` | `ami-0601752c11b394251` |
+| `us-east-1` | `ami-0c3412413810adacc` |
+| `us-east-2` | `ami-0cd7567480c4840a0` |
+
+There is a second, separate AMI for the allocator itself. It has no `config.yaml` field —
+the allocator's schema has none, and any extra key makes the config fail validation — so
+it is looked up by region in `main.tf` (`local.allocator_ami_by_region`) and needs nothing
+from you. See [Change AWS Region](#change-aws-region).
 
 `allocator.image_tag` selects the allocator container image. `linux-amd64-latest-test`
 tracks the latest test build; pin a version such as `linux-amd64-v1.2.3` for production.
@@ -441,30 +446,22 @@ sed -i 's/domain: "old.example.com"/domain: "new.example.com"/' \
 it, `scripts/init-terraform.sh` points the S3 backend at it, and the allocator uses it to
 provision client VMs.
 
-**us-west-2 is the only region that works today.** Changing `app.region` alone is caught
-at plan time by a precondition — the allocator AMI is a literal in `main.tf`, and AMI IDs
-do not cross regions — so it fails before creating anything instead of silently deploying
-to the wrong region, which is what it did before.
-
-Another region needs an edit to `main.tf`, not just this file:
+**Supported regions are `us-west-2`, `us-east-1` and `us-east-2`** — the ones both
+machine images have been copied into. Change `app.region` and the matching client AMI
+together:
 
 ```yaml
 app:
-  region: "eu-west-1"      # your new region
+  region: "us-east-1"                  # your new region
 machine:
-  ami_id: "ami-XXXXXXXX"   # client AMI, must exist in eu-west-1
+  ami_id: "ami-0c3412413810adacc"      # the client AMI for that region
 ```
 
-plus `local.allocator_ami` and `local.allocator_ami_region` in `main.tf` pointed at an
-allocator image in that region. Both bundled images are custom builds with Docker
-pre-installed, and `user_data.sh` depends on that — it starts the Docker daemon rather
-than installing it, so a stock Ubuntu AMI is not a drop-in. Copy the existing ones:
-
-```bash
-aws ec2 copy-image --source-region us-west-2 \
-  --source-image-id ami-0bd08c9d4aa9f0bc6 \
-  --region eu-west-1 --name lablink-allocator-ubuntu24-docker
-```
+The allocator AMI follows automatically — `main.tf` looks it up by region. A region with
+no entry there is caught at plan time by a precondition, so it fails before creating
+anything instead of silently deploying to us-west-2, which is what it did before. Adding
+a region means copying both images into it and publishing them; see
+[Deploying to another region](../README.md#deploying-to-another-region).
 
 Also update the `AWS_REGION` GitHub secret so the workflows authenticate in the same
 region.

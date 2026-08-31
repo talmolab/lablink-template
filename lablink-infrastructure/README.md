@@ -80,7 +80,7 @@ cp config/example.config.yaml config/config.yaml
 
 - **REQUIRED**: Change `db.password` and `app.admin_password` (security!)
 - **REQUIRED**: Set `bucket_name` to a globally unique S3 bucket name (for test/prod)
-- Customize `machine.ami_id` for your AWS region (see [Deploying outside us-west-2](#deploying-outside-us-west-2))
+- Set `machine.ami_id` to the client AMI for your AWS region (see [Deploying to another region](#deploying-to-another-region))
 - Customize `machine.image` to use your Docker image or LabLink's public images
 - Customize `machine.repository` to clone your research code
 - Set `app.region` to your AWS region — this drives the OpenTofu provider, the S3 backend, and client VM provisioning
@@ -372,26 +372,31 @@ AMI IDs are region-specific. If deploying to a different region:
    ```
 3. Update `machine.ami_id` in `config/config.yaml`
 
-**Pre-configured custom AMIs (us-west-2 only):**
+**Pre-configured custom AMIs.** AMI IDs are region-scoped, so each image has a different
+ID per region. The client AMI goes in `config.yaml`; the allocator AMI is looked up by
+region in `main.tf` and needs no configuration.
 
-| VM | AMI | Contents | Set in |
-|----|-----|----------|--------|
-| Client | `ami-0601752c11b394251` | Ubuntu 24.04 + Docker + Nvidia GPU drivers | `machine.ami_id` in `config.yaml` |
-| Allocator | `ami-0bd08c9d4aa9f0bc6` | Ubuntu 24.04 + Docker | `local.allocator_ami` in `main.tf` |
+| Region | Client AMI (`machine.ami_id`) | Allocator AMI (`local.allocator_ami_by_region`) |
+|--------|-------------------------------|--------------------------------------------------|
+| `us-west-2` | `ami-0601752c11b394251` | `ami-0bd08c9d4aa9f0bc6` |
+| `us-east-1` | `ami-0c3412413810adacc` | `ami-0731df69b0f192475` |
+| `us-east-2` | `ami-0cd7567480c4840a0` | `ami-0662274c85c271f53` |
 
-### Deploying outside us-west-2
+Both are Ubuntu 24.04; the client image adds Docker and the NVIDIA GPU drivers, the
+allocator image adds Docker.
 
-**Not supported.** `app.region` in `config.yaml` is what decides where the deployment
-lands — the AWS provider reads it, `scripts/init-terraform.sh` points the S3 backend at
-it, and the allocator uses it to provision client VMs — but the allocator AMI above is a
-literal in `main.tf`, and AMI IDs do not cross regions. Set `app.region` to anything
-other than us-west-2 and OpenTofu **refuses to plan**, naming the region and the AMI,
-rather than creating half a deployment and dying on `InvalidAMIID.NotFound`.
+### Deploying to another region
 
-Another region needs an edit to `main.tf`, not just `config.yaml`:
+`app.region` in `config.yaml` is what decides where the deployment lands — the AWS
+provider reads it, `scripts/init-terraform.sh` points the S3 backend at it, and the
+allocator uses it to provision client VMs. Set it to one of the regions above and set
+`machine.ami_id` to that region's client AMI. A region with no entry in
+`local.allocator_ami_by_region` makes OpenTofu **refuse to plan**, listing the supported
+ones, rather than creating half a deployment and dying on `InvalidAMIID.NotFound`.
+
+Adding a region means copying both images into it, because AMI IDs do not cross regions:
 
 ```bash
-# 1. Copy both images into the target region
 aws ec2 copy-image --source-region us-west-2 \
   --source-image-id ami-0bd08c9d4aa9f0bc6 \
   --region YOUR-REGION --name lablink-allocator-ubuntu24-docker
@@ -401,9 +406,12 @@ aws ec2 copy-image --source-region us-west-2 \
   --region YOUR-REGION --name lablink-client-ubuntu24-docker-nvidia
 ```
 
-2. Point `local.allocator_ami` and `local.allocator_ami_region` in `main.tf` at the
-   allocator copy and the new region.
-3. Point `machine.ami_id` in `config.yaml` at the client copy.
+Then make **both copies public** — labs launch these from their own AWS accounts, so a
+private copy is useless to them — add the allocator ID to `local.allocator_ami_by_region`
+in `main.tf`, and point `machine.ami_id` at the client copy. Note that "block public
+access for AMIs" is enabled by default in newer AWS accounts and must be lifted per
+region (`aws ec2 disable-image-block-public-access --region YOUR-REGION`) before a copy
+can be published.
 
 Both images are custom builds with Docker pre-installed, which `user_data.sh` depends on
 — it starts the Docker daemon rather than installing it, so a stock Ubuntu AMI boots and

@@ -39,19 +39,26 @@ Resources are named `{deployment_name}-{resource}-{environment}`, so the script 
 
 | AMI | Used by | Set in |
 |-----|---------|--------|
-| Allocator | OpenTofu, at apply | `local.allocator_ami` in `main.tf` (us-west-2 only) |
+| Allocator | OpenTofu, at apply | `local.allocator_ami_by_region` in `main.tf` |
 | Client | the allocator, when provisioning VMs | `machine.ami_id` in `config.yaml` |
 
-**Solution**: for the client AMI, point `machine.ami_id` at an image that exists in
-`app.region`. For the allocator AMI, set `app.region` back to `us-west-2` — a plan-time
-precondition refuses any other region, so this fails before creating anything rather
-than partway through apply. A client AMI mismatch cannot be caught that way: the
-allocator uses it at runtime, so it surfaces as a failed VM launch in the admin UI.
+**Solution**: point `machine.ami_id` at the client image for your `app.region`:
+
+| Region | Client AMI |
+|--------|-----------|
+| `us-west-2` | `ami-0601752c11b394251` |
+| `us-east-1` | `ami-0c3412413810adacc` |
+| `us-east-2` | `ami-0cd7567480c4840a0` |
+
+The allocator AMI cannot produce this error at apply: a plan-time precondition refuses a
+region that has no entry in `local.allocator_ami_by_region`, so it fails before creating
+anything. A client AMI mismatch cannot be caught that way — the allocator uses it at
+runtime, so it surfaces as a failed VM launch in the admin UI.
 
 Both AMIs are custom builds with Docker pre-installed — `user_data.sh` starts the Docker
 daemon rather than installing it, so a stock Ubuntu AMI is not a substitute.
 
-See [Deploying outside us-west-2](../lablink-infrastructure/README.md#deploying-outside-us-west-2).
+See [Deploying to another region](../lablink-infrastructure/README.md#deploying-to-another-region).
 
 ## Cannot Access Allocator Web Interface
 
