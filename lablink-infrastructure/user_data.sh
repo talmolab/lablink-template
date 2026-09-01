@@ -4,21 +4,42 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-# Install Docker
-apt-get update
-apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+# Ubuntu cloud images run unattended-upgrades and apt-daily at boot and hold the dpkg
+# lock for a while. With set -e a lost race aborts this whole script, leaving an instance
+# that boots cleanly and runs no allocator, so every apt call goes through this retry.
+apt_retry() {
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if apt-get "$@"; then
+      return 0
+    fi
+    echo ">> apt-get $1 failed (attempt $attempt/10); another process likely holds the dpkg lock"
+    sleep 15
+  done
+  echo ">> apt-get $* still failing after 10 attempts" >&2
+  return 1
+}
+
+# Install Docker. The AMI is Canonical's stock Ubuntu 24.04, resolved per-region from an
+# SSM parameter, so Docker is not present and is installed here. Previously this block
+# installed only apt prerequisites and then started a daemon that a custom pre-baked AMI
+# had to provide — which is what pinned deployments to the regions that image was copied
+# into. docker.io from the Ubuntu archive is enough: nothing here uses docker compose.
+# gnupg is explicit because the Caddy blocks below pipe to gpg --dearmor.
+apt_retry update
+apt_retry install -y docker.io debian-keyring debian-archive-keyring apt-transport-https curl gnupg
 
 # Ensure Docker is running
 systemctl start docker
 systemctl enable docker
+docker --version
 
 # Conditionally install Caddy (only for letsencrypt and cloudflare SSL providers)
 if [ "${INSTALL_CADDY}" = "true" ]; then
   echo ">> Installing Caddy for SSL termination (provider: ${SSL_PROVIDER})"
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update
-  apt-get install -y caddy
+  apt_retry update
+  apt_retry install -y caddy
 else
   echo ">> Skipping Caddy installation (provider: ${SSL_PROVIDER})"
 fi
@@ -105,8 +126,8 @@ elif [ "${SSL_PROVIDER}" = "none" ]; then
   echo ">> Installing Caddy for HTTP reverse proxy (port 80 -> 5000)"
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update
-  apt-get install -y caddy
+  apt_retry update
+  apt_retry install -y caddy
 
   # Configure Caddy for simple HTTP reverse proxy on port 80
   cat <<EOF > /etc/caddy/Caddyfile

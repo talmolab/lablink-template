@@ -63,22 +63,8 @@ locals {
   # with no app block.
   aws_region = try(local.config_file.app.region, var.region)
 
-  # AMI IDs are region-scoped: the same machine image gets a different ID in every
-  # region it is copied to, so this is a lookup rather than a literal, and the keys are
-  # the regions this template can deploy to. The images are custom builds with Docker
-  # baked in — user_data.sh assumes that and only starts the daemon (its "Install Docker"
-  # block installs apt prerequisites, never Docker itself), so a stock Ubuntu AMI would
-  # boot and then fail. Adding a region means copying BOTH images into it, making the
-  # copies public (other accounts launch them), and adding the allocator ID here; see
-  # "Deploying to another region" in the README. lookup() rather than a bare index so an
-  # unlisted region reaches the precondition below with a usable message instead of
-  # failing evaluation with "Invalid index".
-  allocator_ami_by_region = {
-    "us-west-2" = "ami-0bd08c9d4aa9f0bc6"
-    "us-east-1" = "ami-0731df69b0f192475"
-    "us-east-2" = "ami-0662274c85c271f53"
-  }
-  allocator_ami = lookup(local.allocator_ami_by_region, local.aws_region, "")
+  # The allocator is just a Docker host, and user_data.sh now installs Docker itself, so
+  # there is no custom image to maintain per region — see data.aws_ssm_parameter below.
 
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
@@ -113,6 +99,17 @@ locals {
 
 provider "aws" {
   region = local.aws_region
+}
+
+# Canonical publishes Ubuntu 24.04 in every region and SSM resolves the parameter to that
+# region's AMI ID, so the allocator is no longer pinned to regions someone copied a custom
+# image into. This replaced a hardcoded AMI (and later a hand-maintained region map) that
+# made every new region a copy-image job plus edits in two repos.
+#
+# amd64 to match local.allocator_instance_type (t3.large). The arm64 parameter exists at
+# the same path if the instance type ever changes.
+data "aws_ssm_parameter" "allocator_ami" {
+  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
 
 # Get the current AWS account ID
@@ -285,7 +282,7 @@ resource "aws_security_group" "allow_http" {
 }
 
 resource "aws_instance" "lablink_allocator_server" {
-  ami                  = local.allocator_ami
+  ami                  = nonsensitive(data.aws_ssm_parameter.allocator_ami.value)
   instance_type        = local.allocator_instance_type
   security_groups      = [aws_security_group.allow_http.name]
   key_name             = aws_key_pair.lablink_key_pair.key_name
@@ -312,29 +309,12 @@ resource "aws_instance" "lablink_allocator_server" {
   })
 
   lifecycle {
-    precondition {
-      condition     = contains(keys(local.allocator_ami_by_region), local.aws_region)
-      error_message = <<-EOT
-        app.region is "${local.aws_region}", but there is no allocator AMI recorded for
-        that region. AMI IDs are region-scoped, so the image has to be copied into each
-        region and listed in main.tf. This apply would otherwise fail with
-        InvalidAMIID.NotFound.
-
-        Supported regions: ${join(", ", keys(local.allocator_ami_by_region))}
-
-        Either set app.region to one of those, or add ${local.aws_region}: copy both
-        images into it, make the copies public, and add the allocator ID to
-        local.allocator_ami_by_region in main.tf.
-
-          aws ec2 copy-image --source-region us-west-2 \
-            --source-image-id ami-0bd08c9d4aa9f0bc6 \
-            --region ${local.aws_region} --name lablink-allocator-ubuntu24-docker
-
-        Set machine.ami_id in config.yaml to a client image in ${local.aws_region} too:
-        the allocator uses it to provision client VMs, and this precondition cannot
-        check it because that happens at runtime, not at apply.
-      EOT
-    }
+    # The SSM parameter tracks Canonical's *current* 24.04 image, so it changes whenever
+    # they publish a new one. Without this, an apply that touched nothing else would see a
+    # new ami and replace a running allocator — downtime nobody asked for. New deployments
+    # get the current image; an existing one keeps the image it booted with until someone
+    # deliberately replaces it (tofu apply -replace=aws_instance.lablink_allocator_server).
+    ignore_changes = [ami]
   }
 }
 
