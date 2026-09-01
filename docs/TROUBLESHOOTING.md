@@ -57,6 +57,33 @@ the region, which is the cheapest place to catch it.
 
 See [Regions and AMIs](../lablink-infrastructure/README.md#regions-and-amis).
 
+## Desktop Sessions Feel Laggy
+
+**Cause**: on an HTTP deployment (`ssl.provider: "none"`), the viewer cannot use H.264
+video streaming. Chrome exposes the WebCodecs decoder only on secure origins, so the
+codec probe logs `WebCodecs API not available` and every session falls back to JPEG/WebP
+stills — each damaged screen region is re-encoded from scratch every frame instead of
+encoding only the change between frames. Motion (window drags, scrolling plots, playback)
+is where it shows.
+
+The server side is not the problem: KasmVNC advertises H.264 and the encoder works. The
+browser declines it.
+
+**Solution**: configure an SSL provider (`letsencrypt`, `cloudflare` or `acm`) so the
+viewer is served over HTTPS.
+
+To confirm the diagnosis without a domain, port-forward the allocator and open it as
+`localhost`, which counts as a secure origin:
+
+```bash
+ssh -i your-key.pem -L 8443:localhost:5000 ubuntu@ALLOCATOR_IP
+# then open http://localhost:8443 and take a session
+```
+
+The viewer caches its codec verdict in `localStorage`, so use an incognito window after
+switching origins or you will see the stale result. `scripts/doctor.sh` and
+`lablink doctor` both flag an HTTP deployment for this reason.
+
 ## Cannot Access Allocator Web Interface
 
 **Cause**: Security group or DNS not configured

@@ -260,6 +260,17 @@ CFG_SSL_PROVIDER="none"
 CFG_SSL_EMAIL=""
 CFG_ZONE_ID=""
 
+if [ "$CFG_DNS_ENABLED" != "true" ]; then
+    # Said at the moment of the choice, not buried in a config reference: without
+    # SSL the viewer cannot use H.264 (Chrome gates WebCodecs on secure origins),
+    # so desktops fall back to JPEG/WebP and feel laggier. Nothing else reports it.
+    warn "No domain means HTTP, and HTTP means no H.264 video streaming."
+    echo "  Desktop sessions fall back to JPEG/WebP stills and feel laggier"
+    echo "  during motion. Fine for demos; pick a domain with SSL if participants"
+    echo "  will do real work in these desktops."
+    echo ""
+fi
+
 if [ "$CFG_DNS_ENABLED" = "true" ]; then
     DEFAULT_DOMAIN="${LABLINK_DOMAIN:-$(cfg_get dns.domain "")}"
     ask CFG_DOMAIN "Domain name (e.g., lablink.example.com)" "$DEFAULT_DOMAIN"

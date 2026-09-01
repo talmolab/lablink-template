@@ -128,6 +128,18 @@ else
     else
         fail "app.region not set" "init-terraform.sh refuses to init without it."
     fi
+
+    # Not a deploy blocker, but the one config choice with an invisible cost: on HTTP
+    # the viewer cannot use H.264 (Chrome gates WebCodecs on secure origins), so every
+    # desktop session falls back to JPEG/WebP and feels laggier during motion. Nothing
+    # else reports it — the deploy is green and sessions work.
+    CFG_SSL=$(grep -A 5 "^ssl:" "$CONFIG_FILE" | grep "^  provider:" | awk '{print $2}' | tr -d '"' | head -n 1)
+    if [ -z "$CFG_SSL" ] || [ "$CFG_SSL" = "none" ]; then
+        warn "ssl.provider is none — desktop sessions fall back to JPEG/WebP" \
+             "H.264 video streaming needs an HTTPS viewer page. Fine for demos; use a domain with SSL for real sessions. To test H.264 as-is: ssh -L 8443:localhost:5000 to the allocator and open http://localhost:8443."
+    else
+        pass "ssl.provider: $CFG_SSL  (H.264 video streaming available)"
+    fi
 fi
 
 # ============================================================================
