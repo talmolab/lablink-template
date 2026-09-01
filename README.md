@@ -203,6 +203,18 @@ domain needed) for that cadence, and save `letsencrypt.example.yaml` for stable
 deployments. Details in [Rate Limit Considerations](lablink-infrastructure/config/README.md#rate-limit-considerations)
 and [Testing Best Practices](docs/TESTING_BEST_PRACTICES.md).
 
+### An AWS region other than us-west-2
+
+`app.region` in `config.yaml` decides where everything lands, and **any region works**.
+The allocator boots Canonical's stock Ubuntu 24.04, resolved to that region's AMI from an
+SSM parameter, so there is nothing to configure for it.
+
+The one region-scoped thing left is the **client** image, because baking GPU drivers is
+worth it: set `machine.ami_id` to a client AMI that exists in your region. LabLink
+publishes one in us-west-2, us-east-1 and us-east-2; elsewhere, copy a published one into
+your own account or use an AWS Deep Learning Base AMI. Details:
+[Regions and AMIs](lablink-infrastructure/README.md#regions-and-amis).
+
 ### No domain at all
 
 `cp lablink-infrastructure/config/ip-only.example.yaml lablink-infrastructure/config/config.yaml`

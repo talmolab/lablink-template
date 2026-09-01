@@ -34,9 +34,28 @@ Resources are named `{deployment_name}-{resource}-{environment}`, so the script 
 
 ## Deployment Fails with "InvalidAMI"
 
-**Cause**: AMI ID doesn't exist in your region
+**Cause**: AMI IDs are region-scoped, and `machine.ami_id` names an image that does not
+exist in the region `app.region` selects. This is a **client** VM problem — the allocator
+resolves its own AMI per region from an SSM parameter and cannot produce this error.
 
-**Solution**: Update `ami_id` in `config.yaml` with a region-appropriate AMI
+**Solution**: point `machine.ami_id` at a client image that exists in `app.region`:
+
+| Region | Published client AMI |
+|--------|---------------------|
+| `us-west-2` | `ami-0601752c11b394251` |
+| `us-east-1` | `ami-0c3412413810adacc` |
+| `us-east-2` | `ami-0cd7567480c4840a0` |
+
+In any other region, copy one of those into your own account (`aws ec2 copy-image`) and
+use the new ID, or use an AWS Deep Learning Base AMI — the client image needs Docker and
+the NVIDIA drivers baked in, so a plain Ubuntu AMI is not a substitute there.
+
+Nothing catches this at plan time: the allocator uses `machine.ami_id` at runtime when it
+provisions VMs, so a mismatch surfaces as a failed VM launch in the admin UI rather than a
+failed apply. `scripts/doctor.sh` and `scripts/configure.sh` both validate the AMI against
+the region, which is the cheapest place to catch it.
+
+See [Regions and AMIs](../lablink-infrastructure/README.md#regions-and-amis).
 
 ## Cannot Access Allocator Web Interface
 

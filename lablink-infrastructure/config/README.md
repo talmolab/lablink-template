@@ -405,9 +405,19 @@ provisions client VMs — long after a green `tofu apply`.
 | `t3.large` | CPU-only, cheapest for testing |
 | `p3.2xlarge` | NVIDIA V100, heavier training |
 
-`machine.ami_id` is **region-specific**: `ami-0601752c11b394251` is the Ubuntu 24.04 +
-Docker + NVIDIA driver AMI in `us-west-2`. If you change `app.region`, you must also
-change the AMI and the `AWS_REGION` GitHub secret.
+`machine.ami_id` is **region-specific** — set it to the client AMI for your `app.region`:
+
+| Region | `machine.ami_id` |
+|--------|------------------|
+| `us-west-2` | `ami-0601752c11b394251` |
+| `us-east-1` | `ami-0c3412413810adacc` |
+| `us-east-2` | `ami-0cd7567480c4840a0` |
+
+In any other region, copy one of those into your own account or use an AWS Deep Learning
+Base AMI; see [Change AWS Region](#change-aws-region).
+
+The allocator's own image needs nothing from you: it boots stock Ubuntu 24.04, resolved
+per region from an SSM parameter in `main.tf`, and `user_data.sh` installs Docker at boot.
 
 `allocator.image_tag` selects the allocator container image. `linux-amd64-latest-test`
 tracks the latest test build; pin a version such as `linux-amd64-v1.2.3` for production.
@@ -433,12 +443,24 @@ sed -i 's/domain: "old.example.com"/domain: "new.example.com"/' \
 
 ### Change AWS Region
 
+`app.region` is what decides where the deployment lands: the OpenTofu AWS provider reads
+it, `scripts/init-terraform.sh` points the S3 backend at it, and the allocator uses it to
+provision client VMs.
+
+**Any region works.** Change `app.region` and the client AMI together — the allocator
+resolves its own stock-Ubuntu image per region and needs nothing:
+
 ```yaml
 app:
-  region: "eu-west-1"      # your new region
+  region: "us-east-1"                  # your new region
 machine:
-  ami_id: "ami-XXXXXXXX"   # AMIs are region-specific — find an Ubuntu 24.04 + Docker AMI
+  ami_id: "ami-0c3412413810adacc"      # a client AMI that exists in that region
 ```
+
+`machine.ami_id` is the only region-scoped value you have to supply. LabLink publishes a
+client image in `us-west-2`, `us-east-1` and `us-east-2`; in any other region, copy one
+into your own account (`aws ec2 copy-image`) or use an AWS Deep Learning Base AMI. See
+[Regions and AMIs](../README.md#regions-and-amis).
 
 Also update the `AWS_REGION` GitHub secret so the workflows authenticate in the same
 region.

@@ -409,6 +409,12 @@ POLICIES=(
     "arn:aws:iam::aws:policy/AmazonS3FullAccess"
     "arn:aws:iam::aws:policy/IAMFullAccess"
     "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+    # main.tf resolves the allocator's Ubuntu AMI from a public SSM parameter
+    # (/aws/service/canonical/...), and "public" still requires ssm:GetParameter on the
+    # caller. Without this, tofu plan fails before creating anything. Read-only is the
+    # narrowest managed policy that covers it; a least-privilege inline policy would be
+    # ssm:GetParameter on arn:aws:ssm:*:*:parameter/aws/service/*.
+    "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
 )
 
 # Attach Route53 if DNS is enabled with Route53

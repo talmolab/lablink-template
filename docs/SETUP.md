@@ -87,7 +87,9 @@ Create an IAM role with OIDC provider for GitHub Actions:
    ```
 
 3. Attach permissions:
-   - `PowerUserAccess` (or custom policy with EC2, VPC, S3, Route53, IAM permissions)
+   - `PowerUserAccess` (or custom policy with EC2, VPC, S3, DynamoDB, Route53, IAM
+     permissions, plus `ssm:GetParameter` — OpenTofu resolves the allocator's Ubuntu
+     AMI from a public SSM parameter, and public still requires the permission)
 
 4. Copy the Role ARN and add to GitHub secrets
 
@@ -230,6 +232,9 @@ Deploys or updates your LabLink infrastructure.
 - `deployment_name`: resource-name prefix (required, default `my-lablink`). On pushes to
   `test`, the `DEPLOYMENT_NAME` repository variable is used instead.
 - `environment`: `test`, `prod`, or `ci-test` (`dev` is local-only and not exposed here)
+
+**Repository variables**:
+- `DEPLOYMENT_NAME`: used as the deployment name on pushes to `test`, which carry no inputs.
 
 **What it does**:
 1. Configures AWS credentials via OIDC

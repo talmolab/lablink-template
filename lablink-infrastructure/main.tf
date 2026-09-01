@@ -54,6 +54,18 @@ locals {
   dns_domain            = try(local.config_file.dns.domain, "")
   dns_zone_id           = try(local.config_file.dns.zone_id, "")
 
+  # app.region is the single source of truth for where this deployment lives: the
+  # allocator reads it from the config copied onto the instance to provision client
+  # VMs, scripts/init-terraform.sh points the S3 backend at it, and every helper
+  # script under scripts/ queries it. No .tf file read it until now, so the provider
+  # fell back to var.region's default and the infrastructure landed in us-west-2
+  # regardless of what the config said. var.region stays as the fallback for a config
+  # with no app block.
+  aws_region = try(local.config_file.app.region, var.region)
+
+  # The allocator is just a Docker host, and user_data.sh now installs Docker itself, so
+  # there is no custom image to maintain per region — see data.aws_ssm_parameter below.
+
   # EIP configuration from config.yaml
   eip_strategy = try(local.config_file.eip.strategy, "dynamic")
 
@@ -86,7 +98,18 @@ locals {
 }
 
 provider "aws" {
-  region = var.region
+  region = local.aws_region
+}
+
+# Canonical publishes Ubuntu 24.04 in every region and SSM resolves the parameter to that
+# region's AMI ID, so the allocator is no longer pinned to regions someone copied a custom
+# image into. This replaced a hardcoded AMI (and later a hand-maintained region map) that
+# made every new region a copy-image job plus edits in two repos.
+#
+# amd64 to match local.allocator_instance_type (t3.large). The arm64 parameter exists at
+# the same path if the instance type ever changes.
+data "aws_ssm_parameter" "allocator_ami" {
+  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
 
 # Get the current AWS account ID
@@ -117,7 +140,7 @@ data "aws_iam_policy_document" "s3_backend_doc" {
       "dynamodb:DeleteItem"
     ]
     resources = [
-      "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/lock-table"
+      "arn:aws:dynamodb:${local.aws_region}:${data.aws_caller_identity.current.account_id}:table/lock-table"
     ]
   }
 }
@@ -259,7 +282,7 @@ resource "aws_security_group" "allow_http" {
 }
 
 resource "aws_instance" "lablink_allocator_server" {
-  ami                  = "ami-0bd08c9d4aa9f0bc6" # Ubuntu 24.04 with Docker pre-installed
+  ami                  = nonsensitive(data.aws_ssm_parameter.allocator_ami.value)
   instance_type        = local.allocator_instance_type
   security_groups      = [aws_security_group.allow_http.name]
   key_name             = aws_key_pair.lablink_key_pair.key_name
@@ -284,6 +307,15 @@ resource "aws_instance" "lablink_allocator_server" {
   tags = merge(local.common_tags, {
     Name = "${var.deployment_name}-allocator-${var.environment}"
   })
+
+  lifecycle {
+    # The SSM parameter tracks Canonical's *current* 24.04 image, so it changes whenever
+    # they publish a new one. Without this, an apply that touched nothing else would see a
+    # new ami and replace a running allocator — downtime nobody asked for. New deployments
+    # get the current image; an existing one keeps the image it booted with until someone
+    # deliberately replaces it (tofu apply -replace=aws_instance.lablink_allocator_server).
+    ignore_changes = [ami]
+  }
 }
 
 # EIP Lookup (for persistent strategy - reuse existing tagged EIP)
