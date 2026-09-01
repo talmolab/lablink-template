@@ -87,7 +87,9 @@ Create an IAM role with OIDC provider for GitHub Actions:
    ```
 
 3. Attach permissions:
-   - `PowerUserAccess` (or custom policy with EC2, VPC, S3, Route53, IAM permissions)
+   - `PowerUserAccess` (or custom policy with EC2, VPC, S3, DynamoDB, Route53, IAM
+     permissions, plus `ssm:GetParameter` — OpenTofu resolves the allocator's Ubuntu
+     AMI from a public SSM parameter, and public still requires the permission)
 
 4. Copy the Role ARN and add to GitHub secrets
 
