@@ -58,7 +58,14 @@ eip:
   strategy: "dynamic"  # Create new EIP each deployment
 
 ssl:
-  provider: "none"  # No SSL - HTTP only
+  # No SSL - HTTP only. Note the side effect on desktop sessions: the viewer's
+  # H.264 video streaming needs the browser's WebCodecs decoder, which Chrome
+  # exposes only on secure origins, so every session falls back to JPEG/WebP
+  # stills and feels laggier during motion. Fine for demos and debugging; if
+  # participants will actually work in these desktops, use a domain with SSL.
+  # To check H.264 without a domain, port-forward the allocator and open it as
+  # http://localhost:PORT — localhost counts as a secure origin.
+  provider: "none"
   email: ""
   certificate_arn: ""
 

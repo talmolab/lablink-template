@@ -220,6 +220,14 @@ your own account or use an AWS Deep Learning Base AMI. Details:
 `cp lablink-infrastructure/config/ip-only.example.yaml lablink-infrastructure/config/config.yaml`
 — access the allocator at `http://<IP>:5000`. Fastest path for demos and debugging.
 
+**Desktop sessions are slower without SSL.** The viewer's H.264 video streaming
+requires the browser's WebCodecs decoder, which Chrome exposes only on secure
+origins, so on plain HTTP every session falls back to JPEG/WebP stills — noticeably
+laggier during window drags, scrolling and playback. Nothing reports this; sessions
+just feel worse. If participants will do real work in these desktops, pick a domain
+and an SSL provider. To verify H.264 without a domain, port-forward the allocator
+and open `http://localhost:PORT`, which counts as a secure origin.
+
 ## Where to Go Next
 
 | You have | Read |
