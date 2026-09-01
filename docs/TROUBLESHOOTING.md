@@ -34,31 +34,28 @@ Resources are named `{deployment_name}-{resource}-{environment}`, so the script 
 
 ## Deployment Fails with "InvalidAMI"
 
-**Cause**: AMI IDs are region-scoped, and the AMI named does not exist in the region
-`app.region` selects. There are two separate AMIs, set in different places:
+**Cause**: AMI IDs are region-scoped, and `machine.ami_id` names an image that does not
+exist in the region `app.region` selects. This is a **client** VM problem — the allocator
+resolves its own AMI per region from an SSM parameter and cannot produce this error.
 
-| AMI | Used by | Set in |
-|-----|---------|--------|
-| Allocator | OpenTofu, at apply | `local.allocator_ami_by_region` in `main.tf` |
-| Client | the allocator, when provisioning VMs | `machine.ami_id` in `config.yaml` |
+**Solution**: point `machine.ami_id` at a client image that exists in `app.region`:
 
-**Solution**: point `machine.ami_id` at the client image for your `app.region`:
-
-| Region | Client AMI |
-|--------|-----------|
+| Region | Published client AMI |
+|--------|---------------------|
 | `us-west-2` | `ami-0601752c11b394251` |
 | `us-east-1` | `ami-0c3412413810adacc` |
 | `us-east-2` | `ami-0cd7567480c4840a0` |
 
-The allocator AMI cannot produce this error at apply: a plan-time precondition refuses a
-region that has no entry in `local.allocator_ami_by_region`, so it fails before creating
-anything. A client AMI mismatch cannot be caught that way — the allocator uses it at
-runtime, so it surfaces as a failed VM launch in the admin UI.
+In any other region, copy one of those into your own account (`aws ec2 copy-image`) and
+use the new ID, or use an AWS Deep Learning Base AMI — the client image needs Docker and
+the NVIDIA drivers baked in, so a plain Ubuntu AMI is not a substitute there.
 
-Both AMIs are custom builds with Docker pre-installed — `user_data.sh` starts the Docker
-daemon rather than installing it, so a stock Ubuntu AMI is not a substitute.
+Nothing catches this at plan time: the allocator uses `machine.ami_id` at runtime when it
+provisions VMs, so a mismatch surfaces as a failed VM launch in the admin UI rather than a
+failed apply. `scripts/doctor.sh` and `scripts/configure.sh` both validate the AMI against
+the region, which is the cheapest place to catch it.
 
-See [Deploying to another region](../lablink-infrastructure/README.md#deploying-to-another-region).
+See [Regions and AMIs](../lablink-infrastructure/README.md#regions-and-amis).
 
 ## Cannot Access Allocator Web Interface
 

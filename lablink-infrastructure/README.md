@@ -80,7 +80,7 @@ cp config/example.config.yaml config/config.yaml
 
 - **REQUIRED**: Change `db.password` and `app.admin_password` (security!)
 - **REQUIRED**: Set `bucket_name` to a globally unique S3 bucket name (for test/prod)
-- Set `machine.ami_id` to the client AMI for your AWS region (see [Deploying to another region](#deploying-to-another-region))
+- Set `machine.ami_id` to a client AMI that exists in your AWS region (see [Regions and AMIs](#regions-and-amis))
 - Customize `machine.image` to use your Docker image or LabLink's public images
 - Customize `machine.repository` to clone your research code
 - Set `app.region` to your AWS region — this drives the OpenTofu provider, the S3 backend, and client VM provisioning
@@ -372,52 +372,61 @@ AMI IDs are region-specific. If deploying to a different region:
    ```
 3. Update `machine.ami_id` in `config/config.yaml`
 
-**Pre-configured custom AMIs.** AMI IDs are region-scoped, so each image has a different
-ID per region. The client AMI goes in `config.yaml`; the allocator AMI is looked up by
-region in `main.tf` and needs no configuration.
+### Regions and AMIs
 
-| Region | Client AMI (`machine.ami_id`) | Allocator AMI (`local.allocator_ami_by_region`) |
-|--------|-------------------------------|--------------------------------------------------|
-| `us-west-2` | `ami-0601752c11b394251` | `ami-0bd08c9d4aa9f0bc6` |
-| `us-east-1` | `ami-0c3412413810adacc` | `ami-0731df69b0f192475` |
-| `us-east-2` | `ami-0cd7567480c4840a0` | `ami-0662274c85c271f53` |
+**Any region works.** The two VMs get their images in completely different ways:
 
-Both are Ubuntu 24.04; the client image adds Docker and the NVIDIA GPU drivers, the
-allocator image adds Docker.
+| VM | Image | Where it comes from |
+|----|-------|--------------------|
+| Allocator | Canonical Ubuntu 24.04 (stock) | `data.aws_ssm_parameter.allocator_ami` in `main.tf` — resolved per region, nothing to configure |
+| Client | Ubuntu 24.04 + Docker + NVIDIA drivers | `machine.ami_id` in `config.yaml` — **you set this per region** |
 
-### Deploying to another region
+The allocator needs only Docker, and `user_data.sh` installs it at boot, so it runs on the
+stock image Canonical publishes in every region. There is no allocator AMI to copy, no
+region map, and no `config.yaml` field for it (the allocator's schema has none, and any
+extra key fails validation).
 
-`app.region` in `config.yaml` is what decides where the deployment lands — the AWS
-provider reads it, `scripts/init-terraform.sh` points the S3 backend at it, and the
-allocator uses it to provision client VMs. Set it to one of the regions above and set
-`machine.ami_id` to that region's client AMI. A region with no entry in
-`local.allocator_ami_by_region` makes OpenTofu **refuse to plan**, listing the supported
-ones, rather than creating half a deployment and dying on `InvalidAMIID.NotFound`.
+The client image is different: baking the GPU drivers is worth the maintenance, so it is a
+custom AMI and AMI IDs do not cross regions. LabLink publishes one in three regions:
 
-Adding a region means copying both images into it, because AMI IDs do not cross regions:
+| Region | `machine.ami_id` |
+|--------|------------------|
+| `us-west-2` | `ami-0601752c11b394251` |
+| `us-east-1` | `ami-0c3412413810adacc` |
+| `us-east-2` | `ami-0cd7567480c4840a0` |
+
+#### Deploying in a region without a published client image
+
+Copy a published image into **your own account** — the sources are public, so any account
+can copy them, and the copy can stay private since only your deployment launches it:
 
 ```bash
 aws ec2 copy-image --source-region us-west-2 \
-  --source-image-id ami-0bd08c9d4aa9f0bc6 \
-  --region YOUR-REGION --name lablink-allocator-ubuntu24-docker
-
-aws ec2 copy-image --source-region us-west-2 \
   --source-image-id ami-0601752c11b394251 \
-  --region YOUR-REGION --name lablink-client-ubuntu24-docker-nvidia
+  --region YOUR-REGION --name lablink-client
 ```
 
-Then make **both copies public** — labs launch these from their own AWS accounts, so a
-private copy is useless to them — add the allocator ID to `local.allocator_ami_by_region`
-in `main.tf`, and point `machine.ami_id` at the client copy. Note that "block public
-access for AMIs" is enabled by default in newer AWS accounts and must be lifted per
-region (`aws ec2 disable-image-block-public-access --region YOUR-REGION`) before a copy
-can be published.
+Wait for it to become `available` (15-30 minutes for a driver image), then set
+`machine.ami_id` to the new ID. An AWS Deep Learning Base AMI works too — Ubuntu with
+Docker, the NVIDIA driver and `nvidia-container-toolkit` already installed — at the cost of
+a larger root volume and slower boot.
 
-Both images are custom builds with Docker pre-installed, which `user_data.sh` depends on
-— it starts the Docker daemon rather than installing it, so a stock Ubuntu AMI boots and
-then fails. There is no `config.yaml` field for the allocator AMI because `config.yaml`
-is validated against the allocator's schema, which has none: any extra key makes the
-config fail outright.
+Also check that your `machine.machine_type` is offered in the region: `g4dn`/`g5`
+availability and AZ count vary, and `scripts/configure.sh` validates this for you.
+
+#### Publishing a client image for everyone (maintainers)
+
+Only needed to add a region to the published table above. Copy the image in the account
+that owns it, then make the copy public so other labs' accounts can launch it:
+
+```bash
+aws ec2 modify-image-attribute --region YOUR-REGION \
+  --image-id ami-YOURCOPY --launch-permission "Add=[{Group=all}]"
+```
+
+"Block public access for AMIs" is enabled by default in newer AWS accounts and must be
+lifted per region first (`aws ec2 disable-image-block-public-access --region YOUR-REGION`),
+or the copy cannot be published.
 
 ## Using Custom Docker Images
 

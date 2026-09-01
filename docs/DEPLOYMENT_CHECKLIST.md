@@ -124,16 +124,18 @@ Use this checklist to ensure you have completed all required setup steps before 
   - Or set to empty string if not needed
 - [ ] Updated `software` name for your application
 - [ ] Verified `machine_type` is appropriate for your workload
-- [ ] Set `ami_id` (the **client** AMI) to the image for your `app.region`:
-      `us-west-2` → `ami-0601752c11b394251`, `us-east-1` → `ami-0c3412413810adacc`,
-      `us-east-2` → `ami-0cd7567480c4840a0`
+- [ ] Set `ami_id` (the **client** AMI) to an image that exists in your `app.region`.
+      Published: `us-west-2` → `ami-0601752c11b394251`, `us-east-1` →
+      `ami-0c3412413810adacc`, `us-east-2` → `ami-0cd7567480c4840a0`. Other regions:
+      copy one of those into your account, or use an AWS Deep Learning Base AMI
 - [ ] (Optional) Updated `image` if using custom Docker image
 
 **Application Settings:**
 - [ ] Verified `region` matches `AWS_REGION` secret — `app.region` is what the OpenTofu
       provider, the S3 backend, and client VM provisioning all read
-- [ ] Set `region` to one of `us-west-2`, `us-east-1`, `us-east-2` — the only regions
-      the machine images exist in; anything else is refused at plan time
+- [ ] Confirmed your `machine_type` (GPU instances especially) is offered in
+      `app.region` — the allocator itself runs anywhere, but `g4dn`/`g5` availability
+      varies by region and AZ count
 - [ ] Confirmed `admin_user` is acceptable (default: "admin")
 
 **DNS Settings** (if using DNS):
